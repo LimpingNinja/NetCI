@@ -330,8 +330,9 @@ int main(int argc, char *argv[]) {
               (int) ((CI_VERSION%10000)/100),
               (int) (CI_VERSION%100));
       fprintf(stderr,"\n");
-      fprintf(stderr,"Copyright (C) June 1995 by Patrick J. Wetmore\n");
-      fprintf(stderr,"E-Mail as of June 1995: wetmore@netcom.com\n");
+      fprintf(stderr,"Copyright (C) November 2017 by Kevin Morgan\n");
+      fprintf(stderr,"E-Mail as of November 2017: kevin@limping.ninja\n");
+      fprintf(stderr,"Github: https://github.com/LimpingNinja/NetCI\n");  
       fprintf(stderr,"Compilation date: %s %s\n",__TIME__,__DATE__);
 #ifdef USE_GCC
       fprintf(stderr,"Compiled by gcc\n");
