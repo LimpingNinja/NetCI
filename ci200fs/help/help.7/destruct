@@ -1,0 +1,15 @@
+
+> Section 7 - destruct
+>
+> destruct(obj)
+>
+> object obj;
+>
+> destruct destroys the object obj and sets all references to it in other
+> objects' data spaces to 0.  If obj is a prototype, all children of obj
+> are destroyed, also.
+>
+> NOTE: only an object set PRIV can destroy any object other than itself.
+>
+> See Also: @fry(5), @recycle(2)
+

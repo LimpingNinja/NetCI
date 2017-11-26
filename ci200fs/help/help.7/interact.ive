@@ -1,0 +1,11 @@
+
+> Section 7 - interactive
+>
+> interactive(obj)
+>
+> object obj;
+>
+> Returns non-zero if the object is INTERACTIVE, zero otherwise.
+>
+> See Also: set_interactive(7)
+

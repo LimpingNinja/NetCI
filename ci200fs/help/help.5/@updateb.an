@@ -1,0 +1,9 @@
+
+> Section 5 - @updateban
+>
+> @updateban
+>
+> This command reloads the sitelist, resetting any old entries.
+>
+> See Also: @updateban(5), sitelists(6)
+

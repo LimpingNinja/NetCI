@@ -1,0 +1,12 @@
+
+> Section 1 - @wrap
+>
+> @wrap [off|<number>]
+>
+> This command is for setting your word wrap.  When typed alone, it
+> displays your word wrap status.  If you type @wrap and a number, it
+> will wrap all text displayed to you at that number of columns.  To
+> turn off this feature, type @wrap off.
+>
+> See also: crlf(1)
+

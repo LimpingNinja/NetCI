@@ -1,0 +1,14 @@
+
+> Section 7 - next_proto
+>
+> next_proto(obj)
+>
+> object obj;
+>
+> CI maintains a list of prototype objects; next_proto returns the next
+> prototype in line. To get the first prototype, use itoo(0); this
+> will return the object pointer to /boot#0. next_proto returns 0 if
+> there are no more prototypes.
+>
+> See Also: next_child(7), parent(7), prototype(7)
+

@@ -1,0 +1,10 @@
+
+> Section 5 - @listban
+>
+> @listban
+>
+> This command lists the current site list.  The list is in the order
+> that it is parsed when someone attempts to log in.
+>
+> See Also: @updateban(5), sitelists(6)
+

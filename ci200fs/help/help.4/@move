@@ -1,0 +1,10 @@
+
+> Section 4 - @move
+>
+> @move <object>=<destination>
+>
+> This moves an object to the specified destination, using a simple
+> call to move_object().
+>
+> See Also: move_object(7)
+

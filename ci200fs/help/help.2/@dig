@@ -1,0 +1,9 @@
+
+> Section 2 - @dig
+>
+> @dig <room_name>
+>
+> This command creates a new room.
+>
+> See Also: @create(2), @open(2), @pcreate(5)
+

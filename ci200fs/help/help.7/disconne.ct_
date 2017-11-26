@@ -1,0 +1,9 @@
+
+> Section 7 - disconnect_device
+>
+> disconnect_device()
+>
+> This disconnects the device connected to the object which executes it.
+>
+> See Also: @boot(5), quit (1)
+

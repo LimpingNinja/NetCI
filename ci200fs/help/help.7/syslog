@@ -1,0 +1,9 @@
+
+> Section 7 - syslog
+>
+> syslog(msg)
+>
+> string msg;
+>
+> Writes msg to the system log file.
+

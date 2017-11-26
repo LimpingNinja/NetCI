@@ -1,0 +1,11 @@
+
+> Section 7 - detach
+>
+> detach(obj)
+>
+> object obj;
+>
+> This detaches a previously attached object from the caller object.
+>
+> See Also: attach(7)
+

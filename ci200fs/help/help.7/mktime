@@ -1,0 +1,11 @@
+
+> Section 7 - mktime
+>
+> mktime(tm)
+>
+> int tm;
+>
+> Returns a string equivalent to the calendar time tm.
+>
+> See Also: time(7)
+

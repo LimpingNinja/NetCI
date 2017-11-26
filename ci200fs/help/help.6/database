@@ -1,0 +1,19 @@
+
+> Section 6 - database
+>
+> The database is arranged in several ways; the first way is a linked list
+> of object prototypes, each link having a list of children hanging off it.
+> (note: the object prototype is itself an object). Destroying the object
+> prototype results in the destruction of all child objects. The head of
+> the linked list of prototypes is always /boot#0. Prototype objects are
+> created by compiling source code.
+>
+> The second way the database is arranged is by location and contents.
+> Each object may or may not be in a containing object, and may or may
+> not have a linked list of contained objects associated with it. The
+> linked lists are guaranteed not to be cyclic.
+>
+> See Also: clone_object(7), compile_object(7), contents(7), location(7),
+>           move_object(7), next_child(7), next_object(7), next_proto(7),
+>           parent(7)
+

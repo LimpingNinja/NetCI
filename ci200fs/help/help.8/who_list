@@ -1,0 +1,11 @@
+
+> Section 8 - who_list
+>
+> #include <sys.h>
+>
+> who_list()
+>
+> This function displays a who list.
+>
+> See Also: who(1), wiz_who_list(8)
+

@@ -1,0 +1,10 @@
+
+> Section 5 - @unpriv
+>
+> @unpriv <object>
+>
+> This sets an object !PRIV.  You cannot remove privileges from yourself
+> or from /boot#0.
+>
+> See Also: @priv(5), priv(7), set_priv(7)
+

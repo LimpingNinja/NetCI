@@ -1,0 +1,9 @@
+
+> Section 1 - crlf
+>
+> crlf [on|off]
+>
+> This command turns on/off the translation of newlines to a carriage
+> return/newline combination.  If no arguments are given, it reports
+> whether the translation is currently active.
+

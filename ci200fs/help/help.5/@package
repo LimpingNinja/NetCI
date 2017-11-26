@@ -1,0 +1,10 @@
+
+> Section 5 - @package
+>
+> @package [name]
+>
+> If no argument is specified, a list of the packages comprising the
+> run-time library and their versions is displayed.  If a name is
+> specified, the system attempts to (re-)install the package with that
+> name.
+

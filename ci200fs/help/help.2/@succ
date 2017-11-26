@@ -1,0 +1,10 @@
+
+> Section 2 - @succ
+>
+> @succ <object>=<message>
+>
+> This sets the message displayed when a player successfully gets an
+> object/traverses an exit/looks at a room.
+>
+> See Also: @fail(2), @lock(2), @ofail(2), @osucc(2), @unlock(2)
+

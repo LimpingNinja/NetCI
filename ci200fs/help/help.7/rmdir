@@ -1,0 +1,12 @@
+
+> Section 7 - rmdir
+>
+> rmdir(path)
+>
+> string path;
+>
+> Removes the directory named by path; it must be an empty directory.
+> rmdir returns 0 on success, non-zero on failure.
+>
+> See Also: rmdir(4)
+

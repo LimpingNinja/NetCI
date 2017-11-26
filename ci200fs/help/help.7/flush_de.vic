@@ -1,0 +1,10 @@
+
+> Section 7 - flush_device
+>
+> flush_device([object])
+>
+> This system call attempts to flush all queue'd network transmissions
+> on the network device connected to the calling object. If no object
+> is specified, all connected devices are flushed. The caller
+> object must be PRIV.
+

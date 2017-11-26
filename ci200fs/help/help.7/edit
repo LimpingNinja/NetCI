@@ -1,0 +1,11 @@
+
+> Section 7 - edit
+>
+> edit(path)
+>
+> string path;
+>
+> Invokes the editor on the file named by path.
+>
+> See Also: @edit(4), in_editor(7)
+

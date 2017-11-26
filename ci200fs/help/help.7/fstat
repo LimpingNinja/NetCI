@@ -1,0 +1,15 @@
+
+> Section 7 - fstat
+>
+> #include <sys.h>
+>
+> fstat(filename)
+>
+> string filename;
+>
+> This sytem call returns the flags set on a file, or -1 if the specified
+> file does not exist, or if the calling object does not have read
+> permission in the file's directory.
+>
+> See Also: fowner(7)
+

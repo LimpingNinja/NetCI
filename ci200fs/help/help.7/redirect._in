@@ -1,0 +1,13 @@
+
+> Section 7 - redirect_input
+>
+> redirect_input(function)
+>
+> string function;
+>
+> This function causes the next string from the calling object's
+> associated network device to be passed as an argument to the specified
+> function, rather than being sent to the verb handlers.
+>
+> See Also: get_input_func(7)
+

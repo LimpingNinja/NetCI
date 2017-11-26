@@ -1,0 +1,12 @@
+
+> Section 7 - cp
+>
+> cp(path,newpath)
+>
+> string path,newpath;
+>
+> Copies file path to file newpath. cp returns 0 on success, non-zero
+> otherwise.
+>
+> See Also: cp(4), mv(7)
+

@@ -1,0 +1,16 @@
+
+> Section 7 - add_verb
+>
+> add_verb(action,func)
+>
+> string action,func;
+>
+> add_verb adds an verb to the list of verbs on the object executing the
+> system call. If add_verb is called on the prototype, all the prototype's
+> children will have the verb defined for them.
+>
+> add_verb returns 0 on success, 1 on failure.
+>
+> See Also: add_xverb(7), command(7), next_verb(7), remove_verb(7),
+>           set_interactive(7), set_localverbs(7)
+

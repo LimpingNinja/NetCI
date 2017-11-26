@@ -1,0 +1,9 @@
+
+> Section 2 - @desc
+>
+> @desc <object>=<new_description>
+>
+> This command changes the description of an object.
+>
+> See Also: describe(1)
+

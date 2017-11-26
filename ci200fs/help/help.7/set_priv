@@ -1,0 +1,18 @@
+
+> Section 7 - set_priv
+>
+> set_priv(obj,toggle)
+>
+> object obj;
+> int toggle;
+>
+> Sets the PRIV flag on an object, if toggle is non-zero. An object that is 
+> set PRIV has rights to set the PRIV flag on other objects, hide and unhide
+> files, read/write/create/delete rights on all files and directories, can
+> disconnect/reconnect network devices, and can destruct objects other than 
+> itself. If toggle is zero, the flag is removed.
+>
+> NOTE: an object must be set PRIV to set/reset another object's PRIV flag.
+>
+> See Also: priv(7)
+

@@ -1,0 +1,20 @@
+This is version 1.9.5 of NetCI.
+
+Currently, the source code is being maintained by Patrick Wetmore,
+and the mudlib is being maintained by Gregory Blake <gblake@nunic.nu.edu>.
+
+There is currently a mailing list for netci.  To join, mail to
+netci-list-request@mis.nu.edu and I will add you to the mailing
+list.
+Documentation is currently minimal, but on most systems you should
+be able to compile this just by typing make.  Once the server is compiled
+you can edit netci.ini in order to change different system settings.
+In order to start up the server, just run netci. (for more help on the
+different command line options, type netci -help).
+
+More detailed help will be available in later releases (as I have time to
+write it).
+
+Greg Blake
+gblake@nunic.nu.edu
+

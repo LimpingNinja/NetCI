@@ -1,0 +1,25 @@
+
+> Section 7 - attach
+>
+> attach(obj)
+>
+> object obj;
+>
+> Attaches the specified object to the calling object.  The functions
+> defined by obj may hereafter be called as if they were local
+> functions of the caller object (regardless of whether they are declared
+> static or not).  All function calls made by obj will be as if made by the
+> attaching object.
+>
+> An object may call attach() on several different objects, and may
+> call attach() on an object that has itself called attach(). However,
+> an attachee may not be attached-to by more than one object.
+>
+> Attach returns 0 on success, and non-zero on failure. This is determined
+> by checking whether obj has already been attached to, and then calling
+> the function "allow_attach" on obj. If allow_attach returns non-zero,
+> then the attachment is allowed to proceed.
+>
+> See Also: allow_attach(9), detach(7), get_master(7), is_master(7), 
+>           this_component(7), this_object(7)
+

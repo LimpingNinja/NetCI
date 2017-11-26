@@ -1,0 +1,7 @@
+#define FLAG_LINK_OK 1
+#define FLAG_DARK 2
+#define FLAG_STICKY 4
+#define FLAG_BUILDER 8
+#define FLAG_JUMP_OK 16
+#define FLAG_PROGRAMMER 32
+#define FLAG_HAVEN 64

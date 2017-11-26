@@ -1,0 +1,9 @@
+
+> Section 5 - @sync
+>
+> @sync <object>
+>
+> This sync's an object, by calling the sync() function on it. The object
+> specified must be a prototype.  A player must be set PRIV to use
+> this command.
+

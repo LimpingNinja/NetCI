@@ -1,0 +1,75 @@
+9/28/95 ****
+o Added in the ; command which works like in TinyMUSH.  Added a new hear
+  just for that.  Also edited help for it.
+
+o In /sys/sys.c, changed find_player so that it also recognises the
+  use of 'me', as in TinyMUD.
+
+o Added the commands email, rlname, and url, for setting these values
+  on characters, so they can be referenced by the finger command and
+  other informational commands.  Added in help
+
+o Added in the finger command, so far it just shows character name,
+  rlname, url, and email.  I'd like to add in informatino about the
+  character itself like login/out times.
+
+10/2/95
+
+o Changes to hear(), hear is now in the format:
+  hear(actor,actee,type,message,pre,post), the pre, and post messages
+  are added as necessary.
+
+o Minor changes to examine.
+
+10/5/95
+o changed pose so that it recognizes the ' character and deletes the
+  space if so.
+
+o page now does poses if you start your message with a :
+
+10/6/95
+o Fixed crlf bug in listen() in player.c
+
+10/7/95
+
+o The mudlib now keeps track of when you connect and log off.  This is
+  mostly for fun, but does have some useful applications.  Advance plan:
+  change the welcome so that it tells you when you were last on.
+
+10/10/95
+
+o Added in the @wrap command, listen() now handles word wrapping (still
+need to make small mod so that it remembers cursor position).
+
+o find_any_object now checks for me,home,and root first.
+
+o find_player now does a check on who is connected (like find_object does).
+  (If threnody is connected you could do just page thren and it would
+   match to her).
+
+10/11/95
+
+o News now takes an optional argument for other news files.  News is now
+  stored in /etc/news.  The default file is still news.
+
+o Added some new help items.
+
+10/19/95
+
+o Site List is working.  Help will be written for it soon.
+
+o Created strings.h, so far just has pad() and center(), more
+  coming as needed.
+
+o Cleaning up source files, used pad in place of make_space and
+  make_dash in sys.c, need to remove make_space and make_dash
+
+o Logging in now displays the last time you logged in and tells
+  you how long you were logged in for.
+
+o Lots of small cleanups here and there
+
+
+
+
+

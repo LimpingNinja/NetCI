@@ -1,0 +1,33 @@
+
+> Section 5 - @system
+>
+> @system [<option>=<value>]
+>
+> With no options, @system displays the current system parameter values.
+>
+> The options are:
+>
+>   doingquery          This is the message set at the top of the who list
+>
+>   find                This turns the @find command 'on' or 'off'; on any
+>                       reasonably-sized database, the @find command will
+>                       cause cache overflows.
+>
+>   guests              This turns guest character connections 'on' or 'off'.
+>
+>   names		This turns player name changing 'on' or 'off'. The
+>			default value for this is off.
+>
+>   newchar             These are the flags set on newly created characters;
+>                       the only valid values are 'builder', 'programmer',
+>                       and 'builder | programmer'
+>
+>   registration        This turns character registration 'on' or 'off';
+>                       if registration is turned on, the file /etc/register
+>                       will be displayed when an attempt to create a new
+>                       character is made.
+>
+>   whoquote            This is the message set at the bottom of the who list.
+>
+> See Also: @doing(2), @find(2), who(1)
+

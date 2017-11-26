@@ -1,0 +1,10 @@
+
+> Section 5 - @panic
+>
+> @panic
+>
+> This command saves the database into the panic save file, and shuts down
+> the server.
+>
+> See Also: @save(5), @shutdown(5), sysctl(7)
+

@@ -1,0 +1,13 @@
+
+> Section 5 - @localverbs
+>
+> @localverbs [on | off]
+>
+> If no arguments are specified, this command tells you whether you
+> are using only locally defined verbs.  If 'on' or 'off' is specified,
+> the use of only-localverbs is turned on or off, respectively.
+>
+> Only players set PRIV can use this command.
+>
+> See Also: localverbs(7), set_localverbs(7)
+

@@ -1,0 +1,13 @@
+
+> Section 7 - set_localverbs
+>
+> set_localverbs(toggle)
+>
+> int toggle;
+>
+> Sets the object calling it to LOCALVERBS when toggle is non-zero. A
+> LOCALVERBS object will only make use of verbs defined on itself. If
+> toggle is zero, the flag is removed.
+>
+> See Also: add_verb(7), add_xverb(7), localverbs(7)
+

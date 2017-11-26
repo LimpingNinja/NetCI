@@ -1,0 +1,15 @@
+
+> Section 3 - @possess
+>
+> @possess [off|<player_name>]
+>
+> This command either turns possession off, if the keyword 'off' is used
+> as an argument, possesses a player, or reports which player is being
+> possessed, if no argument is passed.
+>
+> All text sent to a possessed player (apart from possession reports) is
+> sent to the possessing player; furthermore, all commands prepended with
+> a '$' character will be enacted by the possessed player.
+>
+> See Also: @force(3)
+

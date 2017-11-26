@@ -1,0 +1,12 @@
+
+> Section 7 - location
+>
+> location(obj)
+>
+> object obj;
+>
+> location returns an object pointer pointing to the location of obj, or
+> 0 if obj is not located in another object.
+>
+> See Also: contents(7), next_object(7)
+

@@ -1,0 +1,17 @@
+
+> Section 7 - reconnect_device
+>
+> reconnect_device(obj)
+>
+> object obj;
+>
+> This function calls moves a network connection to the object obj from
+> the current object. It will fail if there is a already a connection
+> on obj.
+>
+> reconnect_device returns 0 on success, non-zero on failure.
+>
+> NOTE: must be PRIV to use this system call
+>
+> See Also: disconnect_device(7)
+

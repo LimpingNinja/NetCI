@@ -1,0 +1,22 @@
+
+> Section 8 - read_verb_file
+>
+> #include <verb.h>
+>
+> read_verb_file(filename)
+>
+> string filename;
+>
+> This removes all the verbs from the calling object, and then adds new verbs
+> as defined in the verb file specified by filename.
+>
+> The format of this file is:
+>
+> verb VerbName,FunctionName
+> xverb XVerbName,FunctionName
+>
+> The 'verb' command will add a regular verb; the 'xverb' command adds an
+> xverb. Blank lines and lines beginning with '#' are ignored.
+>
+> See Also: add_verb(7), add_xverb(7)
+

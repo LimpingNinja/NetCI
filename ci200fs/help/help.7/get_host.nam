@@ -1,0 +1,12 @@
+
+> Section 7 - get_hostname
+>
+> get_hostname(address)
+>
+> string address;
+>
+> This system call returns the hostname associated with the specified
+> network address, or 0 should no such hostname be found.
+>
+> See Also: get_address(7), get_devconn(7)
+

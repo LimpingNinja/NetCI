@@ -1,0 +1,9 @@
+
+> Section 7 - is_legal
+>
+> is_legal(s)
+>
+> string s;
+>
+> Returns non-zero if s is a legal filename, zero otherwise.
+

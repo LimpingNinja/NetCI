@@ -1,0 +1,77 @@
+version 1.0:
+
+this is different from the beta version in that 1) if you have a
+directory 'cache' in your CICTL_PATH, ci won't run. remove that
+directory. 2) the caching system is better. 3) it shouldn't crash
+if someone beats up on you network-wise.
+
+version 1.0.1:
+
+i stuck in a signal(SIGPIPE,SIG_IGN) into interface.c so it won't
+crash, y'know.
+
+version 1.0.2:
+
+i was informed that I should mention the 'delete' command in the editor's
+help command. oops. also, the 'list' command could cause a core dump
+in the editor if somebody listed past end-of-file.
+also, changed the -l -p and -s start options to -load -panic and -save.
+added options -tmpdb -syslog -cictl -mudlib
+it oughta start up nicely right out of the package now, write after you
+make the sucker.
+there was one other bug, you could coredump if the thing is unable
+to save the database properly. but that's fixed.
+
+version 1.0.3:
+In the Makefile, you can set defines in DEFS= such that the server
+won't infinite loop.  CYCLE_SOFT_MAX is the number of interpreter-loops
+that will be made in a single thread of execution before the interpreter
+barfs, and CYCLE_HARD_MAX is the number of interpreter loops that
+will be made over all about-to-be-executed commands and alarms before
+the interpreter barfs.
+
+version 1.1:
+Added iterate() and next_who() system calls.  Added global symbol table
+maintenance to the compiler.
+
+version 1.1.1:
+fixed 2 minor bugs.
+
+version 1.2:
+fixed the bit where you can't have TMPDB_PATH in a different filesystem
+than DEFAULT_SAVE. also, buffer attempts to flush on disconnects.
+
+version 1.3:
+random SEGV-causing bugs.
+
+version 1.9.0:
+added get_devidle(), get_conntime(), connect_device(), flush_device(),
+SYSCTL_NOHARDLMT, SYSCTL_NOSOFTLMT, SYSCTL_VERSION system calls,
+cleaned up config.h
+
+version 1.9.1:
+added attach(), detach(), and this_component() functoin calls, allowing
+a pseudo-inheritance among objects.
+
+version 1.9.2
+added fstat(), fowner(), get_hostname(), get_address(), set_localverbs(),
+localverbs(), get_devnet(), get_devport() system calls; make set_priv()
+and set_interactive() take a boolean argument to specify on/off status;
+fixed some bugs when autoflushing to the net, added autoconfiguration, made
+times relative to jan. 1 1995 UTC
+
+version 1.9.3
+added Windows NT 3.5/Win32s support with GUI interface, IPX under Linux
+and WinNT 3.5, NetBIOS under WinNT 3.5, get_master() and is_master()
+system calls, changed flush_device() syntax, fixed bugs in ls() and
+verb parsing when files/verbs are added/removed.
+
+version 1.9.4
+fixed bug in table_get()/table_set()/table_delete(), added new() and
+'.' syntactic sugar, changed Makefiles, fixed 'bug' caused by non-ansi
+SunOS4.1.3_U1 C library
+
+version 1.9.5
+fixed bug in redirect_input() (tried to free an uninitialized stack),
+made it illegal to include ':' in a filename (for Win/NT security),
+cause NetCI to exit/abort when database corruption occurs

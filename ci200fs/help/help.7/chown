@@ -1,0 +1,12 @@
+
+> Section 7 - chown
+>
+> chown(path,owner)
+>
+> string path;
+> object owner;
+>
+> Changes a file's owner to owner.
+>
+> chown returns 0 on success, 1 on failure.
+

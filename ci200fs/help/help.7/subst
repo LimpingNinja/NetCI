@@ -1,0 +1,13 @@
+
+> Section 7 - subst
+>
+> subst(s,pos,len,s2)
+>
+> string s,s2;
+> int pos,len;
+>
+> Returns a string that is identical to s, except that len characters
+> of s have been removed beginning at position pos and replaced with s2.
+>
+> See Also: instr(7), leftstr(7), midstr(7), rightstr(7), strlen(7)
+

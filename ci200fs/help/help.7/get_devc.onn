@@ -1,0 +1,13 @@
+
+> Section 7 - get_devconn
+>
+> get_devconn(obj)
+>
+> object obj;
+>
+> Returns a string containing the network address of the device connected
+> to obj, or zero if it is not connected to a device.
+>
+> See Also: connected(7), get_address(7), get_devnet(7), get_devport(7),
+>           get_hostname(7), next_who(7)
+

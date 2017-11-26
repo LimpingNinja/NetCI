@@ -1,0 +1,12 @@
+
+> Section 7 - fwrite
+>
+> fwrite(pathname,s)
+>
+> string pathname,s;
+>
+> Writes string s to the end of file pathname. fwrite returns 0 on
+> success, non-zero on failure.
+>
+> See Also: ferase(7), fread(7)
+

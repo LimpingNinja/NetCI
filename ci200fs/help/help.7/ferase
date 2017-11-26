@@ -1,0 +1,12 @@
+
+> Section 7 - ferase
+>
+> ferase(pathname)
+>
+> string pathname;
+>
+> Erases the contents of the file pathname. Returns 0 on success, non-zero
+> on failure.
+>
+> See Also: fread(7), fwrite(7)
+

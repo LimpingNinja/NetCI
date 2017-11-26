@@ -1,0 +1,11 @@
+
+> Section 2 - @osucc
+>
+> @osucc <object>=<message>
+>
+> This sets the message sent to other players (prepended by the successful
+> player's name) when a player successfully gets an object/traverses an
+> exit/looks at a room.
+>
+> See Also: @fail(2), @lock(2), @ofail(2), @succ(2), @unlock(2)
+

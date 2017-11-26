@@ -1,0 +1,18 @@
+
+> Section 7 - chmod
+>
+> #include <sys.h>
+>
+> chmod(filename,flags)
+>
+> string filename;
+> int flags;
+>
+> Changes the permissions on the specified filename to flags, which can
+> be one, both, or neither of the following (e.g. 0):
+>
+> READ_OK
+> WRITE_OK
+>
+> chmod returns 0 on success, 1 on failure.
+

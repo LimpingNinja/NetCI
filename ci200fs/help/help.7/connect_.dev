@@ -1,0 +1,13 @@
+
+> Section 7 - connect_device
+>
+> connect_device(address,port)
+>
+> string address;
+> int port;
+>
+> This creates a network device communicating with the specified
+> address (a string in Internet dot notation) and port, and connects
+> it to the calling object.  The calling object must be set PRIV. On
+> success, it returns non-zero.
+

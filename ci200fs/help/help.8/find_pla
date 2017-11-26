@@ -1,0 +1,14 @@
+
+> Section 8 - find_player
+>
+> #include <sys.h>
+>
+> find_player(name)
+>
+> string name;
+>
+> This function returns the object pointer of a player with the specified
+> name, or 0 if no such player exists.
+>
+> See Also: find_object(8), present(8)
+

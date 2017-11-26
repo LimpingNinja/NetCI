@@ -1,0 +1,12 @@
+
+> Section 7 - chr
+>
+> chr(c)
+>
+> int c;
+>
+> Returns a string consisting of the ASCII equivalent of c, or 0
+> on failure.
+>
+> See Also: asc(7)
+

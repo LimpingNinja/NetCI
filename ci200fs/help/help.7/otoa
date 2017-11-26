@@ -1,0 +1,13 @@
+
+> Section 7 - otoa
+>
+> otoa(obj)
+>
+> object obj;
+>
+> Returns a string representing object obj, consisting of the object's
+> source file (stripped of trailing '.c'), followed by a '#', followed
+> by the object's integer ID.
+>
+> See Also: atoi(7), atoo(7), itoa(7), itoo(7), otoi(7)
+

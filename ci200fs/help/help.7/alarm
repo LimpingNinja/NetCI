@@ -1,0 +1,14 @@
+
+> Section 7 - alarm
+> alarm(delay,func)
+>
+> int delay;
+> string func;
+>
+> alarm will cause the function func to be executed on the object calling
+> alarm() in delay seconds from the current time.
+>
+> alarm returns 0 on success, 1 on failure.
+>
+> See Also: remove_alarm(7)
+

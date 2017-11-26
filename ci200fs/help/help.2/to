@@ -1,0 +1,15 @@
+
+> Section 2 - to
+>
+> to <player> <message>
+>
+> This command causes a 'stage' pose of the form:
+>
+>   User [to player]: message
+>
+> It can be abbreviate as:
+>
+>   `<player> <message>
+>
+> See Also: pose(1), say(1)
+

@@ -1,0 +1,13 @@
+
+> Section 7 - get_master
+>
+> get_master(obj)
+>
+> object obj;
+>
+> For objects which have been attach'd to, this function returns the
+> object which is the "master attacher".  For unattached objects,
+> this is equivalent to this_object().
+>
+> See Also: attach(7), is_master(7)
+

@@ -1,0 +1,8 @@
+
+> Section 2 - @chown
+>
+> @chown <object>=<new_owner>
+>
+> This command changes the owner of an object; only a player set PRIV
+> or the owner of an object can change the owner.
+

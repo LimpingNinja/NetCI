@@ -1,0 +1,11 @@
+
+> Section 7 - priv
+>
+> priv(obj)
+>
+> object obj;
+>
+> Returns non-zero if obj is set PRIV, zero otherwise.
+>
+> See Also: set_priv(7)
+

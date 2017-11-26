@@ -1,0 +1,11 @@
+
+> Section 7 - typeof
+>
+> #include <sys.h>
+>
+> typeof(x)
+>
+> var x;
+>
+> Returns the variable type of x - STRING_T, OBJECT_T, or INT_T.
+

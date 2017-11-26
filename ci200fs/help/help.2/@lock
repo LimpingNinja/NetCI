@@ -1,0 +1,24 @@
+
+> Section 2 - @lock
+>
+> @lock <object>=<expression>
+>
+> This locks an object (so it can be taken only by objects for whom
+> expression evaluates true), an exit (so it can only be used by
+> objects for whom expression holds true), or a room (this has no
+> effect other than whether a succ/osucc message set is displayed,
+> or a fail/ofail message set is displayed).
+>
+> The expression may consists of object names (which returns TRUE
+> if the player possesses that particular object), the operators
+> "|", "&", and "!", and the operators present(string,location),
+> holding(string), call(object,function_name) and gender(x). present()
+> returns true if string can identify an object in the specified location.
+> holding() returns true if string identifies an object the player
+> is holding. call() returns true if calling the function on the
+> specified object returns true. Only players set PROGRAMMER can use
+> call(). gender(x) returns true if the player's gender is set to
+> x (one of male, female, neuter, plural, spivak, or none).
+>
+> See Also: @fail(2), @ofail(2), @osucc(2), @succ(2), @unlock(2)
+

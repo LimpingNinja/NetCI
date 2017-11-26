@@ -1,0 +1,10 @@
+
+> Section 2 - kill
+>
+> kill <victim>
+>
+> This causes the victim to be sent home, and have all the objects
+> he/she is carrying be sent to their homes.
+>
+> See Also: @drop(2), @odrop(2), home(2)
+

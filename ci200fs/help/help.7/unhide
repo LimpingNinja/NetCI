@@ -1,0 +1,18 @@
+
+> Section 7 - unhide
+>
+> #include <sys.h>
+>
+> unhide(path,owner,flags)
+>
+> string path;
+> object owner;
+> int flags;
+>
+> This unhides a file, and sets the owner & flags on it.
+> Flags you can set are READ_OK, WRITE_OK, and DIRECTORY
+>
+> NOTE: an object must be PRIV to use unhide()
+>
+> See Also: @hide(5), @unhide(5), @unhidedir(5), hide(7)
+

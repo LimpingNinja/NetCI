@@ -1,0 +1,13 @@
+
+> Section 7 - get_conntime
+>
+> get_conntime(obj)
+>
+> object obj;
+>
+> Returns the time that the network device became connected to the
+> specified object. If no device is connected to the object, -1 is
+> returned.
+>
+> See Also: get_devidle(7)
+

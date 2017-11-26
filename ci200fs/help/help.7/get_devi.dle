@@ -1,0 +1,13 @@
+
+> Section 7 - get_devidle
+>
+> get_devidle(obj)
+>
+> object obj;
+>
+> Returns the number of seconds the network device connected to the specified
+> object has been idle. If no device is connected to the object, -1 is
+> returned.
+>
+> See Also: get_conntime(7)
+

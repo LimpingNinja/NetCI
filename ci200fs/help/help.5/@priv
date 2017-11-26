@@ -1,0 +1,9 @@
+
+> Section 5 - @priv
+>
+> @priv <object>
+>
+> This sets an object PRIV.
+>
+> See Also: @unpriv(5), priv(7), set_priv(7)
+

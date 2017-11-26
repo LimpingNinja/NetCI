@@ -1,0 +1,9 @@
+
+> Section 5 - @fry
+>
+> @fry <object_name>
+>
+> This destroys the specified object, with a direct call to destruct().
+>
+> See Also: @recycle(2), destruct(7)
+

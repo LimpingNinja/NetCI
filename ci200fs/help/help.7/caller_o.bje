@@ -1,0 +1,11 @@
+
+> Section 7 - caller_object
+>
+> caller_object()
+>
+> caller_object returns the object which called the function executing
+> the system call, or 0 if no object called this function (e.g. the
+> function was called by a user command or an alarm timeout).
+>
+> See Also: this_object(7), this_player(7)
+

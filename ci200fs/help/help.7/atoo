@@ -1,0 +1,15 @@
+
+> Section 7 - atoo
+>
+> atoo(s)
+>
+> string s;
+>
+> Returns the object represented by s; s is either a path name, with the .c
+> truncated, an integer in the form "#%d", where %d is the integer,
+> or the concatenation of the two forms.
+>
+> atoo returns 0 on failure.
+>
+> See Also: atoi(7), itoa(7), itoo(7), otoa(7), otoi(7)
+

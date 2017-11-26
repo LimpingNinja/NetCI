@@ -1,0 +1,13 @@
+
+> Section 7 - table_delete
+>
+> table_delete(key)
+>
+> string key;
+>
+> This deletes a key and its associated data value. The calling object must
+> be set PRIV to delete a key. This system call returns 1 on failure, 0
+> on success.
+>
+> See Also: table_get(7), table_set(7)
+

@@ -1,0 +1,13 @@
+
+> Section 1 - help
+>
+> help [section] [topic]
+>
+> Help prints a help file on a topic, within in a given section.
+> If no section is given, help searches the sections in order til
+> a matching topic is found.
+> If no topic is given, help prints a summary of help for the
+> specified section.
+> If neither a topic nor a section is given, help prints out a list
+> of valid sections.
+

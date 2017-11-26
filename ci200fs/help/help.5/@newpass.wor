@@ -1,0 +1,9 @@
+
+> Section 5 - @newpassword
+>
+> @newpassword <player>=<new_password>
+>
+> This sets the password on a player.
+>
+> See Also: @password(1), password(1)
+

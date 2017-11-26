@@ -1,0 +1,11 @@
+
+> Section 7 - parent
+>
+> parent(obj)
+>
+> object obj;
+>
+> parent returns the object which is the prototype of obj.
+>
+> See Also: next_child(7), next_proto(7), prototype(7)
+

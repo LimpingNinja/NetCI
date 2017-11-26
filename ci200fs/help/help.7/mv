@@ -1,0 +1,12 @@
+
+> Section 7 - mv
+>
+> mv(path,newpath)
+>
+> string path,newpath;
+>
+> Moves the file path to the file newpath. mv returns 0 on success,
+> non-zero on failure.
+>
+> See Also: cp(7), mv(4)
+

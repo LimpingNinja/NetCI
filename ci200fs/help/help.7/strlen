@@ -1,0 +1,11 @@
+
+> Section 7 - strlen
+>
+> strlen(s)
+>
+> string s;
+>
+> Returns the length of string s.
+>
+> See Also: instr(7), leftstr(7), midstr(7), rightstr(7), subst(7)
+

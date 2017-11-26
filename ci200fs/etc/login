@@ -1,0 +1,9 @@
+
+
+running NetCI version 1.9.5
+"create <name> <password>" to create a new character.
+"connect <name> <password>" to connect to a character.
+"connect guest" to use a guest character.
+"WHO" to get a list of who is connected currently
+---
+

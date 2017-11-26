@@ -1,0 +1,8 @@
+
+> Section 1 - look
+>
+> look [object-name]
+>
+> This causes you to look at an object and get a list of its contents.
+> If no object is specified, you look at your current location.
+

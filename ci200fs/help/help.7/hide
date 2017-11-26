@@ -1,0 +1,18 @@
+
+> Section 7 - hide
+>
+> hide(string path)
+>
+> This causes a file to be removed from the filesystem - it does NOT cause
+> the file to be actually deleted, it just cannot be referenced from
+> within CI.
+>
+> All files that are created outside of CI will be initially hidden, and you
+> must use unhide() to bring them into CI's filesystem.
+>
+> hide returns 0 on success, non-zero on failure.
+>
+> NOTE: an object must be PRIV to use hide()
+>
+> See Also: @hide(5), @unhide(5), @unhidedir(5), unhide(7)
+

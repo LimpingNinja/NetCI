@@ -1,0 +1,10 @@
+
+> Section 1 - say
+>
+> say <message>
+>
+> This causes you to say a message to other players in the same location
+> as you. This command may be shortened to "<message> or '<message>
+>
+> See Also: emote(1), pose(1), whisper(1)
+

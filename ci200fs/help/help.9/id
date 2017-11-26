@@ -1,0 +1,10 @@
+
+> Section 9 - id
+>
+> id(name)
+>
+> string name;
+>
+> This function should return non-zero if the string 'name' is a valid
+> identifier for this object, or zero if it isn't.
+
