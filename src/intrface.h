@@ -1,3 +1,4 @@
+
 /* interface.h */
 
 #ifdef USE_WINDOWS
@@ -20,6 +21,9 @@ struct connlist_s {
   union {
     struct sockaddr_in tcp_addr;
 #ifdef USE_LINUX_IPX
+# ifndef IPX_TYPE
+#  define IPX_TYPE 1
+# endif
     struct sockaddr_ipx ipx_addr;
 #endif /* USE_LINUX_IPX */
 #ifdef USE_WINDOWS
