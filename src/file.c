@@ -8,7 +8,7 @@
 
 #ifdef USE_WINDOWS
 #include <direct.h>
-#elif
+#else
 /* POSIX and LINUX should use UNISTD.H */
 #include <unistd.h>
 #endif /* USE_WINDOWS */
