@@ -75,3 +75,9 @@ version 1.9.5
 fixed bug in redirect_input() (tried to free an uninitialized stack),
 made it illegal to include ':' in a filename (for Win/NT security),
 cause NetCI to exit/abort when database corruption occurs
+
+version 1.9.6
+fixed bug with IPX_TYPE missing in linux environments,
+modified file.c to remove implicit declaration warnings for rmdir,
+modified license to MPL2,
+multiple small asset changes
