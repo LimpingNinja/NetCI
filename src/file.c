@@ -1,20 +1,16 @@
+
 /* file.c */
 
 /* file permissions etc. are maintained in data structures & code here */
-
-#ifdef USE_POSIX
-#include <unistd.h>
-#endif /* USE_POSIX */
-
-#ifdef USE_LINUX
-#include <unistd.h>
-#endif /* USE_LINUX */
 
 #include <sys/types.h>
 #include <sys/stat.h>
 
 #ifdef USE_WINDOWS
 #include <direct.h>
+#elif
+/* POSIX and LINUX should use UNISTD.H */
+#include <unistd.h>
 #endif /* USE_WINDOWS */
 
 #include "config.h"
