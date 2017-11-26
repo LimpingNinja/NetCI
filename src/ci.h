@@ -3,7 +3,7 @@
 /* this header file contains certain system configuration information.
    users shouldn't be changing this. */
 
-#define CI_VERSION ((int) 10905)  /* driver version # */
+#define CI_VERSION ((int) 10906)  /* driver version # */
 
 #define MULTI 0
 #define SINGLE 1
