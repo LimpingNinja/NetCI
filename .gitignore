@@ -70,6 +70,9 @@ dkms.conf
 .idea/**/tasks.xml
 .idea/dictionaries
 
+# Why not?
+.idea/
+
 # Sensitive or high-churn files:
 .idea/**/dataSources/
 .idea/**/dataSources.ids
