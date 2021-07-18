@@ -29,20 +29,11 @@ included) is based after TinyMUD and very minimal. The interpreter itself
 also has some limitations (non-dynamic arrays, no mappings, etc.) which
 could have prevented some complexity.
 
-##### 2. Why work on this?
-Why not? I want to apply some WD-40 to my C coding, I like MUDs, and
-I want to see what I can do with the interpreter on this codebase for
-purely educational purposes.
-
-On top of that, I want to use this as a base for teaching my young son
-how to code. I missed the boat with my older children, both in getting 
-them interested in MUDs and coding, and maybe this will be different!
-
-##### 3. What is the future here?
+##### 2. What is the future here?
 The question can apply to MUDs in general. Their heyday is well past,
 but I plan on doing the following initially:
 
-1. Cleaning up the C code structure.
+1. Cleaning up the C code structure where necessary.
 2. Adding/changing functionality of the interpreter to bring it inline with my standards.
 3. Creating an testsuite library, similar to **lil** for MudOS.
 4. Creating a new mudlib that acts as a base mudlib for design.
