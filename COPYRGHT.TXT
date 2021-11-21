@@ -1,2 +1,4 @@
+This is kept for archival purposes.
+---
 All the stuff in this distribution (CI version 1.9.5) is copyright
 June 1995 by Patrick J. Wetmore

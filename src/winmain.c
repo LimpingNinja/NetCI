@@ -577,8 +577,8 @@ LRESULT APIENTRY DialogAbout(HWND hDlg, UINT message, UINT wParam, UINT lParam) 
                                      (int) ((CI_VERSION%10000)/100),
                                      (int) (CI_VERSION%100));
       SetDlgItemText(hDlg,IDT_ABOUT_VERSION,temp_buf);
-	  sprintf(temp_buf,"Copyright (C) June 1995 by Patrick J. Wetmore\n"
-                       "E-Mail as of June 1995: wetmore@netcom.com\r\n"
+	  sprintf(temp_buf,"Copyright (C) June 2021 by Kevin Morgan\n"
+                       "E-Mail as of June 2021: kevin@limping.ninja\r\n"
                        "Compilation date: %s %s\r\n",__TIME__,__DATE__);
 #ifdef DEBUG
       strcat(temp_buf,"Compiled with debug settings\r\n");

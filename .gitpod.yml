@@ -2,3 +2,6 @@ tasks:
   - init: make
 image:
   file: .gitpod.Dockerfile
+ports:
+  - port: 5000
+    visibility: public
