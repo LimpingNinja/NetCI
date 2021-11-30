@@ -1,22 +1,22 @@
 
-> Section 7 - ls
->
-> ls(path)
->
-> string path;
->
-> Lists the directory named by path. It does this by calling the function
-> listen on this_player (if this_player is not null) or this_object,
-> otherwise, for each file listed.  Each string sent to listen is
-> formatted as follows: an integer consisting of the logically-OR'd values
-> of the permission flags on the file, a space, an integer corresponding
-> to the object which owns the file, a space, the filename, and a newline
-> character '\n'. ls returns 0 on success, non-zero on failure.
->
-> BUGS: the integer corresponding to the object's owner may not actually
-> correspond to a real object in the database, or may correspond to
-> a different object than that which created the file, should the original
-> object have been destroyed.
->
-> See Also: listen(9)
+Section 7 - ls
+
+ls(path)
+
+string path;
+
+Lists the directory named by path. It does this by calling the function
+listen on this_player (if this_player is not null) or this_object,
+otherwise, for each file listed.  Each string sent to listen is
+formatted as follows: an integer consisting of the logically-OR'd values
+of the permission flags on the file, a space, an integer corresponding
+to the object which owns the file, a space, the filename, and a newline
+character '\n'. ls returns 0 on success, non-zero on failure.
+
+BUGS: the integer corresponding to the object's owner may not actually
+correspond to a real object in the database, or may correspond to
+a different object than that which created the file, should the original
+object have been destroyed.
+
+See Also: listen(9)
 

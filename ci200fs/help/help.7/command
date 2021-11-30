@@ -1,13 +1,13 @@
 
-> Section 7 - command
->
-> command(action)
->
-> string action;
->
-> Causes the command action to be placed on the object's incoming command
-> queue. If the object has been attached to by another object, the
-> command is placed in the attacher's command queue, instead.
->
-> See Also: add_verb(7), add_xverb(7), @force(5)
+Section 7 - command
+
+command(action)
+
+string action;
+
+Causes the command action to be placed on the object's incoming command
+queue. If the object has been attached to by another object, the
+command is placed in the attacher's command queue, instead.
+
+See Also: add_verb(7), add_xverb(7), @force(5)
 

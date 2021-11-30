@@ -1,11 +1,11 @@
 
-> Section 4 - chmod
->
-> chmod <permissions> <filename>
->
-> This command changes the permissions on a file; valid permissions are
-> 'r', 'w', 'rw', and '0'.  The permission may also be represented by
-> the logically-OR'd integer permissions.
->
-> See Also: chmod(7)
+Section 4 - chmod
+
+chmod <permissions> <filename>
+
+This command changes the permissions on a file; valid permissions are
+'r', 'w', 'rw', and '0'.  The permission may also be represented by
+the logically-OR'd integer permissions.
+
+See Also: chmod(7)
 

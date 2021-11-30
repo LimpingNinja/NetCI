@@ -1,12 +1,12 @@
 
-> Section 1 - exits
->
-> exits [on|off]
->
-> This command, with no arguments, causes a list of non-DARK exits
-> to be displayed. If the argument is 'on', auto listing of exits
-> when entering a new room and when 'look'ing is enabled; if 'off',
-> it is disabled.
->
-> See Also: look(1)
+Section 1 - exits
+
+exits [on|off]
+
+This command, with no arguments, causes a list of non-DARK exits
+to be displayed. If the argument is 'on', auto listing of exits
+when entering a new room and when 'look'ing is enabled; if 'off',
+it is disabled.
+
+See Also: look(1)
 

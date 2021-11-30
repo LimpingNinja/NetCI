@@ -1,11 +1,11 @@
 
-> Section 7 - itoa
->
-> itoa(val)
->
-> int val;
->
-> Returns a string representing val.
->
-> See Also: atoi(7), atoo(7), itoo(7), otoa(7), otoi(7)
+Section 7 - itoa
+
+itoa(val)
+
+int val;
+
+Returns a string representing val.
+
+See Also: atoi(7), atoo(7), itoo(7), otoa(7), otoi(7)
 

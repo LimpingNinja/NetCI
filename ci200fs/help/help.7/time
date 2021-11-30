@@ -1,9 +1,9 @@
 
-> Section 7 - time
->
-> time()
->
-> Returns the current calendar time (an integer).
->
-> See Also: mktime(7)
+Section 7 - time
+
+time()
+
+Returns the current calendar time (an integer).
+
+See Also: mktime(7)
 

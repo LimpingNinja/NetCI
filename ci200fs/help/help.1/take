@@ -1,10 +1,10 @@
 
-> Section 1 - take
->
-> take <object-name>
->
-> This causes you to pick up an object in the same location as you.
-> take is functionally equivalent to get.
->
-> See Also: drop(1), get(1), inventory(1)
+Section 1 - take
+
+take <object-name>
+
+This causes you to pick up an object in the same location as you.
+take is functionally equivalent to get.
+
+See Also: drop(1), get(1), inventory(1)
 

@@ -1,12 +1,12 @@
 
-> Section 2 - @unlink
->
-> @unlink <object_name>
->
-> This sets an object's link to null.
->
-> NOTE: Unlinked exits may be re-linked by other players, causing ownership
->       to pass to the linking player.
->
-> See Also: @link(2)
+Section 2 - @unlink
+
+@unlink <object_name>
+
+This sets an object's link to null.
+
+NOTE: Unlinked exits may be re-linked by other players, causing ownership
+      to pass to the linking player.
+
+See Also: @link(2)
 

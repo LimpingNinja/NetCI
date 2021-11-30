@@ -1,10 +1,10 @@
 
-> Section 7 - this_component
->
-> this_component()
->
-> Returns an object pointer to the object currently executing the function
-> it occurs in, regardless of whether the object is attached to another.
->
-> See Also: attach(7), this_object(7)
+Section 7 - this_component
+
+this_component()
+
+Returns an object pointer to the object currently executing the function
+it occurs in, regardless of whether the object is attached to another.
+
+See Also: attach(7), this_object(7)
 

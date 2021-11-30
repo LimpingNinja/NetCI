@@ -1,11 +1,11 @@
 
-> Section 7 - asc
->
-> asc(c)
->
-> string c;
->
-> Returns the ASCII equivalent of the first character of c.
->
-> See Also: chr(7)
+Section 7 - asc
+
+asc(c)
+
+string c;
+
+Returns the ASCII equivalent of the first character of c.
+
+See Also: chr(7)
 

@@ -1,7 +1,7 @@
-> Section 1 - finger
->
-> finger <person>
->
-> This command displays various information about a user.
->
+Section 1 - finger
+
+finger <person>
+
+This command displays various information about a user.
+
 

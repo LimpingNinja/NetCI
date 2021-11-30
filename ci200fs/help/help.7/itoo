@@ -1,12 +1,12 @@
 
-> Section 7 - itoo
->
-> itoo(i)
->
-> int i;
->
-> Returns the object pointer equivalent to integer i, or 0 if the
-> integer i does not correspond to an object within the database.
->
-> See Also: atoi(7), atoo(7), itoa(7), otoa(7), otoi(7)
+Section 7 - itoo
+
+itoo(i)
+
+int i;
+
+Returns the object pointer equivalent to integer i, or 0 if the
+integer i does not correspond to an object within the database.
+
+See Also: atoi(7), atoo(7), itoa(7), otoa(7), otoi(7)
 

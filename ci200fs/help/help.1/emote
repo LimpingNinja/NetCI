@@ -1,15 +1,15 @@
 
-> Section 1 - emote
->
-> emote <action>
->
-> This causes your character to emote an action; this may be abbreviated
-> to ':<action>'.
-> You may also use ;, which emotes an action, but with no space after
-> your name.  For Example: the command ':'s box is big.' produces
-> '<yourname>'s box is big.'.
->
-> emote is functionally equivalent to pose.
->
-> See Also: pose(1), say(1)
+Section 1 - emote
+
+emote <action>
+
+This causes your character to emote an action; this may be abbreviated
+to ':<action>'.
+You may also use ;, which emotes an action, but with no space after
+your name.  For Example: the command ':'s box is big.' produces
+'<yourname>'s box is big.'.
+
+emote is functionally equivalent to pose.
+
+See Also: pose(1), say(1)
 

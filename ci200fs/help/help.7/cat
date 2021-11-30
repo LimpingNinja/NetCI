@@ -1,14 +1,14 @@
 
-> Section 7 - cat
->
-> cat(path)
->
-> string path;
->
-> This function reads in a file line-by-line, calling listen() on this_player()
-> (if it exists) or this_object(), passing each line as an argument.
->
-> cat returns 0 on success, 1 on failure.
->
-> See Also: listen(9), this_object(7), this_player(7)
+Section 7 - cat
+
+cat(path)
+
+string path;
+
+This function reads in a file line-by-line, calling listen() on this_player()
+(if it exists) or this_object(), passing each line as an argument.
+
+cat returns 0 on success, 1 on failure.
+
+See Also: listen(9), this_object(7), this_player(7)
 

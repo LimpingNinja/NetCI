@@ -1,13 +1,13 @@
 
-> Section 7 - get_devport
->
-> get_devport(obj)
->
-> object obj;
->
-> Returns an integer containing the network port of the device connected
-> to obj, or -1 if it is not connected to a device or the network does not
-> support the concept of ports.
->
-> See Also: get_devconn(7), get_devnet(7)
+Section 7 - get_devport
+
+get_devport(obj)
+
+object obj;
+
+Returns an integer containing the network port of the device connected
+to obj, or -1 if it is not connected to a device or the network does not
+support the concept of ports.
+
+See Also: get_devconn(7), get_devnet(7)
 

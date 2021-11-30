@@ -1,10 +1,10 @@
 
-> Section 2 - @drop
->
-> @drop <object>=<message>
->
-> This is the message sent to a player when they drop the object, or,
-> if object is a player, when the player is killed.
->
-> See Also: @fail(2), @odrop(2), @ofail(2), @osucc(2), @succ(2)
+Section 2 - @drop
+
+@drop <object>=<message>
+
+This is the message sent to a player when they drop the object, or,
+if object is a player, when the player is killed.
+
+See Also: @fail(2), @odrop(2), @ofail(2), @osucc(2), @succ(2)
 

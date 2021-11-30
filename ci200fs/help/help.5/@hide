@@ -1,10 +1,10 @@
 
-> Section 5 - @hide
->
-> @hide <filename>
->
-> This removes a filename from the filesystem, without attempting to
-> physically remove the file.
->
-> See Also: @unhide(5), @unhidedir(5), hide(7), unhide(7)
+Section 5 - @hide
+
+@hide <filename>
+
+This removes a filename from the filesystem, without attempting to
+physically remove the file.
+
+See Also: @unhide(5), @unhidedir(5), hide(7), unhide(7)
 

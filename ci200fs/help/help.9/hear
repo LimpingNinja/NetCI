@@ -1,16 +1,16 @@
 
-> Section 9 - hear
->
-> #include <hear.h>
->
-> hear(actor,actee,type,message)
->
-> object actor,actee;
-> int type;
-> string message;
->
-> This function receives all 'hear-able' messages sent to the object.
-> There are several types of messages which can be received; not all have
-> both actors/actees, or message strings. A list of message can be found
-> in /include/hear.h
+Section 9 - hear
+
+#include <hear.h>
+
+hear(actor,actee,type,message)
+
+object actor,actee;
+int type;
+string message;
+
+This function receives all 'hear-able' messages sent to the object.
+There are several types of messages which can be received; not all have
+both actors/actees, or message strings. A list of message can be found
+in /include/hear.h
 

@@ -1,12 +1,12 @@
 
-> Section 2 - @odrop
->
-> @odrop <object>=<message>
->
-> This is the message sent to other players (prepended by the dropper's
-> name) when an object is dropped, or the message sent to other players
-> when a player kills another (prepended by the statement "<murderer>
-> killed <victim>!"
->
-> See Also: @drop(2), @fail(2), @ofail(2), @osucc(2), @succ(2)
+Section 2 - @odrop
+
+@odrop <object>=<message>
+
+This is the message sent to other players (prepended by the dropper's
+name) when an object is dropped, or the message sent to other players
+when a player kills another (prepended by the statement "<murderer>
+killed <victim>!"
+
+See Also: @drop(2), @fail(2), @ofail(2), @osucc(2), @succ(2)
 

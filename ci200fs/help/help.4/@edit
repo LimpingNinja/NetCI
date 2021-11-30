@@ -1,9 +1,9 @@
 
-> Section 4 - @edit
->
-> @edit [<filename>]
->
-> This enters the on-line editor (similar to 'ed').
->
-> See Also: edit(7)
+Section 4 - @edit
+
+@edit [<filename>]
+
+This enters the on-line editor (similar to 'ed').
+
+See Also: edit(7)
 

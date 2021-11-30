@@ -1,16 +1,16 @@
 
-> Section 7 - call_other
->
-> call_other(obj,func,...)
->
-> object obj;
-> string func;
->
-> call_other calls the function func in the object obj, with an optional
-> list of arguments to func.
->
-> call_other returns the return value of function func on success, or 0
-> on failure to call func.
->
-> See Also: @call(4), iterate(7)
+Section 7 - call_other
+
+call_other(obj,func,...)
+
+object obj;
+string func;
+
+call_other calls the function func in the object obj, with an optional
+list of arguments to func.
+
+call_other returns the return value of function func on success, or 0
+on failure to call func.
+
+See Also: @call(4), iterate(7)
 

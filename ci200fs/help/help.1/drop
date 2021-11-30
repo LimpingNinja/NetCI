@@ -1,9 +1,9 @@
 
-> Section 7 - drop
->
-> drop <object>
->
-> This command causes you to drop an object you are carrying.
->
-> See Also: get(1), inventory(1), take(1)
+Section 7 - drop
+
+drop <object>
+
+This command causes you to drop an object you are carrying.
+
+See Also: get(1), inventory(1), take(1)
 

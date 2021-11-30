@@ -1,14 +1,14 @@
 
-> Section 7 - fread
->
-> fread(pathname,pos)
->
-> string pathname;
-> int pos;
->
-> Returns a string read from file pathname beginning at position pos. If
-> pos is a variable, pos will be updated to reflect the new position.
-> This returns 0 if the EOF has been reached, and -1 on other errors.
->
-> See Also: ferase(7), fwrite(7)
+Section 7 - fread
+
+fread(pathname,pos)
+
+string pathname;
+int pos;
+
+Returns a string read from file pathname beginning at position pos. If
+pos is a variable, pos will be updated to reflect the new position.
+This returns 0 if the EOF has been reached, and -1 on other errors.
+
+See Also: ferase(7), fwrite(7)
 

@@ -1,9 +1,9 @@
 
-> Section 5 - @shutdown
->
-> @shutdown
->
-> This command saves the database and shuts down the server.
->
-> See Also: @panic(5), @save(5), sysctl(7)
+Section 5 - @shutdown
+
+@shutdown
+
+This command saves the database and shuts down the server.
+
+See Also: @panic(5), @save(5), sysctl(7)
 

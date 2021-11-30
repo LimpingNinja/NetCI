@@ -1,11 +1,11 @@
 
-> Section 7 - otoi
->
-> otoi(o)
->
-> object o;
->
-> Returns the integer cooresponding to the object pointer o.
->
-> See Also: atoi(7), atoo(7), itoa(7), itoo(7), otoa(7)
+Section 7 - otoi
+
+otoi(o)
+
+object o;
+
+Returns the integer cooresponding to the object pointer o.
+
+See Also: atoi(7), atoo(7), itoa(7), itoo(7), otoa(7)
 

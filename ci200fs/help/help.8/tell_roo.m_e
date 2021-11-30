@@ -1,23 +1,23 @@
 
-> Section 8 - tell_room_except, tell_room_except2
->
-> #include <sys.h>
-> #include <hear.h>
->
-> tell_room_except(room,actor,actee,type,message)
->
-> object room,actor,actee;
-> int type;
-> string message;
->
-> tell_room_except2(room,actor,actee,type,message)
->
-> object room,actor,actee;
-> int type;
-> string message;
->
-> This sends a specified message to every object in the specified room,
-> excepting actor (and actee, if using tell_room_except2()).
->
-> See Also: hear(9), tell_room(8)
+Section 8 - tell_room_except, tell_room_except2
+
+#include <sys.h>
+#include <hear.h>
+
+tell_room_except(room,actor,actee,type,message)
+
+object room,actor,actee;
+int type;
+string message;
+
+tell_room_except2(room,actor,actee,type,message)
+
+object room,actor,actee;
+int type;
+string message;
+
+This sends a specified message to every object in the specified room,
+excepting actor (and actee, if using tell_room_except2()).
+
+See Also: hear(9), tell_room(8)
 

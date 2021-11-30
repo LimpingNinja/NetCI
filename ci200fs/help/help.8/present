@@ -1,16 +1,16 @@
 
-> Section 8 - present
->
-> #include <sys.h>
->
-> present(name,loc)
->
-> string name;
-> object loc;
->
-> This returns the object pointer of an object in loc whose id() function
-> returns non-zero when called with argument 'name', or 0 if no such
-> object exists in location loc.
->
-> See Also: find_object(8), find_player(8), id(9)
+Section 8 - present
+
+#include <sys.h>
+
+present(name,loc)
+
+string name;
+object loc;
+
+This returns the object pointer of an object in loc whose id() function
+returns non-zero when called with argument 'name', or 0 if no such
+object exists in location loc.
+
+See Also: find_object(8), find_player(8), id(9)
 

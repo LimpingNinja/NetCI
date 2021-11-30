@@ -1,9 +1,9 @@
 
-> Section 5 - @boot
->
-> @boot <player>
->
-> This kills a player's network connection.
->
-> See Also: disconnect_device(7)
+Section 5 - @boot
+
+@boot <player>
+
+This kills a player's network connection.
+
+See Also: disconnect_device(7)
 

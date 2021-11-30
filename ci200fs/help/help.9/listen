@@ -1,9 +1,9 @@
 
-> Section 9 - listen
->
-> listen(message)
->
-> string message;
->
-> This function receives all 'hear-able' messages sent to the object.
+Section 9 - listen
+
+listen(message)
+
+string message;
+
+This function receives all 'hear-able' messages sent to the object.
 

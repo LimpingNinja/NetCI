@@ -1,10 +1,10 @@
 
-> Section 1 - page
->
-> page <player>[=<message>]
->
-> This causes you to send a message to a specified player, or, if no
-> message is specified, to notify them of your current location. If
-> you do not have the BUILDER flag set on you, you are only allowed to
-> page those who do.
+Section 1 - page
+
+page <player>[=<message>]
+
+This causes you to send a message to a specified player, or, if no
+message is specified, to notify them of your current location. If
+you do not have the BUILDER flag set on you, you are only allowed to
+page those who do.
 

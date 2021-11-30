@@ -1,12 +1,12 @@
 
-> Section 7 - leftstr
->
-> leftstr(s,len)
->
-> string s;
-> int len;
->
-> Returns a string consisting of the leftmost len characters of s.
->
-> See Also: instr(7), midstr(7), rightstr(7), strlen(7), subst(7)
+Section 7 - leftstr
+
+leftstr(s,len)
+
+string s;
+int len;
+
+Returns a string consisting of the leftmost len characters of s.
+
+See Also: instr(7), midstr(7), rightstr(7), strlen(7), subst(7)
 

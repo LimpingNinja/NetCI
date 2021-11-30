@@ -1,14 +1,14 @@
 
-> Section 9 - get_gender
->
-> #include <gender.h>
->
-> get_gender()
->
-> get_gender() should return an int representing the gender of an object,
-> as defined in the gender.h header file.  Gender may be one of:
-> GENDER_NONE, GENDER_MALE, GENDER_FEMALE, GENDER_NEUTER, GENDER_PLURAL,
-> or GENDER_SPIVAK.
->
-> See Also: gender_subs(8)
+Section 9 - get_gender
+
+#include <gender.h>
+
+get_gender()
+
+get_gender() should return an int representing the gender of an object,
+as defined in the gender.h header file.  Gender may be one of:
+GENDER_NONE, GENDER_MALE, GENDER_FEMALE, GENDER_NEUTER, GENDER_PLURAL,
+or GENDER_SPIVAK.
+
+See Also: gender_subs(8)
 

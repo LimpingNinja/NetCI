@@ -1,9 +1,9 @@
 
-> Section 2 - @gender
->
-> @desc <object>=male|female|neuter|plural|spivak|none
->
-> This command changes the gender of an object.
->
-> See Also: gender(1)
+Section 2 - @gender
+
+@desc <object>=male|female|neuter|plural|spivak|none
+
+This command changes the gender of an object.
+
+See Also: gender(1)
 

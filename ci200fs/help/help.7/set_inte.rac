@@ -1,13 +1,13 @@
 
-> Section 7 - set_interactive
->
-> set_interactive(toggle)
->
-> int toggle;
->
-> Sets the object calling it to INTERACTIVE when toggle is non-zero. An
-> INTERACTIVE object's verbs cannot be activated by anyone other than that
-> object. If toggle is zero, the flag is removed.
->
-> See Also: add_verb(7), add_xverb(7), interactive(7)
+Section 7 - set_interactive
+
+set_interactive(toggle)
+
+int toggle;
+
+Sets the object calling it to INTERACTIVE when toggle is non-zero. An
+INTERACTIVE object's verbs cannot be activated by anyone other than that
+object. If toggle is zero, the flag is removed.
+
+See Also: add_verb(7), add_xverb(7), interactive(7)
 

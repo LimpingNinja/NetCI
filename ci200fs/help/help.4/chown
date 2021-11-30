@@ -1,9 +1,9 @@
 
-> Section 4 - chown
->
-> chown <new_owner> <filename>
->
-> This changes the ownership of a file.
->
-> See Also: chown(7)
+Section 4 - chown
+
+chown <new_owner> <filename>
+
+This changes the ownership of a file.
+
+See Also: chown(7)
 

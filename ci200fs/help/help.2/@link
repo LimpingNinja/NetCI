@@ -1,18 +1,18 @@
 
-> Section 2 - @link
->
-> @link <object>=<destination>
->
-> This command causes an object to have its home set to destination,
-> a room to have its drop-to set to destination (this is the location
-> objects dropped in that room are sent to), a player to have his/her
-> home set to destination, or an exit to have its destination set.
->
-> The player must either own the destination, or the destination must
-> be set LINK_OK.
->
-> If it is an unlinked exit being linked, anyone is permitted to link it;
-> upon linking, the linking player becomes the owner of the exit.
->
-> See Also: @set(2), @unlink(2)
+Section 2 - @link
+
+@link <object>=<destination>
+
+This command causes an object to have its home set to destination,
+a room to have its drop-to set to destination (this is the location
+objects dropped in that room are sent to), a player to have his/her
+home set to destination, or an exit to have its destination set.
+
+The player must either own the destination, or the destination must
+be set LINK_OK.
+
+If it is an unlinked exit being linked, anyone is permitted to link it;
+upon linking, the linking player becomes the owner of the exit.
+
+See Also: @set(2), @unlink(2)
 

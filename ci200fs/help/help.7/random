@@ -1,9 +1,9 @@
 
-> Section 7 - random
->
-> random(limit)
->
-> int limit;
->
-> Returns an integer from 0 to limit-1.
+Section 7 - random
+
+random(limit)
+
+int limit;
+
+Returns an integer from 0 to limit-1.
 

@@ -1,10 +1,10 @@
 
-> Section 5 - @unhidedir
->
-> @unhidedir <directory_name>
->
->This causes a directory entry to be placed into the filesystem,
->without physically trying to create the directory.
->
-> See Also: @hide(5), @unhide(5), hide(7), unhide(7)
+Section 5 - @unhidedir
+
+@unhidedir <directory_name>
+
+This causes a directory entry to be placed into the filesystem,
+without physically trying to create the directory.
+
+See Also: @hide(5), @unhide(5), hide(7), unhide(7)
 

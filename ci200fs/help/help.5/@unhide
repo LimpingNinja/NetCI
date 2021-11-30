@@ -1,10 +1,10 @@
 
-> Section 5 - @unhide
->
-> @unhide <filename>
->
-> This causes a filename entry to be placed into the filesystem, without
-> attempting to physically create the file.
->
-> See Also: @hide(5), @unhidedir(5), hide(7), unhide(7)
+Section 5 - @unhide
+
+@unhide <filename>
+
+This causes a filename entry to be placed into the filesystem, without
+attempting to physically create the file.
+
+See Also: @hide(5), @unhidedir(5), hide(7), unhide(7)
 

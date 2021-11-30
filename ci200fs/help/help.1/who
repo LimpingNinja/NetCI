@@ -1,9 +1,9 @@
 
-> Section 1 - who
->
-> who
->
-> This displays a list of players currently connected to the CI server.
->
-> See Also: @doing(2), users(4)
+Section 1 - who
+
+who
+
+This displays a list of players currently connected to the CI server.
+
+See Also: @doing(2), users(4)
 

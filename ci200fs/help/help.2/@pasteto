@@ -1,11 +1,11 @@
 
-> Section 2 - @pasteto
->
-> @pasteto <user>
->
-> This command queues all input from the player until an input line
-> consisting of a single '.' is received; then, the output is
-> sent to the specified user.
->
-> See Also: @paste(2)
+Section 2 - @pasteto
+
+@pasteto <user>
+
+This command queues all input from the player until an input line
+consisting of a single '.' is received; then, the output is
+sent to the specified user.
+
+See Also: @paste(2)
 

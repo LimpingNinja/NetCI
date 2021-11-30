@@ -1,14 +1,14 @@
 
-> Section 2 - @open
->
-> @open <exit_name>[=<destination>]
->
-> This creates a new exit; if a destination is specified, an attempt is
-> made to link it to that destination.  New exits can only be created
-> if you own the room you're opening it in, or if you are set PRIV.
->
-> The exit name may be a series of exit names, separated by the ;
-> character.
->
-> See Also: @create(2), @dig(2), @link(2)
+Section 2 - @open
+
+@open <exit_name>[=<destination>]
+
+This creates a new exit; if a destination is specified, an attempt is
+made to link it to that destination.  New exits can only be created
+if you own the room you're opening it in, or if you are set PRIV.
+
+The exit name may be a series of exit names, separated by the ;
+character.
+
+See Also: @create(2), @dig(2), @link(2)
 

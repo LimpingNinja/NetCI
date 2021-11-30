@@ -1,16 +1,16 @@
 
-> Section 7 - get_devnet
->
-> #include <sys.h>
->
-> get_devnet(obj)
->
-> object obj;
->
-> Returns an integer containing the network type of the device connected
-> to obj, or -1 if it is not connected to a device.
->
-> Valid network types include NET_CONSOLE, NET_TCP, NET_IPX, and NET_NETBIOS.
->
-> See Also: connected(7), get_address(7), get_hostname(7), next_who(7)
+Section 7 - get_devnet
+
+#include <sys.h>
+
+get_devnet(obj)
+
+object obj;
+
+Returns an integer containing the network type of the device connected
+to obj, or -1 if it is not connected to a device.
+
+Valid network types include NET_CONSOLE, NET_TCP, NET_IPX, and NET_NETBIOS.
+
+See Also: connected(7), get_address(7), get_hostname(7), next_who(7)
 

@@ -1,10 +1,10 @@
 
-> Section 2 - @ofail
->
-> @ofail <object>=<message>
->
-> This sets the message that other players see (prepended by the failer's name)
-> when a player fails to take an object/traverse an exit/look at a room.
->
-> See Also: @fail(2), @lock(2), @osucc(2), @succ(2), @unlock(2)
+Section 2 - @ofail
+
+@ofail <object>=<message>
+
+This sets the message that other players see (prepended by the failer's name)
+when a player fails to take an object/traverse an exit/look at a room.
+
+See Also: @fail(2), @lock(2), @osucc(2), @succ(2), @unlock(2)
 

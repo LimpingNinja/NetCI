@@ -1,7 +1,7 @@
-> Section 1 - rlname
->
-> rlname [<real name>]
->
-> This displays what your real name is set to.  If you include your
-> name, it sets this attribute to that.
->
+Section 1 - rlname
+
+rlname [<real name>]
+
+This displays what your real name is set to.  If you include your
+name, it sets this attribute to that.
+

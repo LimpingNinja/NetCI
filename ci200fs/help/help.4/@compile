@@ -1,10 +1,10 @@
 
-> Section 4 - @compile
->
-> @compile <source_file>
->
-> This compiles a source file (the name should be stripped of it's ".c"
-> extension) and display the object # of the prototype generated.
->
-> See Also: compile_object(7)
+Section 4 - @compile
+
+@compile <source_file>
+
+This compiles a source file (the name should be stripped of it's ".c"
+extension) and display the object # of the prototype generated.
+
+See Also: compile_object(7)
 

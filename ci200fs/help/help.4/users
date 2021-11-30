@@ -1,10 +1,10 @@
 
-> Section 4 - users
->
-> users
->
-> This produces a list of all players currently connected, and their current
-> locations.
->
-> See Also: who(1)
+Section 4 - users
+
+users
+
+This produces a list of all players currently connected, and their current
+locations.
+
+See Also: who(1)
 

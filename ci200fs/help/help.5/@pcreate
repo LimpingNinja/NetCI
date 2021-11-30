@@ -1,9 +1,9 @@
 
-> Section 5 - @pcreate
->
-> @pcreate <player_name>=<password>
->
-> This command creates a new player, with the specified password.
->
-> See Also: @create(2), @dig(2), @open(2)
+Section 5 - @pcreate
+
+@pcreate <player_name>=<password>
+
+This command creates a new player, with the specified password.
+
+See Also: @create(2), @dig(2), @open(2)
 

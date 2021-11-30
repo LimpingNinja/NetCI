@@ -1,9 +1,9 @@
 
-> Section 4 - mkdir
->
-> mkdir <directory_name>
->
-> This causes a directory to be created.
->
-> See Also: mkdir(7)
+Section 4 - mkdir
+
+mkdir <directory_name>
+
+This causes a directory to be created.
+
+See Also: mkdir(7)
 

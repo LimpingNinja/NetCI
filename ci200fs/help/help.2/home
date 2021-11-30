@@ -1,11 +1,11 @@
 
-> Section 2 - home
->
-> home
->
-> This command causes you to be returned to your home (the destination
-> you are linked to). All objects you are carrying will be returned to
-> their homes.
->
-> See Also: kill(2)
+Section 2 - home
+
+home
+
+This command causes you to be returned to your home (the destination
+you are linked to). All objects you are carrying will be returned to
+their homes.
+
+See Also: kill(2)
 

@@ -1,11 +1,11 @@
 
-> Section 1 - whisper
->
-> whisper <player>=<message>
->
-> This command causes you to whisper a message to another player in the
-> same location as you; other players present in the same location cannot
-> overhear it. This command may be shortened to 'w'.
->
-> See Also: emote(1), pose(1), say(1)
+Section 1 - whisper
+
+whisper <player>=<message>
+
+This command causes you to whisper a message to another player in the
+same location as you; other players present in the same location cannot
+overhear it. This command may be shortened to 'w'.
+
+See Also: emote(1), pose(1), say(1)
 

@@ -1,14 +1,14 @@
 
-> Section 8 - make_num
->
-> #include <sys.h>
->
-> make_num(o)
->
-> object o;
->
-> This function returns a string consisting of the object's name, object ID
-> number, and flags.
->
-> See Also: make_flags(8), make_sys_flags(8), make_type(8)
+Section 8 - make_num
+
+#include <sys.h>
+
+make_num(o)
+
+object o;
+
+This function returns a string consisting of the object's name, object ID
+number, and flags.
+
+See Also: make_flags(8), make_sys_flags(8), make_type(8)
 

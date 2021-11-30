@@ -1,10 +1,10 @@
 
-> Section 4 - @clone
->
-> @clone <object>
->
-> This creates another instance of the object type held by the
-> specified object.
->
-> See Also: clone_object(7)
+Section 4 - @clone
+
+@clone <object>
+
+This creates another instance of the object type held by the
+specified object.
+
+See Also: clone_object(7)
 

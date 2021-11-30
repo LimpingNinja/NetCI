@@ -1,14 +1,14 @@
 
-> Section 7 - instr
->
-> instr(s,startpos,search)
->
-> string s,search;
-> int startpos;
->
-> Returns the position of the first occurrence of string search within
-> string s, beginning its pattern-matching at position startpos of s. If
-> search is not within s beginning at position startpos, 0 is returned.
->
-> See Also: leftstr(7), midstr(7), rightstr(7), strlen(7), subst(7)
+Section 7 - instr
+
+instr(s,startpos,search)
+
+string s,search;
+int startpos;
+
+Returns the position of the first occurrence of string search within
+string s, beginning its pattern-matching at position startpos of s. If
+search is not within s beginning at position startpos, 0 is returned.
+
+See Also: leftstr(7), midstr(7), rightstr(7), strlen(7), subst(7)
 

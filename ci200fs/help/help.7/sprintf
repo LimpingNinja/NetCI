@@ -1,9 +1,9 @@
 
-> Section 7 - sprintf
->
-> sprintf()
->
-> BUGS: It's not implemented.
->
-> See Also: sscanf(7)
+Section 7 - sprintf
+
+sprintf()
+
+BUGS: It's not implemented.
+
+See Also: sscanf(7)
 

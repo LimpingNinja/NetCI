@@ -1,12 +1,12 @@
 
-> Section 7 - mkdir
->
-> mkdir(path)
->
-> string path;
->
-> Makes a directory named path. mkdir returns 0 on success, non-zero on
-> failure.
->
-> See Also: mkdir(4)
+Section 7 - mkdir
+
+mkdir(path)
+
+string path;
+
+Makes a directory named path. mkdir returns 0 on success, non-zero on
+failure.
+
+See Also: mkdir(4)
 

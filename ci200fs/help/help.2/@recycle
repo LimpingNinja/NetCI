@@ -1,12 +1,12 @@
 
-> Section 2 - @recycle
->
-> @recycle <object>
->
-> This causes an object to be recycled; its data is removed from the database,
-> and its object ID number is available for re-use by other newly created
-> objects.  This will fail if the object being recycled contains other
-> objects.
->
-> See Also: @fry(5)
+Section 2 - @recycle
+
+@recycle <object>
+
+This causes an object to be recycled; its data is removed from the database,
+and its object ID number is available for re-use by other newly created
+objects.  This will fail if the object being recycled contains other
+objects.
+
+See Also: @fry(5)
 

@@ -1,13 +1,13 @@
 
-> Section 4 - @call
->
-> @call <object> <function>[=<argument>]
->
-> This calls a function on the specified object, with an optional
-> argument (either an integer, a quoted string, or an object name).
->
-> This returns 0 if the function on the object does not exist, or
-> the return value of the function otherwise.
->
-> See Also: call_other(7)
+Section 4 - @call
+
+@call <object> <function>[=<argument>]
+
+This calls a function on the specified object, with an optional
+argument (either an integer, a quoted string, or an object name).
+
+This returns 0 if the function on the object does not exist, or
+the return value of the function otherwise.
+
+See Also: call_other(7)
 

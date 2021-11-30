@@ -1,9 +1,9 @@
 
-> Section 3 - @force
->
-> @force <player>=<command>
->
-> This forces a player to perform a specified command.
->
-> See Also: @possess(3), command(7)
+Section 3 - @force
+
+@force <player>=<command>
+
+This forces a player to perform a specified command.
+
+See Also: @possess(3), command(7)
 

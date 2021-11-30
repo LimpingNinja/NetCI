@@ -1,10 +1,10 @@
 
-> Section 2 - @doing
->
-> @doing <message>
->
-> This sets your "doing" message, which is displayed next to your character's
-> name in the who list.
->
-> See Also: who(1)
+Section 2 - @doing
+
+@doing <message>
+
+This sets your "doing" message, which is displayed next to your character's
+name in the who list.
+
+See Also: who(1)
 

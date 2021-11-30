@@ -1,10 +1,10 @@
 
-> Section 2 - @set
->
-> @set <object>=[!]<flag>
->
-> This sets a flag on an object; if the character '!' is prepended
-> before the flag name, the flag is reset on the object.
->
-> See Also: flags(6)
+Section 2 - @set
+
+@set <object>=[!]<flag>
+
+This sets a flag on an object; if the character '!' is prepended
+before the flag name, the flag is reset on the object.
+
+See Also: flags(6)
 

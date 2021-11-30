@@ -1,7 +1,7 @@
-> Section 1 - email
->
-> email [<email address>]
->
-> This displays what your email address is set to.  If you include your
-> email address, it sets this attribute to that.
->
+Section 1 - email
+
+email [<email address>]
+
+This displays what your email address is set to.  If you include your
+email address, it sets this attribute to that.
+

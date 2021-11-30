@@ -1,11 +1,11 @@
 
-> Section 2 - examine
->
-> examine <object>
->
-> This causes a fairly comprehensive list of information about an object
-> to be displayed. This command is functionally equivalent to @examine.
-> This command may be shorted to "exam".
->
-> See Also: @examine(2)
+Section 2 - examine
+
+examine <object>
+
+This causes a fairly comprehensive list of information about an object
+to be displayed. This command is functionally equivalent to @examine.
+This command may be shorted to "exam".
+
+See Also: @examine(2)
 

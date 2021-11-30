@@ -1,17 +1,17 @@
 
-> Section 8 - tell_player
->
-> #include <sys.h>
-> #include <hear.h>
->
-> tell_player(player,actor,actee,type,message)
->
-> object player,actor,actee;
-> int type;
-> string message;
->
-> This tells the message 'message' to the specified player, by calling
-> the function hear() on the specified player.
->
-> See Also: hear(9), tell_room(8), tell_room_except(8), tell_room_except2(8)
+Section 8 - tell_player
+
+#include <sys.h>
+#include <hear.h>
+
+tell_player(player,actor,actee,type,message)
+
+object player,actor,actee;
+int type;
+string message;
+
+This tells the message 'message' to the specified player, by calling
+the function hear() on the specified player.
+
+See Also: hear(9), tell_room(8), tell_room_except(8), tell_room_except2(8)
 

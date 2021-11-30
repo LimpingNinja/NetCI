@@ -1,10 +1,10 @@
 
-> Section 1 - describe
->
-> describe <description>
->
-> This command sets your description, which is displayed to other players
-> who look at you.
->
-> See Also: @desc(2), look(1)
+Section 1 - describe
+
+describe <description>
+
+This command sets your description, which is displayed to other players
+who look at you.
+
+See Also: @desc(2), look(1)
 

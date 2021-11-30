@@ -1,28 +1,28 @@
 
-> Section 8 - gender_subs
->
-> #include <sys.h>
-> #include <gender.h>
->
-> gender_subs(actor,message)
->
-> object actor;
-> string message;
->
-> This function parses the string message for escape codes, and replaces
-> them with appropriate pronouns/names determined by the object actor's
-> gender. The escape codes are:
->
-> code  meaning              none    male    female  neuter  plural
-> ----  -------              ----    ----    ------  ------  ------
-> %s    subjective           name    he      she     it      they
-> %o    objective            name    him     her     it      them
-> %p    possessive           name's  his     hers    its     their
-> %a    absolute possessive  name's  his     hers    its     theirs
-> %n    name                 name    name    name    name    name
->
-> If the escape code is capitalized, the substitution will also be
-> capitalized.
->
-> See Also: get_gender(9)
+Section 8 - gender_subs
+
+#include <sys.h>
+#include <gender.h>
+
+gender_subs(actor,message)
+
+object actor;
+string message;
+
+This function parses the string message for escape codes, and replaces
+them with appropriate pronouns/names determined by the object actor's
+gender. The escape codes are:
+
+code  meaning              none    male    female  neuter  plural
+----  -------              ----    ----    ------  ------  ------
+%s    subjective           name    he      she     it      they
+%o    objective            name    him     her     it      them
+%p    possessive           name's  his     hers    its     their
+%a    absolute possessive  name's  his     hers    its     theirs
+%n    name                 name    name    name    name    name
+
+If the escape code is capitalized, the substitution will also be
+capitalized.
+
+See Also: get_gender(9)
 

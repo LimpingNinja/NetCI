@@ -1,10 +1,10 @@
 
-> Section 4 - rmdir
->
-> rmdir <directory_name>
->
-> This removes a directory; it will fail if the directory still
-> contains other files/subdirectories.
->
-> See Also: rmdir(7)
+Section 4 - rmdir
+
+rmdir <directory_name>
+
+This removes a directory; it will fail if the directory still
+contains other files/subdirectories.
+
+See Also: rmdir(7)
 

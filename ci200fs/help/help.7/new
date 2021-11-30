@@ -1,14 +1,14 @@
 
-> Section 7 - new
->
-> new(obj|path)
->
-> object obj;
-> string path;
->
-> new() returns an object pointer to a new instance of object obj,
-> or a new instance of the object referred to by the string path. It returns
-> 0 on failure. It is functionally equivalent to clone_object(7).
->
-> See Also: @clone(4), @compile(4), clone_object(7), compile_object(7)
+Section 7 - new
+
+new(obj|path)
+
+object obj;
+string path;
+
+new() returns an object pointer to a new instance of object obj,
+or a new instance of the object referred to by the string path. It returns
+0 on failure. It is functionally equivalent to clone_object(7).
+
+See Also: @clone(4), @compile(4), clone_object(7), compile_object(7)
 

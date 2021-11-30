@@ -1,11 +1,11 @@
 
-> Section 2 - @find
->
-> @find [<player_name>]
->
-> This produces a list of objects and rooms owned by a player.
-> A player must be PROGRAMMER before they can list objects and rooms
-> owned by players other than themselves.
->
-> BUGS: on large databases, this will cause major thrashing.
+Section 2 - @find
+
+@find [<player_name>]
+
+This produces a list of objects and rooms owned by a player.
+A player must be PROGRAMMER before they can list objects and rooms
+owned by players other than themselves.
+
+BUGS: on large databases, this will cause major thrashing.
 

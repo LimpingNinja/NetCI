@@ -1,15 +1,15 @@
 
-> Section 7 - iterate
->
-> iterate(first_obj,except1,except2,func,...)
->
-> object first_obj,except1,except2;
-> string func;
->
-> This system call calls the function func on first_obj and every object
-> in the next_object() linked list associated with it.  It does not,
-> however, call the function func on the objects except1 or except2.
-> except1 and except2 may be null objects.
->
-> See Also: call_other(7), next_object(7)
+Section 7 - iterate
+
+iterate(first_obj,except1,except2,func,...)
+
+object first_obj,except1,except2;
+string func;
+
+This system call calls the function func on first_obj and every object
+in the next_object() linked list associated with it.  It does not,
+however, call the function func on the objects except1 or except2.
+except1 and except2 may be null objects.
+
+See Also: call_other(7), next_object(7)
 

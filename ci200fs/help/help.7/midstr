@@ -1,15 +1,15 @@
 
-> Section 7 - midstr
->
-> midstr(s,pos,len)
->
-> string s;
-> int pos;
-> int len;
->
-> Returns a portion of s beginning at position pos with a length len.
->
-> NOTE: indexing in CI-C for strings begins with 1, not 0.
->
-> See Also: instr(7), leftstr(7), rightstr(7), strlen(7), subst(7)
+Section 7 - midstr
+
+midstr(s,pos,len)
+
+string s;
+int pos;
+int len;
+
+Returns a portion of s beginning at position pos with a length len.
+
+NOTE: indexing in CI-C for strings begins with 1, not 0.
+
+See Also: instr(7), leftstr(7), rightstr(7), strlen(7), subst(7)
 

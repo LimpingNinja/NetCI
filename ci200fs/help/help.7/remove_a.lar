@@ -1,17 +1,17 @@
 
-> Section 7 - remove_alarm
->
-> remove_alarm([func])
->
-> string func;
->
-> remove_alarm will remove the function func from the object's alarm queue.
-> If remove_alarm is called with no arguments, it will remove all alarms
-> from the object's alarm queue.
->
-> If no arguments are passed to remove_alarm, 0 is returned. Otherwise,
-> remove_alarm returns the number of seconds left til the function named
-> in func would have been called, or -1 if there was no pending alarm.
->
-> See Also: alarm(7)
+Section 7 - remove_alarm
+
+remove_alarm([func])
+
+string func;
+
+remove_alarm will remove the function func from the object's alarm queue.
+If remove_alarm is called with no arguments, it will remove all alarms
+from the object's alarm queue.
+
+If no arguments are passed to remove_alarm, 0 is returned. Otherwise,
+remove_alarm returns the number of seconds left til the function named
+in func would have been called, or -1 if there was no pending alarm.
+
+See Also: alarm(7)
 

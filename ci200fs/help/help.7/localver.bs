@@ -1,11 +1,11 @@
 
-> Section 7 - localverbs
->
-> localverbs(obj)
->
-> object obj;
->
-> Returns non-zero if the object is set LOCALVERBS, zero otherwise.
->
-> See Also: set_localverbs(7)
+Section 7 - localverbs
+
+localverbs(obj)
+
+object obj;
+
+Returns non-zero if the object is set LOCALVERBS, zero otherwise.
+
+See Also: set_localverbs(7)
 

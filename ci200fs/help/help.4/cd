@@ -1,10 +1,10 @@
 
-> Section 4 - cd
->
-> cd <relative_path>
->
-> This changes the working directory to the relative pathname.
->
->
-> See Also: pwd(4)
+Section 4 - cd
+
+cd <relative_path>
+
+This changes the working directory to the relative pathname.
+
+
+See Also: pwd(4)
 

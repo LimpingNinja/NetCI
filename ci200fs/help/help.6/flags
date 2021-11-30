@@ -1,25 +1,25 @@
 
-> Section 6 - flags
->
-> The valid flags are:
->
-> BUILDER           Players with this flag set can use the commands in
->                   section 2.
->
-> DARK              Objects with this flag set are invisible;
->                   rooms with this flag set don't have visible contents;
->                   players with this flag set are invisible;
->                   and exits with this flag set are not visible in the
->                   'exits' list.
->
-> JUMP_OK           Rooms with this flag set can be @tel'd to and from.
->
-> LINK_OK           Rooms with this flag set can have exits linked to them.
->
-> PROGRAMMER        Players with this flag set can use the commands in
->                   section 4.
->
-> STICKY            Objects with this flag set will be sent home when dropped.
->
-> See Also: @set(2)
+Section 6 - flags
+
+The valid flags are:
+
+BUILDER           Players with this flag set can use the commands in
+                  section 2.
+
+DARK              Objects with this flag set are invisible;
+                  rooms with this flag set don't have visible contents;
+                  players with this flag set are invisible;
+                  and exits with this flag set are not visible in the
+                  'exits' list.
+
+JUMP_OK           Rooms with this flag set can be @tel'd to and from.
+
+LINK_OK           Rooms with this flag set can have exits linked to them.
+
+PROGRAMMER        Players with this flag set can use the commands in
+                  section 4.
+
+STICKY            Objects with this flag set will be sent home when dropped.
+
+See Also: @set(2)
 

@@ -1,9 +1,9 @@
 
-> Section 4 - mv
->
-> mv <original_file> <new_file>
->
-> This moves a file from one filename/location to another.
->
-> See Also: mv(7)
+Section 4 - mv
+
+mv <original_file> <new_file>
+
+This moves a file from one filename/location to another.
+
+See Also: mv(7)
 

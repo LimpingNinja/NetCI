@@ -1,9 +1,9 @@
 
-> Section 2 - @unlock
->
-> @unlock <object_name>
->
-> This causes an object to become unlocked.
->
-> See Also: @lock(2)
+Section 2 - @unlock
+
+@unlock <object_name>
+
+This causes an object to become unlocked.
+
+See Also: @lock(2)
 

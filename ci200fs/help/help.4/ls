@@ -1,15 +1,15 @@
 
-> Section 4 - ls
->
-> ls [<pathname>]
->
-> This produces a directory listing of the specified path; or of the
-> current working directory, if no path is specified.
->
-> The output is formatted into 3 columns; the first column is the permissions
-> on the file ('d' for directory, 'r' for readable by others, 'w' for
-> writable by others), the second is the owner of the file, and the third
-> is the filename.
->
-> See Also: pwd(4)
+Section 4 - ls
+
+ls [<pathname>]
+
+This produces a directory listing of the specified path; or of the
+current working directory, if no path is specified.
+
+The output is formatted into 3 columns; the first column is the permissions
+on the file ('d' for directory, 'r' for readable by others, 'w' for
+writable by others), the second is the owner of the file, and the third
+is the filename.
+
+See Also: pwd(4)
 

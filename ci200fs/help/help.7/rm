@@ -1,11 +1,11 @@
 
-> Section 7 - rm
->
-> rm(path)
->
-> string path;
->
-> Removes the file named by path. rm returns 0 on success, non-zero on success.
->
-> See Also: rm(4)
+Section 7 - rm
+
+rm(path)
+
+string path;
+
+Removes the file named by path. rm returns 0 on success, non-zero on success.
+
+See Also: rm(4)
 

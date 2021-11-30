@@ -1,9 +1,9 @@
 
-> Section 1 - @create
->
-> @create <object_name>
->
-> This command creates a new object.
->
-> See Also: @dig(2), @open(2), @pcreate(5)
+Section 1 - @create
+
+@create <object_name>
+
+This command creates a new object.
+
+See Also: @dig(2), @open(2), @pcreate(5)
 

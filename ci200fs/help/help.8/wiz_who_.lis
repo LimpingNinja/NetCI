@@ -1,11 +1,11 @@
 
-> Section 8 - wiz_who_list
->
-> #include <sys.h>
->
-> wiz_who_list()
->
-> This function displays a who list, along with the locations of the players.
->
-> See Also: users(4), who_list(8)
+Section 8 - wiz_who_list
+
+#include <sys.h>
+
+wiz_who_list()
+
+This function displays a who list, along with the locations of the players.
+
+See Also: users(4), who_list(8)
 

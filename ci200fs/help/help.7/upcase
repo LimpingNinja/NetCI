@@ -1,11 +1,11 @@
 
-> Section 7 - upcase
->
-> upcase(s)
->
-> string s;
->
-> Returns the string s with all lowercase letters changed to uppercase.
->
-> See Also: downcase(7)
+Section 7 - upcase
+
+upcase(s)
+
+string s;
+
+Returns the string s with all lowercase letters changed to uppercase.
+
+See Also: downcase(7)
 

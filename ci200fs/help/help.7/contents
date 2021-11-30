@@ -1,12 +1,12 @@
 
-> Section 7 - contents
->
-> contents(obj)
->
-> object obj;
->
-> Returns the first object in the contents of obj, or 0 if obj has
-> no contents.
->
-> See Also: location(7), next_object(7)
+Section 7 - contents
+
+contents(obj)
+
+object obj;
+
+Returns the first object in the contents of obj, or 0 if obj has
+no contents.
+
+See Also: location(7), next_object(7)
 

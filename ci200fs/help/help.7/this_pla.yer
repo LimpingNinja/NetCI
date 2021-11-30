@@ -1,9 +1,9 @@
 
-> Section 7 - this_player
->
-> this_player()
->
-> Returns the object pointer to the object that initiated the current command,
-> or 0 if the current thread of execution was initiated by something other
-> than a command.
+Section 7 - this_player
+
+this_player()
+
+Returns the object pointer to the object that initiated the current command,
+or 0 if the current thread of execution was initiated by something other
+than a command.
 

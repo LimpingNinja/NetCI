@@ -1,7 +1,7 @@
 
-> Section 4 - @shout
->
-> @shout <message>
->
-> This broadcasts a message to all players currently connected.
+Section 4 - @shout
+
+@shout <message>
+
+This broadcasts a message to all players currently connected.
 

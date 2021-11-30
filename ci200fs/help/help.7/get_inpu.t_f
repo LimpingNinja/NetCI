@@ -1,11 +1,11 @@
 
-> Section 7 - get_input_func
->
-> get_input_func()
->
-> This function returns a string containing the name of the function
-> on which input is currently being redirected to, or 0 if no function
-> has been specified through redirect_input.
->
-> See Also: redirect_input(7)
+Section 7 - get_input_func
+
+get_input_func()
+
+This function returns a string containing the name of the function
+on which input is currently being redirected to, or 0 if no function
+has been specified through redirect_input.
+
+See Also: redirect_input(7)
 

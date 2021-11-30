@@ -1,12 +1,12 @@
 
-> Section 2 - @name
->
-> @name <object>=<new_name>
->
-> This changes the name of an object; 
->
-> Name changing by players is a server configurable option and may
-> be turned off on your server.
->
+Section 2 - @name
+
+@name <object>=<new_name>
+
+This changes the name of an object; 
+
+Name changing by players is a server configurable option and may
+be turned off on your server.
+
 
 

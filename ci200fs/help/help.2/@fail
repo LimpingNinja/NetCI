@@ -1,10 +1,10 @@
 
-> Section 2 - @fail
->
-> @fail <object>=<message>
->
-> This sets the message which is displayed when a player fails to get an
-> object.
->
-> See Also: @drop, @lock, @odrop, @ofail, @osucc, @succ
+Section 2 - @fail
+
+@fail <object>=<message>
+
+This sets the message which is displayed when a player fails to get an
+object.
+
+See Also: @drop, @lock, @odrop, @ofail, @osucc, @succ
 

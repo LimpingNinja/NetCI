@@ -1,12 +1,12 @@
 
-> Section 7 - atoi
->
-> atoi(s)
->
-> string s;
->
-> Returns the integer represented by s. If s is not an integer, 0 is
-> returned.
->
-> See Also: atoo(7), itoa(7), itoo(7), otoa(7), otoi(7)
+Section 7 - atoi
+
+atoi(s)
+
+string s;
+
+Returns the integer represented by s. If s is not an integer, 0 is
+returned.
+
+See Also: atoo(7), itoa(7), itoo(7), otoa(7), otoi(7)
 

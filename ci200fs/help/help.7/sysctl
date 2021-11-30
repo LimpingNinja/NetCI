@@ -1,19 +1,19 @@
 
-> Section 7 - sysctl
->
-> #include <sys.h>
->
-> sysctl(oper, ...)
->
-> int oper;
->
-> The following operations are supported by sysctl:
->
-> SYSCTL_SAVE     - save. saves the db, no further arguments required.
-> SYSCTL_SHUTDOWN - shutdown. shutdowns the program, no further arguments
->                   required.
-> SYSCTL_PANIC    - panic. shutdowns the program, no further arguments
->                   required.
->
-> All three of these functions require the caller to be PRIV.
+Section 7 - sysctl
+
+#include <sys.h>
+
+sysctl(oper, ...)
+
+int oper;
+
+The following operations are supported by sysctl:
+
+SYSCTL_SAVE     - save. saves the db, no further arguments required.
+SYSCTL_SHUTDOWN - shutdown. shutdowns the program, no further arguments
+                  required.
+SYSCTL_PANIC    - panic. shutdowns the program, no further arguments
+                  required.
+
+All three of these functions require the caller to be PRIV.
 

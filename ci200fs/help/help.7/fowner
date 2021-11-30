@@ -1,13 +1,13 @@
 
-> Section 7 - fowner
->
-> fowner(filename)
->
-> string filename;
->
-> This system call returns the owner of the file (as an integer), or -1
-> if the file does not exist, or if the calling object does not have
-> read permission in the file's directory.
->
-> See Also: fstat(7)
+Section 7 - fowner
+
+fowner(filename)
+
+string filename;
+
+This system call returns the owner of the file (as an integer), or -1
+if the file does not exist, or if the calling object does not have
+read permission in the file's directory.
+
+See Also: fstat(7)
 

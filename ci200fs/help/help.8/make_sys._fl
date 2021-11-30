@@ -1,14 +1,14 @@
 
-> Section 8 - make_sys_flags
->
-> #include <sys.h>
->
-> make_sys_flags(o)
->
-> object o;
->
-> This returns a string consisting of the names of the system flags set on
-> the object.
->
-> See Also: make_flags(8), make_num(8), make_type(8)
+Section 8 - make_sys_flags
+
+#include <sys.h>
+
+make_sys_flags(o)
+
+object o;
+
+This returns a string consisting of the names of the system flags set on
+the object.
+
+See Also: make_flags(8), make_num(8), make_type(8)
 

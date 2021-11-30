@@ -1,14 +1,14 @@
 
-> Section 7 - next_who
->
-> next_who(obj)
->
-> object obj;
->
-> Gets the next object connected over the net after obj in the server's list
-> of net-connected objects.  If obj is null, it will return the first object
-> in the server's list.  It will return null if obj is the last object in the
-> server's list.
->
-> See Also: connected(7), get_devconn(7)
+Section 7 - next_who
+
+next_who(obj)
+
+object obj;
+
+Gets the next object connected over the net after obj in the server's list
+of net-connected objects.  If obj is null, it will return the first object
+in the server's list.  It will return null if obj is the last object in the
+server's list.
+
+See Also: connected(7), get_devconn(7)
 

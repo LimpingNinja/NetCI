@@ -1,10 +1,10 @@
 
-> Section 1 - gender
->
-> gender [male|female]
->
-> This command sets the player's gender. If no arguments are specified,
-> the player's current gender is reported.
->
-> See Also: @gender(2)
+Section 1 - gender
+
+gender [male|female]
+
+This command sets the player's gender. If no arguments are specified,
+the player's current gender is reported.
+
+See Also: @gender(2)
 

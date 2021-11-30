@@ -1,15 +1,15 @@
 
-> Section 8 - tell_player
->
-> #include <sys.h>
->
-> write(player,message)
->
-> object player;
-> string message;
->
-> This tells the message 'message' to the specified player, by calling
-> the function listen() on the specified player.
->
-> See Also: listen(9)
+Section 8 - tell_player
+
+#include <sys.h>
+
+write(player,message)
+
+object player;
+string message;
+
+This tells the message 'message' to the specified player, by calling
+the function listen() on the specified player.
+
+See Also: listen(9)
 
