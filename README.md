@@ -42,6 +42,20 @@ Now, is there any future use in a production environment? Probably not,
 but that doesn't mean you should ignore this. If you have spare cycles
 and nostalgia. Feel free to submit a pull request.
 
+### Compiling on OSX
+
+Make sure you have installed xCode
+
+```
+xcode-select --install
+```
+
+Right now there is an issue with the autoconf, so please edit autoconf.h and modify the USE_BSD define to USE_POSIX, then go back to the main folder and simply run:
+
+```
+make
+```
+
 ### Compiling on Debian-based linux (tested)
 
 Ensure that you have at least build-essentials installed:
