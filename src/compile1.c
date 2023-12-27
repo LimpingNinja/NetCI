@@ -263,24 +263,33 @@ unsigned int add_var(filptr *file_info, sym_tab_t *sym)
   sym->varlist=curr_var;
   rest=&(curr_var->array);
   done=0;
-  while (!done) {
-    get_token(file_info,&token);
-    if (token.type!=LARRAY_TOK)
-      done=1;
+    while (!done) {
+        get_token(file_info, &token);
+        if (token.type != LARRAY_TOK) {
+            done=1;
+        }
     else {
       get_token(file_info,&token);
-      if (token.type!=INTEGER_TOK) {
+      if (token.type!=INTEGER_TOK && token.type!=RARRAY_TOK) {
         set_c_err_msg("array size must be integer constant");
         return file_info->phys_line;
       }
-      *rest=(struct array_size *) MALLOC(sizeof(struct array_size));
-      (*rest)->size=token.token_data.integer;
-      (*rest)->next=NULL;
-      rest=&((*rest)->next);
-      get_token(file_info,&token);
       if (token.type!=RARRAY_TOK) {
-        set_c_err_msg("expected ]");
-        return file_info->phys_line;
+        *rest=(struct array_size *) MALLOC(sizeof(struct array_size));
+        (*rest)->size=token.token_data.integer;
+        (*rest)->next=NULL;
+        rest=&((*rest)->next);
+        get_token(file_info,&token);
+        if (token.type!=RARRAY_TOK) {
+          set_c_err_msg("expected ]");
+          return file_info->phys_line;
+        }
+      }
+      else {
+        *rest=(struct array_size *) MALLOC(sizeof(struct array_size));
+        (*rest)->size=255;
+        (*rest)->next=NULL;
+        rest=&((*rest)->next);
       }
     }
   }

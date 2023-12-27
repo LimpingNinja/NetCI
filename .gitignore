@@ -57,6 +57,11 @@ gmon.out
 *.su
 *.idb
 *.pdb
+*.build
+
+# Autoconfigure
+autoconf
+autoconf.h
 
 # Kernel Module Compile Results
 *.mod*
