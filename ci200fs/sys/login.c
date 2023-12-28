@@ -102,12 +102,12 @@ static do_create(arg) {
     return 1;
   }
   new_player=new("/obj/player");
-  new_player.set_secure();
-  new_player.set_name(name);
-  new_player.set_flags(sys_get_newchar_flags());
-  new_player.set_password(password);
-  new_player.set_link(atoo("/obj/room"));
-  new_player.set_owner(new_player);
+  new_player->set_secure();
+  new_player->set_name(name);
+  new_player->set_flags(sys_get_newchar_flags());
+  new_player->set_password(password);
+  new_player->set_link(atoo("/obj/room"));
+  new_player->set_owner(new_player);
   move_object(new_player,atoo("/obj/room"));
   add_new_player(name,new_player);
   tell_room_except(atoo("/obj/room"),new_player,NULL,HEAR_ENTER,NULL);

@@ -212,6 +212,8 @@ void get_exp_token(filptr *file_info, token_t *token)
       token->type=POSTMIN_OPER;
     else if (c=='=')
       token->type=MIEQ_OPER;
+    else if (c=='>')
+      token->type=CALL_TOK;
     else
       ungetch();
     return;
@@ -578,6 +580,8 @@ void get_token(filptr *file_info, token_t *token)
         token->type=POSTMIN_OPER;
       else if (c=='=')
         token->type=MIEQ_OPER;
+      else if (c=='>')
+      token->type=CALL_TOK;
       else
         ungetc(c,file_info->curr_file);
       return;

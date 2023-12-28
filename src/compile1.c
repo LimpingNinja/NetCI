@@ -465,20 +465,20 @@ unsigned int parse_exp(filptr *file_info, fn_t *curr_fn, sym_tab_t *loc_sym,
     set_c_err_msg("operation \'::\' unsupported");
     return file_info->phys_line;
   }
-  if (token.type==DOT_TOK) {
+  if (token.type==DOT_TOK || token.type==CALL_TOK) {
     if (!last_was_arg) {
-      set_c_err_msg("malformed expression");
+      set_c_err_msg("malformed expression (invalid use of call operator)");
       return file_info->phys_line;
     }
     get_token(file_info,&token);
     if (token.type!=NAME_TOK) {
-      set_c_err_msg("expected function name");
+      set_c_err_msg("expected function name following call operator");
       return file_info->phys_line;
     }
     add_code_string(curr_fn,token.token_data.name);
     get_token(file_info,&token);
     if (token.type!=LPAR_TOK) {
-      set_c_err_msg("expected argument list");
+      set_c_err_msg("expected argument list or functional call");
       return file_info->phys_line;
     }
     if (parse_arglist(file_info,curr_fn,loc_sym))

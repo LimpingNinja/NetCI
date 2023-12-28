@@ -31,6 +31,9 @@
 #define SECOND_TOK        58    /* :: */
 #define RETURN_TOK        59    /* return */
 #define DOT_TOK           60    /* . */
+#define CALL_TOK          61    /* -> */
+#define LARRASGN_TOK      62    /* ({*/
+#define RARRASGN_TOK      63    /* }) */
 
 /* Data structure declarations */
 
