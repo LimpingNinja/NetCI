@@ -5,6 +5,7 @@ azure-pipelines.yml
 # Database, config, and log files 
 *.db
 *.ini
+!netci.ini
 syslog.txt
 transact.log
 

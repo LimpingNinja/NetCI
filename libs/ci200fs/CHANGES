@@ -69,7 +69,10 @@ o Logging in now displays the last time you logged in and tells
 
 o Lots of small cleanups here and there
 
+12/28/23
 
+o Corrected malformed sitelist
 
+o Moved ci200fs to subfolder libs/ in preparation for mudlib 'lil' creation
 
 
