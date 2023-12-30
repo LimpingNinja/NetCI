@@ -129,6 +129,15 @@ int detach_session() {
 }
 #endif /* USE_WINDOWS */
 
+/**
+ * This function is designed to convert a hexadecimal string representation
+ * of a MAC address into its corresponding 6-byte (48-bit) array format.
+ *
+ * @param s Pointer to the input string representing the MAC address in hexadecimal form.
+ * @param addr Pointer to an array where the converted 6-byte MAC address will be stored.
+ * @return int Returns 0 on successful conversion, or -1 if the input string is not a valid 
+ *             12-character hexadecimal string.
+ */
 int convert_to_6byte(char *s, unsigned char *addr) {
   static unsigned char a[6];
   int len,c,count;
@@ -154,6 +163,15 @@ int convert_to_6byte(char *s, unsigned char *addr) {
   return 0;
 }
 
+/**
+ * Retrieves the address family based on the specified network type.
+ * 
+ * Supports TCP (IPv4), IPX (Linux/Windows), and NetBIOS (Windows only).
+ * Returns the corresponding address family constant for each protocol.
+ * 
+ * @param net_type Network type (TCP, IPX, NetBIOS).
+ * @return Address family constant or -1 if the network type is unsupported.
+ */
 int get_af(int net_type) {
   if (net_type==CI_PROTOCOL_TCP) return AF_INET;
 #ifdef USE_LINUX_IPX
@@ -166,6 +184,20 @@ int get_af(int net_type) {
   return (-1);
 }
 
+/**
+ * Converts an address and port to a sockaddr structure based on network type.
+ * 
+ * Supports TCP, IPX (Linux/Windows), and NetBIOS (Windows) protocols.
+ * For TCP, converts IPv4 address and port.
+ * For IPX, processes address string and port for IPX networks.
+ * For NetBIOS (Windows only), sets up NetBIOS name and port.
+ * 
+ * @param address IP or IPX address as a string.
+ * @param port Network port number.
+ * @param host Pointer to the resulting sockaddr structure.
+ * @param net_type Network type (TCP, IPX, NetBIOS).
+ * @return Size of the sockaddr structure or -1 on error.
+ */
 int convert_to_sockaddr(char *address, int port, struct sockaddr **host,
                         int net_type) {
   static struct sockaddr_in tcp_addr;
@@ -273,6 +305,13 @@ int convert_to_sockaddr(char *address, int port, struct sockaddr **host,
   return (-1);
 }
 
+/**
+ * Converts a 6-byte MAC address array to a 12-character hexadecimal string.
+ * The resulting string represents the MAC address in a readable format.
+ * 
+ * @param addr Input 6-byte MAC address array.
+ * @return Pointer to a static buffer containing the 12-character hexadecimal string.
+ */
 char *convert_from_6byte(unsigned char *addr) {
   static char buf[13];
   int loop,c;
@@ -293,6 +332,20 @@ char *convert_from_6byte(unsigned char *addr) {
   return buf;
 }
 
+/**
+ * Writes data to a socket with a non-blocking approach.
+ * 
+ * Attempts to write 'count' bytes from 'buf' to the socket 'fd'. Uses select()
+ * for non-blocking I/O, checking for write-ability. Handles partial writes and
+ * socket exceptions. This is mainly used to close out sockets outside of the
+ * normal operations and only called by flush_device->flush_a_device and by the
+ * immediate_disconnect function.
+ * 
+ * @param fd Socket file descriptor to write to.
+ * @param count Number of bytes to write.
+ * @param buf Buffer containing data to write.
+ * @return Number of bytes successfully written, or partial count on error or block.
+ */
 int saniflush(SOCKET fd,int count,char *buf) {
   struct timeval timeout;
   fd_set writefds,exceptfds;
@@ -328,6 +381,15 @@ int saniflush(SOCKET fd,int count,char *buf) {
   return count;
 }
 
+/**
+ * Resolves the given hostname to its corresponding IPv4 address using
+ * gethostbyname(). Only supports TCP protocol. If the hostname cannot
+ * be resolved or is not IPv4, returns NULL.
+ * 
+ * @param host Hostname to resolve.
+ * @param net_type Network type (defaults to global net_protocol if 0).
+ * @return Pointer to a static buffer containing the IPv4 address string, or NULL on failure.
+ */
 char *host_to_addr(char *host, int net_type) {
   struct hostent *h;
 
@@ -336,10 +398,19 @@ char *host_to_addr(char *host, int net_type) {
   h=gethostbyname(host);
   if (!h) return NULL;
   if (h->h_addrtype!=AF_INET) return NULL;
-  if (!(h->h_addr)) return NULL;
-  return inet_ntoa(*((struct in_addr *) h->h_addr));
+  if (!(h->h_addr_list[0])) return NULL;
+  return inet_ntoa(*((struct in_addr *) h->h_addr_list[0]));
 }
 
+/**
+ * Resolves the given IPv4 address to its hostname using gethostbyaddr().
+ * Only supports TCP protocol. If the address cannot be resolved or is invalid,
+ * returns NULL.
+ * 
+ * @param addr IPv4 address string to resolve.
+ * @param net_type Network type (defaults to global net_protocol if 0).
+ * @return Hostname corresponding to the IPv4 address, or NULL on failure.
+ */
 char *addr_to_host(char *addr, int net_type) {
   struct hostent *h;
   struct in_addr tcp_addr;
@@ -355,6 +426,16 @@ char *addr_to_host(char *addr, int net_type) {
     return NULL;
 }
 
+/**
+ * Iterates through the connection list to find the next active object, starting
+ * from a specified object. This function cycles through connected entities in
+ * network applications. It returns the next object in the connection sequence
+ * or NULL if no more objects are found.
+ *
+ * @param obj The reference object for starting the iteration, or NULL to start
+ *            from the beginning.
+ * @return The next connected object or NULL if there are no more.
+ */
 struct object *next_who(struct object *obj) {
   long loop;
 
@@ -368,6 +449,14 @@ struct object *next_who(struct object *obj) {
   return NULL;
 }
 
+/**
+ * Sends buffered output to a connected device. The function attempts to write
+ * a specified amount of data from the output buffer to the device. It handles
+ * partial writes by adjusting the buffer accordingly, retainin unwritten data
+ *
+ * @param devnum The device number identifying the target device in the
+ *               connection list.
+ */
 void unbuf_output(int devnum) {
   int num_written;
   char *tmp;
@@ -399,6 +488,17 @@ void set_now_time() {
   now_time=time2int(time(NULL));
 }
 
+/**
+ * Terminates the connection for the specified device number. It covers flushing
+ * the output buffer, closing the socket, and updating connection status. The
+ * function also exits any active editing sessions for the device. This uses the
+ * saniflush() function to finish/flush. This is mainly used throughout the net
+ * interface for closing out faulty or expired connections, but also used in the
+ * core when an object connected to a device is destroyed. disconnect_device() 
+ * calls this and is the primary disconnect method exposed to NLPC.
+ *
+ * @param devnum Device number in the connection list. If -1, exits without action.
+ */
 void immediate_disconnect(int devnum) {
   if (devnum==(-1)) return;
   if (connlist[devnum].obj->flags & IN_EDITOR)
@@ -422,6 +522,16 @@ void immediate_disconnect(int devnum) {
   connlist[devnum].outbuf=NULL;
 }
 
+/**
+ * Establishes a new connection based on the given socket and network type.
+ * Accepts an incoming connection, assigns a device number, and initializes
+ * various connection parameters. It handles different protocols like TCP, IPX,
+ * and NETBIOS. The function also calls 'connect' for newly connected objects
+ * and performs necessary cleanup for unsuccessful connections.
+ *
+ * @param sockfd Socket file descriptor.
+ * @param net_type Network protocol type.
+ */
 void make_new_conn(SOCKET sockfd,int net_type) {
   int loop;
   int devnum;
@@ -602,6 +712,14 @@ void buffer_input(int conn_num) {
   connlist[conn_num].last_input_time=now_time;
 }
   
+/**
+ * Handles input from all connected devices. This function continuously monitors
+ * the input, output, and exception sets of file descriptors. It processes
+ * incoming data, handles new connections, and manages disconnections. It also
+ * deals with periodic tasks like database auto-saving and handling alarms.
+ * The function operates in an infinite loop, handling input and output for each
+ * connection and executing related functions based on the network activity.
+ */
 void handle_input() {
   fd_set input_set,output_set,exception_set;
   int loop;
@@ -712,6 +830,17 @@ void handle_input() {
   }
 }
 
+/**
+ * Initializes the network interfaces for the application. It sets the maximum
+ * number of file descriptors, determines the network protocol (TCP, IPX, NetBIOS),
+ * and configures the socket for the selected protocol. It binds the socket to
+ * the appropriate port and starts listening for incoming connections, allocating
+ * memory for connection list and setting signal handling for SIGPIPE.
+ * 
+ * @param port Structure containing network parameters.
+ * @param do_single Flag to check if the interface should run in single-user mode.
+ * @return Integer status code indicating success or type of failure.
+ */
 int init_interface(struct net_parms *port, int do_single) {
   int loop=0;
   struct sockaddr_in tcp_server;
@@ -814,6 +943,12 @@ int init_interface(struct net_parms *port, int do_single) {
   return 0;
 }
 
+/**
+ * Shuts down the network interface. This function iterates through the connection
+ * list, immediately disconnecting any active connections. It then closes the main
+ * socket and frees the allocated memory for the connection list. For Windows,
+ * it additionally performs necessary cleanup for Winsock (Windows Sockets).
+ */
 void shutdown_interface() {
   int loop=0;
 
@@ -831,6 +966,14 @@ void shutdown_interface() {
   FREE(connlist);
 }
 
+/**
+ * Returns the port number associated with a device's connection. The function 
+ * extracts the port number from the device's connection information based on 
+ * the network protocol (TCP, IPX, NetBIOS).
+ * 
+ * @param obj Pointer to the object representing the device.
+ * @return Port number, or -1 if the device is not connected or the protocol is unsupported.
+ */
 int get_devport(struct object *obj) {
   if (!obj) return (-1);
   if (obj->devnum==-1) return (-1);
@@ -853,12 +996,29 @@ int get_devport(struct object *obj) {
   return (-1);
 }
 
+/**
+ * Retrieves the network protocol type of a device's connection. The function 
+ * identifies whether the connection is using TCP, IPX, NetBIOS, or an unsupported 
+ * protocol.
+ * 
+ * @param obj Pointer to the object representing the device.
+ * @return Network protocol type, or -1 if the device is not connected.
+ */
 int get_devnet(struct object *obj) {
   if (!obj) return (-1);
   if (obj->devnum==-1) return (-1);
   return connlist[obj->devnum].net_type;
 }
 
+/**
+ * Retrieves the connection address of a device as a string. The format of the 
+ * address depends on the network protocol (TCP, IPX, NetBIOS). For TCP, it's an 
+ * IPv4 address; for IPX, a combination of network and node numbers; for NetBIOS, 
+ * the NetBIOS name.
+ * 
+ * @param obj Pointer to the object representing the device.
+ * @return Connection address as a string, or "<unknown>" for an unrecognized type.
+ */
 char *get_devconn(struct object *obj) {
   struct sockaddr_in *tcp_ptr;
 #ifdef USE_LINUX_IPX
@@ -912,6 +1072,16 @@ char *get_devconn(struct object *obj) {
   return "<unknown>";
 }
 
+/**
+ * Sends a message to a specified device. This function appends the provided message 
+ * to the device's output buffer. If the combined length of the existing buffer and 
+ * the new message exceeds the maximum buffer length, the buffer is first flushed to 
+ * make space. The message is truncated if it is too long, with a notice appended 
+ * indicating that the output was flushed.
+ * 
+ * @param obj Pointer to the object representing the device.
+ * @param msg The message to be sent.
+ */
 void send_device(struct object *obj, char *msg) {
   int len;
   char *tmp;
@@ -943,6 +1113,17 @@ void send_device(struct object *obj, char *msg) {
   }
 }
 
+/**
+ * Reassigns a device connection from one object to another. If the destination
+ * object is already connected, or the source object is not connected, the 
+ * operation fails. The source object's connection is transferred to the 
+ * destination object, updating connection status accordingly. This is the 
+ * primary function used to reconnect a device to an object in soft-code.
+ * 
+ * @param src Pointer to the source object.
+ * @param dest Pointer to the destination object.
+ * @return Zero on success, or 1 if the transfer is not possible.
+ */
 int reconnect_device(struct object *src, struct object *dest) {
   if (dest->devnum!=-1) return 1;
   if (src->devnum==-1) return 1;
@@ -954,6 +1135,15 @@ int reconnect_device(struct object *src, struct object *dest) {
   return 0;
 }
 
+/**
+ * Immediately disconnects a specific device by closing its network connection.
+ * It ensures the flushing of the device's output buffer and updates the
+ * connection status of the associated object. This action is taken immediately
+ * and is irreversible within the current session. This is the primary function
+ * used throughout soft-code to disconnect a connection.
+ *
+ * @param obj Pointer to the object representing the device.
+ */
 void disconnect_device(struct object *obj) {
   if (obj->devnum==-1) return;
   if (!(obj->flags & CONNECTED)) return;
@@ -962,6 +1152,13 @@ void disconnect_device(struct object *obj) {
   obj->devnum=(-1);
 }
 
+/**
+ * Flushes the output buffer for a specific connected device. It is only called
+ * from flush_device and is used to handle partial flushing by retaining any
+ * unsent data. This ensures that all data in the buffer is attempted to be sent.
+ *
+ * @param obj Pointer to the object representing the device.
+ */
 void flush_a_device(struct object *obj) {
   char *tmp;
   int num_written;
@@ -985,6 +1182,11 @@ void flush_a_device(struct object *obj) {
   }
 }
 
+/**
+ * Flushes output buffers for all connected devices. This function is primarily
+ * called from send_device to ensure that the output buffer is completely sent
+ * out, especially in cases of buffer overflow or when preparing for a shutdown.
+ */
 void flush_device(struct object *obj) {
   int loop;
 
@@ -999,6 +1201,18 @@ void flush_device(struct object *obj) {
   }
 }
 
+/**
+ * Establishes a network connection for a device. This function creates a socket
+ * and connects it to a specified address and port, based on the provided network
+ * type. The device is then associated with an object, and its connection status
+ * is updated. It's used to initiate outbound connections from the application.
+ *
+ * @param obj Pointer to the object representing the device.
+ * @param address IP or hostname to connect to.
+ * @param port Port number for the connection.
+ * @param net_type Network protocol type (TCP, IPX, etc.).
+ * @return 1 on successful connection, 0 otherwise.
+ */
 int connect_device(struct object *obj, char *address, int port, int net_type) {
   int loop,devnum,socklen;
   SOCKET new_fd;
@@ -1089,11 +1303,23 @@ int connect_device(struct object *obj, char *address, int port, int net_type) {
   return 1;
 }
 
+/**
+ * Calculates the inactive/idle time of a device since its last input. 
+ *
+ * @param obj Pointer to the object representing the device.
+ * @return Idle time in seconds, or -1 if the device is not connected.
+ */
 long get_devidle(struct object *obj) {
   if ((!(obj->flags & CONNECTED)) || (obj->devnum==(-1))) return -1;
   return now_time-connlist[obj->devnum].last_input_time;
 }
 
+/**
+ * Retrieves the the total active time of a device connection.
+ *
+ * @param obj Pointer to the object representing the device.
+ * @return Connection time in seconds, or -1 if the device is not connected.
+ */
 long get_conntime(struct object *obj) {
   if ((!(obj->flags & CONNECTED)) || (obj->devnum==(-1))) return -1;
   return connlist[obj->devnum].conn_time;
