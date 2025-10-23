@@ -1,6 +1,6 @@
 CC=gcc
-CCFLAGS= -ggdb -pg
-DEFS= -DDEBUG
+CCFLAGS= -O2
+DEFS=
 LFLAGS=
 
 all: netci

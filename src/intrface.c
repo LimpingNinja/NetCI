@@ -21,6 +21,11 @@
 #include <sys/resource.h>
 #endif /* USE_POSIX */
 
+#ifdef USE_BSD
+#include <unistd.h>
+#include <sys/resource.h>
+#endif /* USE_BSD */
+
 #ifdef USE_LINUX
 #include <unistd.h>
 #ifdef USE_LINUX_IPX
@@ -119,7 +124,7 @@ int detach_session() {
   setpgid(0,0);
 #endif /* USE_POSIX */
 #ifdef USE_BSD
-  setpgrp(0,0);
+  setpgrp();
 #endif /* USE_BSD */
 #ifdef USE_LINUX
   setpgid(0,0);

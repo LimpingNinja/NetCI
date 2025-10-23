@@ -72,7 +72,7 @@ static alarm_add_pkg() {
     linecount++;
     while (leftstr(cmd,1)==" ") cmd=rightstr(cmd,strlen(cmd)-1);
     while (rightstr(cmd,1)=="\n") cmd=leftstr(cmd,strlen(cmd)-1);
-    while (rightstr(cmd,1)=="\r") cmd=lefstr(cmd,strlen(cmd)-1);
+    while (rightstr(cmd,1)=="\r") cmd=leftstr(cmd,strlen(cmd)-1);
     while (rightstr(cmd,1)==" ") cmd=leftstr(cmd,strlen(cmd)-1);
     if (cmd)
       if (leftstr(cmd,1)!="#") {
@@ -168,7 +168,7 @@ get_version(pkg) {
   while (cmd=fread(filename,filepos)) {
     while (leftstr(cmd,1)==" ") cmd=rightstr(cmd,strlen(cmd)-1);
     while (rightstr(cmd,1)=="\n") cmd=leftstr(cmd,strlen(cmd)-1);
-    while (rightstr(cmd,1)=="\r") cmd=lefstr(cmd,strlen(cmd)-1);
+    while (rightstr(cmd,1)=="\r") cmd=leftstr(cmd,strlen(cmd)-1);
     while (rightstr(cmd,1)==" ") cmd=leftstr(cmd,strlen(cmd)-1);
     if (cmd)
       if (leftstr(cmd,1)!="#") {
