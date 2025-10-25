@@ -180,17 +180,22 @@ static void unbuf_output(int devnum) {
     write_size = (connlist[devnum].outbuf_count > WRITE_BURST) ?
                  WRITE_BURST : connlist[devnum].outbuf_count;
     
+    logger(LOG_DEBUG, "intrface: writing buffered output");
     num_written = write(connlist[devnum].fd, connlist[devnum].outbuf, write_size);
     
     if (num_written <= 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            logger(LOG_DEBUG, "intrface: write would block, retry later");
             return;  /* Would block, try again later */
+        }
+        logger(LOG_WARNING, "intrface: write error on socket");
         /* Connection error, will be handled by exception */
         return;
     }
     
     if (num_written < connlist[devnum].outbuf_count) {
         /* Partial write */
+        logger(LOG_DEBUG, "intrface: partial write, buffering remaining data");
         tmp = MALLOC(connlist[devnum].outbuf_count - num_written + 1);
         memcpy(tmp, connlist[devnum].outbuf + num_written,
                connlist[devnum].outbuf_count - num_written);
@@ -200,6 +205,7 @@ static void unbuf_output(int devnum) {
         connlist[devnum].outbuf = tmp;
     } else {
         /* Complete write */
+        logger(LOG_DEBUG, "intrface: output buffer flushed");
         connlist[devnum].outbuf_count = 0;
         FREE(connlist[devnum].outbuf);
         connlist[devnum].outbuf = NULL;
@@ -213,7 +219,19 @@ void set_now_time() {
 
 /* Immediately disconnect a device */
 void immediate_disconnect(int devnum) {
+    char logbuf[256];
+    char *ip_addr;
+    
     if (devnum == -1) return;
+    
+    /* Get IP address for logging */
+    ip_addr = inet_ntoa(connlist[devnum].address.tcp_addr.sin_addr);
+    
+    sprintf(logbuf, "intrface: disconnecting %s from obj #%ld (%s)",
+            ip_addr,
+            (long)connlist[devnum].obj->refno,
+            connlist[devnum].obj->parent ? connlist[devnum].obj->parent->pathname : "no-parent");
+    logger(LOG, logbuf);
     
     if (connlist[devnum].obj->flags & IN_EDITOR)
         remove_from_edit(connlist[devnum].obj);
@@ -222,6 +240,9 @@ void immediate_disconnect(int devnum) {
     
     /* Try to flush remaining output */
     if (connlist[devnum].outbuf_count > 0) {
+        sprintf(logbuf, "intrface: flushing %d bytes before disconnect",
+                connlist[devnum].outbuf_count);
+        logger(LOG_DEBUG, logbuf);
         write(connlist[devnum].fd, connlist[devnum].outbuf,
               connlist[devnum].outbuf_count);
     }
@@ -249,6 +270,8 @@ static void make_new_conn(int listen_fd) {
     struct var_stack *rts;
     struct var tmp;
     struct fns *func;
+    char logbuf[256];
+    char *ip_addr;
     
     boot_obj = ref_to_obj(0);
     devnum = -1;
@@ -268,11 +291,17 @@ static void make_new_conn(int listen_fd) {
         return;
     }
     
-    logger(LOG_DEBUG, "intrface: connection accepted, setting non-blocking");
+    /* Get IP address for logging */
+    ip_addr = inet_ntoa(tcp_addr.sin_addr);
+    
+    sprintf(logbuf, "intrface: connection from %s:%d",
+            ip_addr, ntohs(tcp_addr.sin_port));
+    logger(LOG_DEBUG, logbuf);
     
     /* Set non-blocking */
     if (set_nonblocking(new_fd) < 0) {
-        logger(LOG_ERROR, "intrface: failed to set non-blocking mode");
+        sprintf(logbuf, "intrface: failed to set non-blocking for %s", ip_addr);
+        logger(LOG_ERROR, logbuf);
         close(new_fd);
         return;
     }
@@ -286,7 +315,8 @@ static void make_new_conn(int listen_fd) {
     }
     
     if (devnum == -1 || boot_obj->devnum != -1) {
-        logger(LOG_WARNING, "intrface: connection rejected (no slots or boot busy)");
+        sprintf(logbuf, "intrface: rejected %s (no slots or boot busy)", ip_addr);
+        logger(LOG_WARNING, logbuf);
         close(new_fd);
         return;
     }
@@ -305,11 +335,14 @@ static void make_new_conn(int listen_fd) {
     boot_obj->devnum = devnum;
     boot_obj->flags |= CONNECTED;
     
-    logger(LOG_DEBUG, "intrface: calling boot object connect()");
+    sprintf(logbuf, "intrface: %s connected to obj #%ld (boot)",
+            ip_addr, (long)boot_obj->refno);
+    logger(LOG, logbuf);
     
     /* Call connect function */
     func = find_function("connect", boot_obj, &tmpobj);
     if (func) {
+        logger(LOG_DEBUG, "intrface: calling boot connect()");
         tmp.type = NUM_ARGS;
         tmp.value.num = 0;
         rts = NULL;
@@ -332,17 +365,32 @@ static void buffer_input(int conn_num) {
     struct fns *func;
     int retlen;
     struct object *obj, *tmpobj;
+    char logbuf[256];
+    char *ip_addr;
     
     retlen = read(connlist[conn_num].fd, buf, MAX_STR_LEN - 2);
     
     if (retlen <= 0) {
         if (retlen == 0 || (errno != EAGAIN && errno != EWOULDBLOCK)) {
             /* Connection closed or error */
+            ip_addr = inet_ntoa(connlist[conn_num].address.tcp_addr.sin_addr);
+            
+            if (retlen == 0) {
+                sprintf(logbuf, "intrface: %s closed connection (obj #%ld)",
+                        ip_addr, (long)connlist[conn_num].obj->refno);
+                logger(LOG, logbuf);
+            } else {
+                sprintf(logbuf, "intrface: read error from %s (obj #%ld)",
+                        ip_addr, (long)connlist[conn_num].obj->refno);
+                logger(LOG_WARNING, logbuf);
+            }
+            
             obj = connlist[conn_num].obj;
             immediate_disconnect(conn_num);
             
             func = find_function("disconnect", obj, &tmpobj);
             if (func) {
+                logger(LOG_DEBUG, "intrface: calling disconnect() function");
                 rts = NULL;
                 tmp.type = NUM_ARGS;
                 tmp.value.num = 0;
@@ -351,9 +399,16 @@ static void buffer_input(int conn_num) {
                 free_stack(&rts);
             }
             handle_destruct();
+        } else {
+            logger(LOG_DEBUG, "intrface: read would block");
         }
         return;
     }
+    
+    /* Log received data at debug level */
+    sprintf(logbuf, "intrface: received %d bytes from obj #%ld",
+            retlen, (long)connlist[conn_num].obj->refno);
+    logger(LOG_DEBUG, logbuf);
     
     /* Process input */
     for (int i = 0; i < retlen; i++) {
@@ -393,11 +448,11 @@ void handle_input() {
     while (1) {
         /* Auto-save check */
         if (cache_top > transact_log_size) {
-            logger(LOG, "  cache: auto-saving");
+            logger(LOG_INFO, "  cache: auto-saving");
             if (save_db(NULL))
-                logger(LOG, "  cache: auto-save failed");
+                logger(LOG_INFO, "  cache: auto-save failed");
             else
-                logger(LOG, "  cache: auto-save completed");
+                logger(LOG_INFO, "  cache: auto-save completed");
         }
         
         /* Build poll array */
@@ -443,12 +498,15 @@ void handle_input() {
         
         /* Check listening socket */
         if (fds[0].revents & POLLIN) {
+            logger(LOG_DEBUG, "intrface: incoming connection detected");
             make_new_conn(sockfd);
         }
         
         /* Check client connections */
         for (int i = 1; i < nfds; i++) {
             int conn_num = -1;
+            char logbuf[256];
+            char *ip_addr;
             
             /* Find connection number */
             for (int j = 0; j < num_conns; j++) {
@@ -462,11 +520,24 @@ void handle_input() {
             
             /* Handle errors/hangup */
             if (fds[i].revents & (POLLERR | POLLHUP)) {
+                ip_addr = inet_ntoa(connlist[conn_num].address.tcp_addr.sin_addr);
+                
+                if (fds[i].revents & POLLERR) {
+                    sprintf(logbuf, "intrface: socket error on %s (obj #%ld)",
+                            ip_addr, (long)connlist[conn_num].obj->refno);
+                    logger(LOG_WARNING, logbuf);
+                } else {
+                    sprintf(logbuf, "intrface: hangup on %s (obj #%ld)",
+                            ip_addr, (long)connlist[conn_num].obj->refno);
+                    logger(LOG, logbuf);
+                }
+                
                 obj = connlist[conn_num].obj;
                 immediate_disconnect(conn_num);
                 
                 func = find_function("disconnect", obj, &tmpobj);
                 if (func) {
+                    logger(LOG_DEBUG, "intrface: calling disconnect() function");
                     rts = NULL;
                     tmp.type = NUM_ARGS;
                     tmp.value.num = 0;
@@ -480,11 +551,13 @@ void handle_input() {
             
             /* Handle input */
             if (fds[i].revents & POLLIN) {
+                logger(LOG_DEBUG, "intrface: data available for reading");
                 buffer_input(conn_num);
             }
             
             /* Handle output */
             if (fds[i].revents & POLLOUT) {
+                logger(LOG_DEBUG, "intrface: socket ready for writing");
                 unbuf_output(conn_num);
             }
         }
@@ -511,24 +584,37 @@ int init_interface(struct net_parms *port, int do_single) {
     struct sockaddr_in tcp_server;
     int opt = 1;
     
+    logger(LOG_INFO, "intrface: initializing network interface");
     set_num_fds();
     
-    if (do_single) return NOSINGLE;
+    if (do_single) {
+        logger(LOG_ERROR, "intrface: single-user mode not supported");
+        return NOSINGLE;
+    }
     
     net_protocol = port->protocol;
     
-    if (net_protocol != CI_PROTOCOL_TCP)
+    if (net_protocol != CI_PROTOCOL_TCP) {
+        logger(LOG_ERROR, "intrface: unsupported protocol");
         return NOPROT;
+    }
     
     /* Create socket */
+    logger(LOG_DEBUG, "intrface: creating TCP socket");
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) return NOSOCKET;
+    if (sockfd < 0) {
+        logger(LOG_ERROR, "intrface: failed to create socket");
+        return NOSOCKET;
+    }
     
     /* Set socket options */
+    logger(LOG_DEBUG, "intrface: setting SO_REUSEADDR");
     setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
     
     /* Set non-blocking */
+    logger(LOG_DEBUG, "intrface: setting non-blocking mode");
     if (set_nonblocking(sockfd) < 0) {
+        logger(LOG_ERROR, "intrface: failed to set non-blocking mode");
         close(sockfd);
         return NOSOCKET;
     }
@@ -539,13 +625,17 @@ int init_interface(struct net_parms *port, int do_single) {
     tcp_server.sin_addr.s_addr = INADDR_ANY;
     tcp_server.sin_port = htons(port->tcp_port);
     
+    logger(LOG_DEBUG, "intrface: binding to port");
     if (bind(sockfd, (struct sockaddr *)&tcp_server, sizeof(tcp_server)) < 0) {
+        logger(LOG_ERROR, "intrface: port already in use");
         close(sockfd);
         return PORTINUSE;
     }
     
     /* Listen */
+    logger(LOG_DEBUG, "intrface: listening for connections");
     if (listen(sockfd, 5) < 0) {
+        logger(LOG_ERROR, "intrface: listen() failed");
         close(sockfd);
         return NOSOCKET;
     }
@@ -554,6 +644,8 @@ int init_interface(struct net_parms *port, int do_single) {
     num_conns = num_fds - (7 + MIN_FREE_FILES);
     if (num_conns < 1) num_conns = 1;
     if (num_conns > MAX_CONNS) num_conns = MAX_CONNS;
+    
+    logger(LOG_INFO, "intrface: ready for connections");
     
     connlist = MALLOC(sizeof(struct connlist_s) * num_conns);
     for (int i = 0; i < num_conns; i++) {
@@ -567,6 +659,8 @@ int init_interface(struct net_parms *port, int do_single) {
 
 /* Shutdown network interface */
 void shutdown_interface() {
+    logger(LOG_INFO, "intrface: shutting down network interface");
+    
     for (int i = 0; i < num_conns; i++) {
         if (connlist[i].fd != -1)
             immediate_disconnect(i);
@@ -574,6 +668,8 @@ void shutdown_interface() {
     
     close(sockfd);
     FREE(connlist);
+    
+    logger(LOG_INFO, "intrface: network interface shutdown complete");
 }
 
 /* Get device port */
@@ -634,8 +730,21 @@ void send_device(struct object *obj, char *msg) {
 
 /* Reconnect device to different object */
 int reconnect_device(struct object *src, struct object *dest) {
+    char logbuf[256];
+    char *ip_addr;
+    
     if (dest->devnum != -1) return 1;
     if (src->devnum == -1) return 1;
+    
+    ip_addr = inet_ntoa(connlist[src->devnum].address.tcp_addr.sin_addr);
+    
+    sprintf(logbuf, "intrface: %s reconnecting from obj #%ld (%s) to obj #%ld (%s)",
+            ip_addr,
+            (long)src->refno,
+            src->parent ? src->parent->pathname : "no-parent",
+            (long)dest->refno,
+            dest->parent ? dest->parent->pathname : "no-parent");
+    logger(LOG, logbuf);
     
     dest->devnum = src->devnum;
     src->flags &= ~CONNECTED;
@@ -648,8 +757,19 @@ int reconnect_device(struct object *src, struct object *dest) {
 
 /* Disconnect device */
 void disconnect_device(struct object *obj) {
+    char logbuf[256];
+    char *ip_addr;
+    
     if (obj->devnum == -1) return;
     if (!(obj->flags & CONNECTED)) return;
+    
+    ip_addr = inet_ntoa(connlist[obj->devnum].address.tcp_addr.sin_addr);
+    
+    sprintf(logbuf, "intrface: disconnecting %s from obj #%ld (%s) by request",
+            ip_addr,
+            (long)obj->refno,
+            obj->parent ? obj->parent->pathname : "no-parent");
+    logger(LOG, logbuf);
     
     immediate_disconnect(obj->devnum);
     obj->flags &= ~CONNECTED;
@@ -658,12 +778,19 @@ void disconnect_device(struct object *obj) {
 
 /* Flush device output */
 void flush_device(struct object *obj) {
+    char logbuf[256];
+    
     if (obj) {
-        if (obj->devnum != -1)
+        if (obj->devnum != -1) {
+            sprintf(logbuf, "intrface: flushing output for obj #%ld",
+                    (long)obj->refno);
+            logger(LOG_DEBUG, logbuf);
             unbuf_output(obj->devnum);
+        }
         return;
     }
     
+    logger(LOG_DEBUG, "intrface: flushing all connections");
     for (int i = 0; i < num_conns; i++) {
         if (connlist[i].fd != -1)
             unbuf_output(i);
@@ -674,10 +801,25 @@ void flush_device(struct object *obj) {
 int connect_device(struct object *obj, char *address, int port, int net_type) {
     int devnum, new_fd;
     struct sockaddr_in remote_host;
+    char logbuf[256];
     
     if (!net_type) net_type = net_protocol;
-    if (net_type != CI_PROTOCOL_TCP) return 0;
-    if ((obj->flags & CONNECTED) || (obj->devnum != -1)) return 0;
+    if (net_type != CI_PROTOCOL_TCP) {
+        sprintf(logbuf, "intrface: obj #%ld outbound failed (unsupported protocol)",
+                (long)obj->refno);
+        logger(LOG_WARNING, logbuf);
+        return 0;
+    }
+    if ((obj->flags & CONNECTED) || (obj->devnum != -1)) {
+        sprintf(logbuf, "intrface: obj #%ld outbound failed (already connected)",
+                (long)obj->refno);
+        logger(LOG_WARNING, logbuf);
+        return 0;
+    }
+    
+    sprintf(logbuf, "intrface: obj #%ld initiating outbound to %s:%d",
+            (long)obj->refno, address, port);
+    logger(LOG, logbuf);
     
     /* Find free slot */
     devnum = -1;
@@ -688,11 +830,21 @@ int connect_device(struct object *obj, char *address, int port, int net_type) {
         }
     }
     
-    if (devnum == -1) return 0;
+    if (devnum == -1) {
+        sprintf(logbuf, "intrface: obj #%ld outbound to %s:%d failed (no free slots)",
+                (long)obj->refno, address, port);
+        logger(LOG_WARNING, logbuf);
+        return 0;
+    }
     
     /* Create socket */
     new_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (new_fd < 0) return 0;
+    if (new_fd < 0) {
+        sprintf(logbuf, "intrface: obj #%ld outbound to %s:%d failed (socket creation)",
+                (long)obj->refno, address, port);
+        logger(LOG_ERROR, logbuf);
+        return 0;
+    }
     
     /* Connect */
     memset(&remote_host, 0, sizeof(remote_host));
@@ -700,13 +852,20 @@ int connect_device(struct object *obj, char *address, int port, int net_type) {
     remote_host.sin_port = htons(port);
     remote_host.sin_addr.s_addr = inet_addr(address);
     
+    logger(LOG_DEBUG, "intrface: connecting to remote host");
     if (connect(new_fd, (struct sockaddr *)&remote_host, sizeof(remote_host)) < 0) {
+        sprintf(logbuf, "intrface: obj #%ld outbound to %s:%d failed (refused)",
+                (long)obj->refno, address, port);
+        logger(LOG_WARNING, logbuf);
         close(new_fd);
         return 0;
     }
     
     /* Set non-blocking */
     if (set_nonblocking(new_fd) < 0) {
+        sprintf(logbuf, "intrface: obj #%ld outbound to %s:%d failed (non-blocking)",
+                (long)obj->refno, address, port);
+        logger(LOG_ERROR, logbuf);
         close(new_fd);
         return 0;
     }
@@ -724,6 +883,12 @@ int connect_device(struct object *obj, char *address, int port, int net_type) {
     
     obj->devnum = devnum;
     obj->flags |= CONNECTED;
+    
+    sprintf(logbuf, "intrface: obj #%ld (%s) connected to %s:%d",
+            (long)obj->refno,
+            obj->parent ? obj->parent->pathname : "no-parent",
+            address, port);
+    logger(LOG, logbuf);
     
     return 1;
 }

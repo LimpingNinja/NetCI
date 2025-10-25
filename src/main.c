@@ -401,7 +401,7 @@ int main(int argc, char *argv[]) {
   }
   if (transact_log_size==0) transact_log_size=TRANSACT_LOG_SIZE;
   if (do_create) detach=0;
-  logger(LOG, " system: starting up");
+  logger(LOG_INFO, " system: starting up");
 #ifndef USE_WINDOWS
   if (detach) {
     retval=detach_session();
@@ -471,7 +471,7 @@ int main(int argc, char *argv[]) {
 	                 MB_YESNO)==IDYES)
         do_create=1;
       else {
-        logger(LOG, "console: database creation refused");
+        logger(LOG_INFO, "console: database creation refused");
         exit(0);
       }
     } else fclose(testfile);
@@ -486,7 +486,7 @@ int main(int argc, char *argv[]) {
 #endif /* USE_WINDOWS */
       exit(0);
     } else {
-      logger(LOG, " system: database creation complete");
+      logger(LOG_INFO, " system: database creation complete");
       if (save_db(save_name)) {
         logger(LOG_ERROR, " system: save failed");
 		shutdown_interface();
@@ -496,7 +496,7 @@ int main(int argc, char *argv[]) {
         exit(0);
 	  }	else {
 #ifndef USE_WINDOWS
-        logger(LOG, " system: shutting down");
+        logger(LOG_INFO, " system: shutting down");
 	    shutdown_interface();
 		exit(0);
 #endif /* !USE_WINDOWS */
@@ -513,7 +513,7 @@ int main(int argc, char *argv[]) {
       exit(0);
     }
   }
-  logger(LOG, " system: startup complete");
+  logger(LOG_INFO, " system: startup complete");
   loop=0;
   now_time=time2int(time(NULL));
   tmp.type=NUM_ARGS;

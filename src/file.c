@@ -606,15 +606,13 @@ void logger(int level, char *msg) {
   sprintf(timebuf,"%02d-%02d %02d:%02d",(int) (time_s->tm_mon+1),
           (int) time_s->tm_mday,
           (int) time_s->tm_hour,
-          (int) time_s->tm_min);ur)%12) ? ((time_s->tm_hour)%12):12),
-          (int) time_s->tm_min,
-          ((time_s->tm_hour<12) ? "AM":"PM"));
+          (int) time_s->tm_min);
   
   /* Add level prefix */
   switch(level) {
     case LOG_ERROR:   strcpy(levelbuf, "[ERROR] "); break;
     case LOG_WARNING: strcpy(levelbuf, "[WARN]  "); break;
-    case LOG:         strcpy(levelbuf, "[INFO]  "); break;
+    case LOG_INFO:    strcpy(levelbuf, "[INFO]  "); break;
     case LOG_DEBUG:   strcpy(levelbuf, "[DEBUG] "); break;
     default:          levelbuf[0] = '\0'; break;
   }

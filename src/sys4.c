@@ -177,12 +177,12 @@ int s_sysctl(struct object *caller, struct object *obj, struct object *player,
         sprintf(buf," sysctl: object %s#%ld attempting save",
                 obj->parent->pathname,(long) obj->refno);
       }
-      logger(LOG, buf);
+      logger(LOG_INFO, buf);
       FREE(buf);
       tmp.value.integer=save_db(save_name);
       push(&tmp,rts);
       if (!tmp.value.integer)
-        logger(LOG, " sysctl: save complete");
+        logger(LOG_INFO, " sysctl: save complete");
       else
         logger(LOG_ERROR, " sysctl: save failed");
       return 0;
@@ -201,7 +201,7 @@ int s_sysctl(struct object *caller, struct object *obj, struct object *player,
         sprintf(buf," sysctl: object %s#%ld attempting shutdown",
                 obj->parent->pathname,(long) obj->refno);
       }
-      logger(LOG, buf);
+      logger(LOG_INFO, buf);
       FREE(buf);
       tmp.value.integer=save_db(save_name);
       if (tmp.value.integer) {
@@ -210,7 +210,7 @@ int s_sysctl(struct object *caller, struct object *obj, struct object *player,
         return 0;
       }
       shutdown_interface();
-      logger(LOG, " sysctl: shutdown complete");
+      logger(LOG_INFO, " sysctl: shutdown complete");
       exit(0);
       break;
     case 2:
@@ -227,7 +227,7 @@ int s_sysctl(struct object *caller, struct object *obj, struct object *player,
         sprintf(buf," sysctl: object %s#%ld attempting panic",
                 obj->parent->pathname,(long) obj->refno);
       }
-      logger(LOG, buf);
+      logger(LOG_INFO, buf);
       FREE(buf);
       tmp.value.integer=save_db(panic_name);
       if (tmp.value.integer) {
@@ -236,7 +236,7 @@ int s_sysctl(struct object *caller, struct object *obj, struct object *player,
         return 0;
       }
       shutdown_interface();
-      logger(LOG, " sysctl: panic complete");
+      logger(LOG_INFO, " sysctl: panic complete");
       exit(-1);
       break;
     case 3:

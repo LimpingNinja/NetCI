@@ -21,7 +21,10 @@ int chmod_file(char *filename, struct object *uid, int flags);
 /* Logging levels - higher number = more verbose */
 #define LOG_ERROR   0  /* Only errors */
 #define LOG_WARNING 1  /* Errors + warnings */
-#define LOG 2  /* Errors + warnings + normal (default) */
+#define LOG_INFO    2  /* Errors + warnings + info (default) */
 #define LOG_DEBUG   3  /* Everything including debug */
+
+/* Legacy compatibility */
+#define LOG LOG_INFO
 
 void logger(int level, char *msg);

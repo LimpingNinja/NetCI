@@ -203,45 +203,45 @@ void AddText(char *buf) {
 }
 
 void console_save() {
-  logger(LOG, "console: attempting save");
+  logger(LOG_INFO, "console: attempting save");
   if (save_db(save_name))
     logger(LOG_ERROR, "console: save failed");
   else
-    logger(LOG, "console: save complete");
+    logger(LOG_INFO, "console: save complete");
 }
 
 void console_panic() {
   if (already_shutdown) return;
   already_shutdown=TRUE;
-  logger(LOG, "console: attempting panic");
+  logger(LOG_INFO, "console: attempting panic");
   if (save_db(panic_name)) {
     logger(LOG_ERROR, "console: panic failed");
     logger(LOG_ERROR, "console: system closing with possible data base corruption");
     shutdown_interface();
   } else {
     shutdown_interface();
-    logger(LOG, "console: panic complete");
+    logger(LOG_INFO, "console: panic complete");
   }
 }
 
 void console_shutdown() {
   if (already_shutdown) return;
   already_shutdown=TRUE;
-  logger(LOG, "console: attempting shutdown");
+  logger(LOG_INFO, "console: attempting shutdown");
   if (save_db(save_name)) {
     logger(LOG_ERROR, "console: shutdown failed");
-    logger(LOG, "console: automatically attempting panic");
+    logger(LOG_INFO, "console: automatically attempting panic");
     if (save_db(panic_name)) {
       logger(LOG_ERROR, "console: panic failed");
       logger(LOG_ERROR, "console: system closing with possible data base corruption");
       shutdown_interface();
     } else {
       shutdown_interface();
-      logger(LOG, "console: panic complete");
+      logger(LOG_INFO, "console: panic complete");
     }
   } else {
     shutdown_interface();
-    logger(LOG, "console: shutdown complete");
+    logger(LOG_INFO, "console: shutdown complete");
   }
 }
 
@@ -3066,7 +3066,7 @@ LONG APIENTRY MainWndProc(HWND hWnd,UINT message,UINT wParam,LONG lParam) {
               send_device(curr_who,"\n");
               curr_who=next_who(curr_who);
             }
-            logger(LOG, temp_buf);
+            logger(LOG_INFO, temp_buf);
             SelectRequestReturn();
           } else {
             RemovePausedFromTitle();
