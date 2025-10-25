@@ -587,23 +587,42 @@ int chmod_file(char *filename, struct object *uid, int flags) {
   return 0;
 }
 
-void log_sysmsg(char *msg) {
+void logger(int level, char *msg) {
   char timebuf[20];
+  char levelbuf[10];
   time_t now_time;
   FILE *logfile;
   struct tm *time_s;
+  
+  /* Filter based on log level */
+  /* Higher log_level = more verbose output */
+  /* ERROR(0) < WARNING(1) < LOG(2) < DEBUG(3) */
+  /* If log_level=LOG(2), show ERROR, WARNING, LOG but not DEBUG */
+  if (level > log_level)
+    return;
 
   now_time=time(NULL);
   time_s=localtime(&now_time);
-  sprintf(timebuf,"%2d/%02d/%2d %2d:%02d %s",(int) (time_s->tm_mon+1),
+  sprintf(timebuf,"%02d-%02d %02d:%02d",(int) (time_s->tm_mon+1),
           (int) time_s->tm_mday,
-          (int) time_s->tm_year,
-          (int) (((time_s->tm_hour)%12) ? ((time_s->tm_hour)%12):12),
+          (int) time_s->tm_hour,
+          (int) time_s->tm_min);ur)%12) ? ((time_s->tm_hour)%12):12),
           (int) time_s->tm_min,
           ((time_s->tm_hour<12) ? "AM":"PM"));
+  
+  /* Add level prefix */
+  switch(level) {
+    case LOG_ERROR:   strcpy(levelbuf, "[ERROR] "); break;
+    case LOG_WARNING: strcpy(levelbuf, "[WARN]  "); break;
+    case LOG:         strcpy(levelbuf, "[INFO]  "); break;
+    case LOG_DEBUG:   strcpy(levelbuf, "[DEBUG] "); break;
+    default:          levelbuf[0] = '\0'; break;
+  }
+  
 #ifdef USE_WINDOWS
   AddText(timebuf);
   AddText(" ");
+  AddText(levelbuf);
   AddText(msg);
   AddText("\n");
   logfile=fopen(syslog_name,"a");
@@ -616,10 +635,10 @@ void log_sysmsg(char *msg) {
   }
 #else /* USE_WINDOWS */
   if (noisy)
-    fprintf(stderr,"%s %s\n",timebuf,msg);
+    fprintf(stderr,"%s %s%s\n",timebuf,levelbuf,msg);
   logfile=fopen(syslog_name,"a");
   if (!logfile) return;
 #endif /* USE_WINDOWS */
-  fprintf(logfile,"%s %s\n",timebuf,msg);
+  fprintf(logfile,"%s %s%s\n",timebuf,levelbuf,msg);
   fclose(logfile);
 }

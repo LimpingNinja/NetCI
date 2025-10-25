@@ -636,7 +636,7 @@ int s_syslog(struct object *caller, struct object *obj, struct object *player,
   sprintf(buf," syslog: %s#%ld %s",obj->parent->pathname,(long) obj->refno,
           tmp.value.string);
   clear_var(&tmp);
-  log_sysmsg(buf);
+  logger(LOG, buf);
   FREE(buf);
   tmp.type=INTEGER;
   tmp.value.integer=0;

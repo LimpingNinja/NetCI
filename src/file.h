@@ -17,4 +17,11 @@ int unhide(char *filename, struct object *uid, int flags);
 int db_add_entry(char *filename, signed long uid, int flags);
 int chown_file(char *filename, struct object *uid, struct object *new_owner);
 int chmod_file(char *filename, struct object *uid, int flags);
-void log_sysmsg(char *msg);
+
+/* Logging levels - higher number = more verbose */
+#define LOG_ERROR   0  /* Only errors */
+#define LOG_WARNING 1  /* Errors + warnings */
+#define LOG 2  /* Errors + warnings + normal (default) */
+#define LOG_DEBUG   3  /* Everything including debug */
+
+void logger(int level, char *msg);

@@ -233,7 +233,7 @@ void compile_error(struct object *player, char *path, unsigned int line) {
   if (!c_err_msg) c_err_msg="unknown error";
   buf=MALLOC(21+ITOA_BUFSIZ+strlen(path)+strlen(c_err_msg));
   sprintf(buf,"compile: %s.c line #%ld: %s",path,(long) line,c_err_msg);
-  log_sysmsg(buf);
+  logger(LOG_ERROR, buf);
   if (player) {
     send_device(player,buf);
     send_device(player,"\n");

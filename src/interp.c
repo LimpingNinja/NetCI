@@ -43,7 +43,7 @@ void interp_error(char *msg, struct object *player, struct object *obj,
   buf=MALLOC(strlen(obj->parent->pathname)+strlen(msg)+(2*ITOA_BUFSIZ)+20);
   sprintf(buf," interp: %s#%ld line #%ld: %s",obj->parent->pathname,
           (long) obj->refno,(long) line,msg);
-  log_sysmsg(buf);
+  logger(LOG_ERROR, buf);
   if (player) {
     send_device(player,buf+1);
     send_device(player,"\n");

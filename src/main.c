@@ -396,17 +396,17 @@ int main(int argc, char *argv[]) {
   ConstructTitle();
 #endif /* USE_WINDOWS */
   if (transact_log_size<0) {
-    log_sysmsg(" system: xlogsize must be positive");
+    logger(LOG_ERROR, " system: xlogsize must be positive");
     exit(0);
   }
   if (transact_log_size==0) transact_log_size=TRANSACT_LOG_SIZE;
   if (do_create) detach=0;
-  log_sysmsg(" system: starting up");
+  logger(LOG, " system: starting up");
 #ifndef USE_WINDOWS
   if (detach) {
     retval=detach_session();
     if (retval==(-1)) {
-      log_sysmsg(" system: unable to detach session");
+      logger(LOG_ERROR, " system: unable to detach session");
       exit(0);
     } else if (retval==1) {
       exit(0);
@@ -417,37 +417,37 @@ int main(int argc, char *argv[]) {
   init_globals(loadpath,savepath,panicpath);
   if ((retval=init_interface(&port,do_single))) {
     if (retval==NOSINGLE) {
-      log_sysmsg(" system: single-user mode not supported");
+      logger(LOG_ERROR, " system: single-user mode not supported");
 #ifdef USE_WINDOWS
       MessageBox(hwnd,"Single-user mode not supported","Error",
 	             MB_OK | MB_ICONSTOP);
 #endif /* USE_WINDOWS */
     } else if (retval==NOMULTI) {
-      log_sysmsg(" system: multi-user mode not supported");
+      logger(LOG_ERROR, " system: multi-user mode not supported");
 #ifdef USE_WINDOWS
       MessageBox(hwnd,"Multi-user mode not supported","Error",
 	             MB_OK | MB_ICONSTOP);
 #endif /* USE_WINDOWS */
     } else if (retval==PORTINUSE) {
-      log_sysmsg(" system: port in use");
+      logger(LOG_ERROR, " system: port in use");
 #ifdef USE_WINDOWS
       MessageBox(hwnd,"Port in use","Error",
 	             MB_OK | MB_ICONSTOP);
 #endif /* USE_WINDOWS */
     } else if (retval==NOSOCKET) {
-      log_sysmsg(" system: couldn't create socket");
+      logger(LOG_ERROR, " system: couldn't create socket");
 #ifdef USE_WINDOWS
       MessageBox(hwnd,"Couldn't create socket","Error",
 	             MB_OK | MB_ICONSTOP);
 #endif /* USE_WINDOWS */
     } else if (retval==NOPROT) {
-      log_sysmsg(" system: network protocol not supported");
+      logger(LOG_ERROR, " system: network protocol not supported");
 #ifdef USE_WINDOWS
       MessageBox(hwnd,"Network protocol not supported","Error",
 	             MB_OK | MB_ICONSTOP);
 #endif /* USE_WINDOWS */
     } else {
-      log_sysmsg(" system: unspecified interface initialization error");
+      logger(LOG_ERROR, " system: unspecified interface initialization error");
 #ifdef USE_WINDOWS
       MessageBox(hwnd,"Unspecified interface initialization error","Error",
 	             MB_OK | MB_ICONSTOP);
@@ -471,14 +471,14 @@ int main(int argc, char *argv[]) {
 	                 MB_YESNO)==IDYES)
         do_create=1;
       else {
-        log_sysmsg("console: database creation refused");
+        logger(LOG, "console: database creation refused");
         exit(0);
       }
     } else fclose(testfile);
 #endif /* USE_WINDOWS */
   if (do_create) {
     if (create_db()) {
-      log_sysmsg(" system: database creation failed");
+      logger(LOG_ERROR, " system: database creation failed");
       shutdown_interface();
 #ifdef USE_WINDOWS
       MessageBox(hwnd,"Database creation failed","Error",MB_OK |
@@ -486,9 +486,9 @@ int main(int argc, char *argv[]) {
 #endif /* USE_WINDOWS */
       exit(0);
     } else {
-      log_sysmsg(" system: database creation complete");
+      logger(LOG, " system: database creation complete");
       if (save_db(save_name)) {
-        log_sysmsg(" system: save failed");
+        logger(LOG_ERROR, " system: save failed");
 		shutdown_interface();
 #ifdef USE_WINDOWS
 		MessageBox(hwnd,"Save failed","Error",MB_OK | MB_ICONSTOP);
@@ -496,7 +496,7 @@ int main(int argc, char *argv[]) {
         exit(0);
 	  }	else {
 #ifndef USE_WINDOWS
-        log_sysmsg(" system: shutting down");
+        logger(LOG, " system: shutting down");
 	    shutdown_interface();
 		exit(0);
 #endif /* !USE_WINDOWS */
@@ -504,7 +504,7 @@ int main(int argc, char *argv[]) {
     }
   } else {
     if (init_db()) {
-      log_sysmsg(" system: database initialization failed");
+      logger(LOG_ERROR, " system: database initialization failed");
       shutdown_interface();
 #ifdef USE_WINDOWS
       MessageBox(hwnd,"Database initialization failed","Error",
@@ -513,7 +513,7 @@ int main(int argc, char *argv[]) {
       exit(0);
     }
   }
-  log_sysmsg(" system: startup complete");
+  logger(LOG, " system: startup complete");
   loop=0;
   now_time=time2int(time(NULL));
   tmp.type=NUM_ARGS;
@@ -546,7 +546,7 @@ int main(int argc, char *argv[]) {
     loop++;
   }
   handle_input();
-  log_sysmsg(" system: return from handle_input()");
+  logger(LOG_ERROR, " system: return from handle_input()");
   shutdown_interface();
   exit(0);
   return 0;

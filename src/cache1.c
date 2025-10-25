@@ -368,7 +368,7 @@ void readdata(FILE *infile, struct object *obj) {
   }
   fgets(buf,ITOA_BUFSIZ+1,infile);
   if (feof(infile) || strcmp(buf,".END\n")) {
-    log_sysmsg("  cache: readdata() encountered corrupt data");
+    logger(LOG_ERROR, "  cache: readdata() encountered corrupt data");
     FATAL_ERROR();
     return;
   }
@@ -469,7 +469,7 @@ void unload_data() {
       if (curr_link->obj->obj_state==DIRTY) {
         outfile=fopen(transact_log_name,FAPPEND_MODE);
         if (!outfile) {
-          log_sysmsg("  cache: unload_data() unable to write to cache");
+          logger(LOG_ERROR, "  cache: unload_data() unable to write to cache");
           FATAL_ERROR();
           return;
 	}
@@ -502,7 +502,7 @@ void load_data(struct object *obj) {
   if (obj->obj_state==IN_CACHE) {
     infile=fopen(transact_log_name,FREAD_MODE);
     if (!infile) {
-      log_sysmsg("  cache: load_data() unable to read from cache");
+      logger(LOG_ERROR, "  cache: load_data() unable to read from cache");
       FATAL_ERROR();
       return;
     }
@@ -514,7 +514,7 @@ void load_data(struct object *obj) {
     if (obj->obj_state==IN_DB) {
       infile=fopen((access_load_file ? load_name : save_name),FREAD_MODE);
       if (!infile) {
-        log_sysmsg("  cache: load_data() unable to read from database");
+        logger(LOG_ERROR, "  cache: load_data() unable to read from database");
         FATAL_ERROR();
         return;
       }

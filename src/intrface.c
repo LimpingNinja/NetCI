@@ -253,19 +253,26 @@ static void make_new_conn(int listen_fd) {
     boot_obj = ref_to_obj(0);
     devnum = -1;
     
+    logger(LOG_DEBUG, "intrface: accepting new connection");
+    
     /* Accept the connection */
     addr_len = sizeof(tcp_addr);
     new_fd = accept(listen_fd, (struct sockaddr *)&tcp_addr, &addr_len);
     
     if (new_fd < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            logger(LOG_DEBUG, "intrface: spurious wakeup (EAGAIN)");
             return;
         }
+        logger(LOG_ERROR, "intrface: accept() failed");
         return;
     }
     
+    logger(LOG_DEBUG, "intrface: connection accepted, setting non-blocking");
+    
     /* Set non-blocking */
     if (set_nonblocking(new_fd) < 0) {
+        logger(LOG_ERROR, "intrface: failed to set non-blocking mode");
         close(new_fd);
         return;
     }
@@ -279,6 +286,7 @@ static void make_new_conn(int listen_fd) {
     }
     
     if (devnum == -1 || boot_obj->devnum != -1) {
+        logger(LOG_WARNING, "intrface: connection rejected (no slots or boot busy)");
         close(new_fd);
         return;
     }
@@ -297,6 +305,8 @@ static void make_new_conn(int listen_fd) {
     boot_obj->devnum = devnum;
     boot_obj->flags |= CONNECTED;
     
+    logger(LOG_DEBUG, "intrface: calling boot object connect()");
+    
     /* Call connect function */
     func = find_function("connect", boot_obj, &tmpobj);
     if (func) {
@@ -306,6 +316,9 @@ static void make_new_conn(int listen_fd) {
         push(&tmp, &rts);
         interp(NULL, tmpobj, NULL, &rts, func);
         free_stack(&rts);
+        logger(LOG_DEBUG, "intrface: boot connect() completed");
+    } else {
+        logger(LOG_WARNING, "intrface: boot object has no connect() function");
     }
     
     handle_destruct();
@@ -380,11 +393,11 @@ void handle_input() {
     while (1) {
         /* Auto-save check */
         if (cache_top > transact_log_size) {
-            log_sysmsg("  cache: auto-saving");
+            logger(LOG, "  cache: auto-saving");
             if (save_db(NULL))
-                log_sysmsg("  cache: auto-save failed");
+                logger(LOG, "  cache: auto-save failed");
             else
-                log_sysmsg("  cache: auto-save completed");
+                logger(LOG, "  cache: auto-save completed");
         }
         
         /* Build poll array */
@@ -424,7 +437,7 @@ void handle_input() {
         
         if (ret < 0) {
             if (errno == EINTR) continue;
-            log_sysmsg("intrface: poll() error");
+            logger(LOG_ERROR, "intrface: poll() error");
             continue;
         }
         

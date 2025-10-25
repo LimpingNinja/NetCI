@@ -95,7 +95,7 @@ int save_db(char *filename) {
     RemoveSavingFromTitle();
 #endif /* USE_WINDOWS */
     if (cachefile) fclose(cachefile);
-    log_sysmsg("  cache: save_db() couldn't write to temporary database");
+    logger(LOG_ERROR, "  cache: save_db() couldn't write to temporary database");
     FATAL_ERROR();
     return 1;
   }
@@ -110,7 +110,7 @@ int save_db(char *filename) {
 #ifdef USE_WINDOWS
     RemoveSavingFromTitle();
 #endif /* USE_WINDOWS */
-    log_sysmsg("  cache: save_db() couldn't read from database");
+    logger(LOG_ERROR, "  cache: save_db() couldn't read from database");
     FATAL_ERROR();
     fclose(outfile);
     return 1;
@@ -149,7 +149,7 @@ int save_db(char *filename) {
 #ifdef USE_WINDOWS
           RemoveSavingFromTitle();
 #endif /* USE_WINDOWS */
-          log_sysmsg("  cache: save_db() couldn't read from cache");
+          logger(LOG_ERROR, "  cache: save_db() couldn't read from cache");
           FATAL_ERROR();
           return 1;
 	}
@@ -247,7 +247,7 @@ int save_db(char *filename) {
 #ifdef USE_WINDOWS
       RemoveSavingFromTitle();
 #endif /* USE_WINDOWS */
-      log_sysmsg(" cache: save_db() couldn't move temporary database to "
+      logger(LOG_ERROR, " cache: save_db() couldn't move temporary database to "
                  "save database");
       FATAL_ERROR();
       return 1;
@@ -280,7 +280,7 @@ int init_db() {
   access_load_file=1;
   infile=fopen(load_name,FREAD_MODE);
   if (!infile) {
-    log_sysmsg("  cache: init_db() couldn't read from database");
+    logger(LOG_ERROR, "  cache: init_db() couldn't read from database");
     return 1;
   }
   buf=MALLOC(MAX_STR_LEN);
@@ -289,7 +289,7 @@ int init_db() {
     FREE(buf);
     buf=MALLOC(strlen(load_name)+28);
     sprintf(buf," system: %s not a CI database",load_name);
-    log_sysmsg(buf);
+    logger(LOG_ERROR, buf);
     FREE(buf);
     fclose(infile);
     return 1;
@@ -300,7 +300,7 @@ int init_db() {
     FREE(buf);
     buf=MALLOC(strlen(load_name)+43);
     sprintf(buf," system: %s corrupt (while reading db_top)",load_name);
-    log_sysmsg(buf);
+    logger(LOG_ERROR, buf);
     FREE(buf);
     fclose(infile);
     return 1;
@@ -328,7 +328,7 @@ int init_db() {
       FREE(buf);
       buf=MALLOC(strlen(load_name)+47);
       sprintf(buf," system: %s corrupt (while reading filesystem)",load_name);
-      log_sysmsg(buf);
+      logger(LOG_ERROR, buf);
       FREE(buf);
       fclose(infile);
       return 1;
@@ -349,7 +349,7 @@ int init_db() {
       FREE(buf);
       buf=MALLOC(strlen(load_name)+42);
       sprintf(buf," system: %s corrupt (while reading table)",load_name);
-      log_sysmsg(buf);
+      logger(LOG_ERROR, buf);
       FREE(buf);
       fclose(infile);
       return 1;
@@ -379,7 +379,7 @@ int init_db() {
       buf=MALLOC(strlen(load_name)+48+ITOA_BUFSIZ);
       sprintf(buf," system: %s corrupt (while reading object #%ld)",load_name,
               (long) count);
-      log_sysmsg(buf);
+      logger(LOG_ERROR, buf);
       FREE(buf);
       fclose(infile);
       return 1;
@@ -457,7 +457,7 @@ int init_db() {
       FREE(buf);
       buf=MALLOC(strlen(load_name)+47);
       sprintf(buf," system: %s corrupt (while reading prototypes)",load_name);
-      log_sysmsg(buf);
+      logger(LOG_ERROR, buf);
       FREE(buf);
       fclose(infile);
       return 1;
@@ -522,7 +522,7 @@ int init_db() {
         FREE(buf);
         buf=MALLOC(strlen(load_name)+46);
         sprintf(buf," system: %s corrupt (while reading functions)",load_name);
-        log_sysmsg(buf);
+        logger(LOG_ERROR, buf);
         FREE(buf);
         fclose(infile);
         return 1;
@@ -557,7 +557,7 @@ int init_db() {
       FREE(buf);
       buf=MALLOC(strlen(load_name)+45);
       sprintf(buf," system: %s corrupt (while reading commands)",load_name);
-      log_sysmsg(buf);
+      logger(LOG_ERROR, buf);
       FREE(buf);
       fclose(infile);
       return 1;
@@ -574,7 +574,7 @@ int init_db() {
       FREE(buf);
       buf=MALLOC(strlen(load_name)+43);
       sprintf(buf," system: %s corrupt (while reading alarms)",load_name);
-      log_sysmsg(buf);
+      logger(LOG_ERROR, buf);
       FREE(buf);
       fclose(infile);
       return 1;
@@ -592,7 +592,7 @@ int init_db() {
     FREE(buf);
     buf=MALLOC(strlen(load_name)+45);
     sprintf(buf," system: %s corrupt (no db.END magic cookie)",load_name);
-    log_sysmsg(buf);
+    logger(LOG_ERROR, buf);
     FREE(buf);
     fclose(infile);
     return 1;

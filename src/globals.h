@@ -7,6 +7,7 @@ extern int verbs_changed;
 extern char *window_title;
 extern long time_offset;
 extern int noisy;
+extern int log_level;
 extern long transact_log_size;
 extern long soft_cycles;
 extern long hard_cycles;

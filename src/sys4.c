@@ -177,14 +177,14 @@ int s_sysctl(struct object *caller, struct object *obj, struct object *player,
         sprintf(buf," sysctl: object %s#%ld attempting save",
                 obj->parent->pathname,(long) obj->refno);
       }
-      log_sysmsg(buf);
+      logger(LOG, buf);
       FREE(buf);
       tmp.value.integer=save_db(save_name);
       push(&tmp,rts);
       if (!tmp.value.integer)
-        log_sysmsg(" sysctl: save complete");
+        logger(LOG, " sysctl: save complete");
       else
-        log_sysmsg(" sysctl: save failed");
+        logger(LOG_ERROR, " sysctl: save failed");
       return 0;
       break;
     case 1:
@@ -201,16 +201,16 @@ int s_sysctl(struct object *caller, struct object *obj, struct object *player,
         sprintf(buf," sysctl: object %s#%ld attempting shutdown",
                 obj->parent->pathname,(long) obj->refno);
       }
-      log_sysmsg(buf);
+      logger(LOG, buf);
       FREE(buf);
       tmp.value.integer=save_db(save_name);
       if (tmp.value.integer) {
-        log_sysmsg(" sysctl: shutdown failed");
+        logger(LOG_ERROR, " sysctl: shutdown failed");
         push(&tmp,rts);
         return 0;
       }
       shutdown_interface();
-      log_sysmsg(" sysctl: shutdown complete");
+      logger(LOG, " sysctl: shutdown complete");
       exit(0);
       break;
     case 2:
@@ -227,16 +227,16 @@ int s_sysctl(struct object *caller, struct object *obj, struct object *player,
         sprintf(buf," sysctl: object %s#%ld attempting panic",
                 obj->parent->pathname,(long) obj->refno);
       }
-      log_sysmsg(buf);
+      logger(LOG, buf);
       FREE(buf);
       tmp.value.integer=save_db(panic_name);
       if (tmp.value.integer) {
         push(&tmp,rts);
-        log_sysmsg(" sysctl: panic failed");
+        logger(LOG_ERROR, " sysctl: panic failed");
         return 0;
       }
       shutdown_interface();
-      log_sysmsg(" sysctl: panic complete");
+      logger(LOG, " sysctl: panic complete");
       exit(-1);
       break;
     case 3:
