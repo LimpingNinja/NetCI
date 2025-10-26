@@ -1,4 +1,10 @@
-/* intrface_modern.c - Modern POSIX socket interface */
+/**
+ * @file intrface.c
+ * @brief Modern POSIX socket interface for NetCI network communications
+ *
+ * Implements TCP/IP networking using poll() for event-driven I/O with non-blocking sockets.
+ * Handles connection lifecycle, data buffering, and integration with NLPC object system.
+ */
 
 #define CMPLNG_INTRFCE
 
@@ -32,7 +38,16 @@ struct connlist_s *connlist;
 int num_conns, num_fds, net_protocol;
 int sockfd;
 
-/* Convert hex string to 6-byte MAC address */
+/**
+ * @brief Convert hex string to MAC address
+ *
+ * Parses a 12-character hexadecimal string and converts it to a 6-byte MAC address.
+ * Each pair of hex characters represents one byte of the address.
+ *
+ * @param s Hex string (must be exactly 12 characters, case-insensitive)
+ * @param addr Output buffer for 6-byte MAC address
+ * @return 0 on success, -1 if string length is invalid or contains non-hex characters
+ */
 int convert_to_6byte(char *s, unsigned char *addr) {
     static unsigned char a[6];
     int len, c, count;
@@ -66,7 +81,15 @@ int convert_to_6byte(char *s, unsigned char *addr) {
     return 0;
 }
 
-/* Convert 6-byte MAC address to hex string */
+/**
+ * @brief Convert MAC address to hex string
+ *
+ * Converts a 6-byte MAC address to a 12-character uppercase hexadecimal string.
+ * Uses a static buffer, so subsequent calls will overwrite previous results.
+ *
+ * @param addr 6-byte MAC address
+ * @return Pointer to static buffer containing 12-character hex string (uppercase, null-terminated)
+ */
 char *convert_from_6byte(unsigned char *addr) {
     static char buf[13];
     int loop, c;
@@ -92,20 +115,39 @@ char *convert_from_6byte(unsigned char *addr) {
     return buf;
 }
 
-/* Set socket to non-blocking mode */
+/**
+ * @brief Set socket to non-blocking mode
+ *
+ * Configures a socket file descriptor to use non-blocking I/O by setting the O_NONBLOCK flag.
+ *
+ * @param fd Socket file descriptor
+ * @return 0 on success, -1 on error
+ */
 static int set_nonblocking(int fd) {
     int flags = fcntl(fd, F_GETFL, 0);
     if (flags == -1) return -1;
     return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
 
-/* Set number of file descriptors */
+/**
+ * @brief Determine maximum number of file descriptors
+ *
+ * Queries the system for the maximum number of open file descriptors and stores it in num_fds.
+ * Falls back to 1024 if the system query fails.
+ */
 void set_num_fds() {
     num_fds = sysconf(_SC_OPEN_MAX);
     if (num_fds < 0) num_fds = 1024;
 }
 
-/* Detach from terminal (daemon mode) */
+/**
+ * @brief Detach process from terminal to run as daemon
+ *
+ * Forks the process, closes standard I/O streams, and creates a new session.
+ * The parent process exits, leaving the child running as a daemon.
+ *
+ * @return -1 on fork failure, 1 in parent process (before exit), 0 in child (daemon) process
+ */
 int detach_session() {
     int retval;
     
@@ -123,7 +165,16 @@ int detach_session() {
     return 0;
 }
 
-/* DNS resolution */
+/**
+ * @brief Resolve hostname to IP address
+ *
+ * Performs DNS lookup to convert a hostname to its IPv4 address string.
+ * Only supports TCP protocol type.
+ *
+ * @param host Hostname to resolve
+ * @param net_type Protocol type (CI_PROTOCOL_TCP), or 0 to use net_protocol global
+ * @return IP address string on success, NULL on failure or unsupported protocol
+ */
 char *host_to_addr(char *host, int net_type) {
     struct hostent *h;
     
@@ -137,6 +188,16 @@ char *host_to_addr(char *host, int net_type) {
     return inet_ntoa(*((struct in_addr *)h->h_addr_list[0]));
 }
 
+/**
+ * @brief Resolve IP address to hostname
+ *
+ * Performs reverse DNS lookup to convert an IPv4 address string to its hostname.
+ * Only supports TCP protocol type.
+ *
+ * @param addr IP address string (e.g., "192.168.1.1")
+ * @param net_type Protocol type (CI_PROTOCOL_TCP), or 0 to use net_protocol global
+ * @return Hostname string on success, NULL on failure or unsupported protocol
+ */
 char *addr_to_host(char *addr, int net_type) {
     struct hostent *h;
     struct in_addr tcp_addr;
@@ -153,7 +214,15 @@ char *addr_to_host(char *addr, int net_type) {
     return h->h_name;
 }
 
-/* Iterate through connected objects */
+/**
+ * @brief Iterate through connected objects
+ *
+ * Returns the next connected object in the connection list, used for iterating through all
+ * active connections. Pass NULL to get the first connected object.
+ *
+ * @param obj Current object, or NULL to start iteration
+ * @return Next connected object, or NULL if no more connections
+ */
 struct object *next_who(struct object *obj) {
     long loop;
     
@@ -169,7 +238,14 @@ struct object *next_who(struct object *obj) {
     return NULL;
 }
 
-/* Write buffered output to socket */
+/**
+ * @brief Write buffered output to socket
+ *
+ * Attempts to write buffered data to the socket, handling partial writes and EAGAIN conditions.
+ * Writes up to WRITE_BURST bytes per call to avoid blocking.
+ *
+ * @param devnum Connection index in connlist array
+ */
 static void unbuf_output(int devnum) {
     int num_written;
     char *tmp;
@@ -212,12 +288,23 @@ static void unbuf_output(int devnum) {
     }
 }
 
-/* Update current time */
+/**
+ * @brief Update current time global
+ *
+ * Updates the now_time global variable with the current system time converted to integer format.
+ */
 void set_now_time() {
     now_time = time2int(time(NULL));
 }
 
-/* Immediately disconnect a device */
+/**
+ * @brief Immediately disconnect a device
+ *
+ * Closes the socket connection, flushes remaining output, and cleans up connection resources.
+ * Logs the disconnection with IP address and object details.
+ *
+ * @param devnum Connection index in connlist array, or -1 to do nothing
+ */
 void immediate_disconnect(int devnum) {
     char logbuf[256];
     char *ip_addr;
@@ -260,7 +347,14 @@ void immediate_disconnect(int devnum) {
     }
 }
 
-/* Accept new connection */
+/**
+ * @brief Accept new incoming connection
+ *
+ * Accepts a connection on the listening socket, assigns it to the boot object, and calls the
+ * boot object's connect() function. Logs connection details including IP address and object.
+ *
+ * @param listen_fd Listening socket file descriptor
+ */
 static void make_new_conn(int listen_fd) {
     int devnum;
     int new_fd;
@@ -357,7 +451,14 @@ static void make_new_conn(int listen_fd) {
     handle_destruct();
 }
 
-/* Buffer input from connection */
+/**
+ * @brief Read and buffer input from connection
+ *
+ * Reads data from the socket, processes line-by-line input, and queues commands for execution.
+ * Handles connection closure and errors, calling the disconnect() function when needed.
+ *
+ * @param conn_num Connection index in connlist array
+ */
 static void buffer_input(int conn_num) {
     static char buf[MAX_STR_LEN];
     struct var_stack *rts;
@@ -430,7 +531,12 @@ static void buffer_input(int conn_num) {
     connlist[conn_num].last_input_time = now_time;
 }
 
-/* Main event loop */
+/**
+ * @brief Main network event loop
+ *
+ * Continuously polls for network events using poll(), handles new connections, processes I/O,
+ * executes commands, and manages alarms. This is the core of the network interface.
+ */
 void handle_input() {
     struct pollfd *fds;
     int nfds;
@@ -579,7 +685,16 @@ void handle_input() {
     FREE(fds);
 }
 
-/* Initialize network interface */
+/**
+ * @brief Initialize network interface
+ *
+ * Creates and configures the listening socket, sets up non-blocking mode, binds to the specified
+ * port, and allocates the connection list. Logs initialization progress.
+ *
+ * @param port Network parameters including protocol and TCP port
+ * @param do_single If non-zero, requests single-user mode (not supported)
+ * @return 0 on success, NOSINGLE/NOPROT/NOSOCKET/PORTINUSE on error
+ */
 int init_interface(struct net_parms *port, int do_single) {
     struct sockaddr_in tcp_server;
     int opt = 1;
@@ -657,7 +772,12 @@ int init_interface(struct net_parms *port, int do_single) {
     return 0;
 }
 
-/* Shutdown network interface */
+/**
+ * @brief Shutdown network interface
+ *
+ * Disconnects all active connections, closes the listening socket, and frees connection list.
+ * Logs shutdown progress.
+ */
 void shutdown_interface() {
     logger(LOG_INFO, "intrface: shutting down network interface");
     
@@ -672,25 +792,54 @@ void shutdown_interface() {
     logger(LOG_INFO, "intrface: network interface shutdown complete");
 }
 
-/* Get device port */
+/**
+ * @brief Get device remote port number
+ *
+ * Returns the remote port number of the connection associated with the object.
+ *
+ * @param obj Object with active connection
+ * @return Remote port number, or -1 if object is not connected
+ */
 int get_devport(struct object *obj) {
     if (!obj || obj->devnum == -1) return -1;
     return ntohs(connlist[obj->devnum].address.tcp_addr.sin_port);
 }
 
-/* Get device network type */
+/**
+ * @brief Get device network protocol type
+ *
+ * Returns the network protocol type (CI_PROTOCOL_TCP) for the connection.
+ *
+ * @param obj Object with active connection
+ * @return Protocol type, or -1 if object is not connected
+ */
 int get_devnet(struct object *obj) {
     if (!obj || obj->devnum == -1) return -1;
     return connlist[obj->devnum].net_type;
 }
 
-/* Get device connection address */
+/**
+ * @brief Get device IP address
+ *
+ * Returns the remote IP address string of the connection associated with the object.
+ *
+ * @param obj Object with active connection
+ * @return IP address string, or NULL if object is not connected
+ */
 char *get_devconn(struct object *obj) {
     if (!obj || obj->devnum == -1) return NULL;
     return inet_ntoa(connlist[obj->devnum].address.tcp_addr.sin_addr);
 }
 
-/* Send data to device */
+/**
+ * @brief Send data to device
+ *
+ * Appends message to the object's output buffer. If buffer exceeds MAX_OUTBUF_LEN, flushes first.
+ * Data is sent asynchronously when socket becomes writable.
+ *
+ * @param obj Object with active connection
+ * @param msg Message string to send (null-terminated)
+ */
 void send_device(struct object *obj, char *msg) {
     int len;
     char *tmp;
@@ -728,7 +877,16 @@ void send_device(struct object *obj, char *msg) {
     }
 }
 
-/* Reconnect device to different object */
+/**
+ * @brief Transfer connection from one object to another
+ *
+ * Moves an active connection from the source object to the destination object, typically used
+ * when transitioning from boot object to player object. Logs the transfer with object details.
+ *
+ * @param src Source object (must have active connection)
+ * @param dest Destination object (must not have a connection)
+ * @return 0 on success, 1 if destination is busy or source is not connected
+ */
 int reconnect_device(struct object *src, struct object *dest) {
     char logbuf[256];
     char *ip_addr;
@@ -755,7 +913,14 @@ int reconnect_device(struct object *src, struct object *dest) {
     return 0;
 }
 
-/* Disconnect device */
+/**
+ * @brief Disconnect device by request
+ *
+ * Programmatically disconnects an object's connection, typically called from NLPC code.
+ * Logs the disconnection with IP address and object details.
+ *
+ * @param obj Object with active connection
+ */
 void disconnect_device(struct object *obj) {
     char logbuf[256];
     char *ip_addr;
@@ -776,7 +941,14 @@ void disconnect_device(struct object *obj) {
     obj->devnum = -1;
 }
 
-/* Flush device output */
+/**
+ * @brief Flush output buffer to socket
+ *
+ * Immediately attempts to write buffered output for the specified object, or all connections
+ * if obj is NULL. Used to ensure data is sent before critical operations.
+ *
+ * @param obj Object to flush, or NULL to flush all connections
+ */
 void flush_device(struct object *obj) {
     char logbuf[256];
     
@@ -797,7 +969,18 @@ void flush_device(struct object *obj) {
     }
 }
 
-/* Connect device (outbound) */
+/**
+ * @brief Establish outbound connection
+ *
+ * Creates a new outbound TCP connection from the object to the specified remote address and port.
+ * Logs connection attempts and results with full details.
+ *
+ * @param obj Object to associate with the connection (must not be connected)
+ * @param address Remote IP address string
+ * @param port Remote port number
+ * @param net_type Protocol type (CI_PROTOCOL_TCP), or 0 to use net_protocol global
+ * @return 1 on success, 0 on failure
+ */
 int connect_device(struct object *obj, char *address, int port, int net_type) {
     int devnum, new_fd;
     struct sockaddr_in remote_host;
@@ -893,13 +1076,27 @@ int connect_device(struct object *obj, char *address, int port, int net_type) {
     return 1;
 }
 
-/* Get device idle time */
+/**
+ * @brief Get connection idle time
+ *
+ * Returns the number of seconds since the last input was received from the connection.
+ *
+ * @param obj Object with active connection
+ * @return Idle time in seconds, or -1 if object is not connected
+ */
 long get_devidle(struct object *obj) {
     if (!(obj->flags & CONNECTED) || obj->devnum == -1) return -1;
     return now_time - connlist[obj->devnum].last_input_time;
 }
 
-/* Get connection time */
+/**
+ * @brief Get connection establishment time
+ *
+ * Returns the timestamp when the connection was established.
+ *
+ * @param obj Object with active connection
+ * @return Connection time as integer timestamp, or -1 if object is not connected
+ */
 long get_conntime(struct object *obj) {
     if (!(obj->flags & CONNECTED) || obj->devnum == -1) return -1;
     return connlist[obj->devnum].conn_time;
