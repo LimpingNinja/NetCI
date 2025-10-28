@@ -121,7 +121,8 @@ int save_db(char *filename) {
   curr_file=root_dir;
   fprintf(outfile,"%s%ld\n%d\n%ld\n",DB_IDENSTR,(long) db_top,
           (int) root_dir->flags,(long) root_dir->owner);
-  write_filesystem(outfile,root_dir,"");
+  /* Virtual filesystem is no longer persisted - rebuilt from disk on boot */
+  /* write_filesystem(outfile,root_dir,""); */
   fprintf(outfile,".END\n");
   write_table(outfile);
   fprintf(outfile,".END\n");
@@ -319,10 +320,12 @@ int init_db() {
   }
   count=0;
   fgets(buf,MAX_STR_LEN,infile);
-  root_dir->flags=atoi(buf);
+  /* Virtual filesystem is no longer loaded from DB - rebuilt from disk on boot */
+  /* root_dir->flags=atoi(buf); */
   fgets(buf,MAX_STR_LEN,infile);
-  root_dir->owner=atol(buf);
+  /* root_dir->owner=atol(buf); */
   fgets(buf,MAX_STR_LEN,infile);
+  /* Skip filesystem entries in database - they're rebuilt from disk */
   while (strcmp(buf,".END\n")) {
     if (feof(infile)) {
       FREE(buf);
@@ -333,14 +336,14 @@ int init_db() {
       fclose(infile);
       return 1;
     }
-    string=copy_string(buf);
-    string[strlen(string)-1]='\0';
+    /* string=copy_string(buf); */
+    /* string[strlen(string)-1]='\0'; */
     fgets(buf,MAX_STR_LEN,infile);
-    flags=atoi(buf);
+    /* flags=atoi(buf); */
     fgets(buf,MAX_STR_LEN,infile);
-    uid=atol(buf);
-    db_add_entry(string,uid,flags);
-    FREE(string);
+    /* uid=atol(buf); */
+    /* db_add_entry(string,uid,flags); */
+    /* FREE(string); */
     fgets(buf,MAX_STR_LEN,infile);
   }
   fgets(buf,MAX_STR_LEN,infile);

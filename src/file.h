@@ -2,6 +2,11 @@
 
 /* the file opening, etc, operations */
 
+/* Discovery functions */
+struct file_entry *discover_file(char *path, struct object *uid);
+int discover_directory(char *path, struct object *uid);
+int discover_recursive(char *path, struct object *uid);
+
 int stat_file(char *filename,struct object *uid);
 int owner_file(char *filename,struct object *uid);
 int ls_dir(char *filename, struct object *uid, struct object *player);

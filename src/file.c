@@ -5,6 +5,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <dirent.h>
 
 #ifdef USE_WINDOWS
 #include <direct.h>
@@ -229,6 +230,193 @@ int remove_entry(struct file_entry *fe) {
   return 0;
 }
 
+/**
+ * Discovers a single file and creates virtual entry if needed
+ * @param path Virtual filesystem path (e.g., "/home/wizard/test.c")
+ * @param uid Owner object for new entries
+ * @return Pointer to file_entry, or NULL if file doesn't exist
+ */
+struct file_entry *discover_file(char *path, struct object *uid) {
+  struct file_entry *fe, *homefe;
+  char *buf, *phys_path;
+  struct stat st;
+  
+  /* Check if entry already exists in virtual filesystem */
+  fe = find_entry(path);
+  if (fe) {
+    return fe;
+  }
+  
+  /* Build physical path and check if file exists on disk */
+  phys_path = MALLOC(strlen(fs_path) + strlen(path) + 1);
+  strcpy(phys_path, fs_path);
+  strcat(phys_path, path);
+  
+  /* stat() the physical file */
+  if (stat(phys_path, &st) != 0) {
+    /* File doesn't exist on disk */
+    FREE(phys_path);
+    return NULL;
+  }
+  FREE(phys_path);
+  
+  /* File exists on disk - create virtual entry */
+  homefe = split_dir(path, &buf);
+  if (!homefe) {
+    return NULL;
+  }
+  
+  fe = make_entry(homefe, buf, uid);
+  if (!fe) {
+    FREE(buf);
+    return NULL;
+  }
+  
+  /* Set DIRECTORY flag for directories */
+  if (S_ISDIR(st.st_mode)) {
+    fe->flags |= DIRECTORY;
+  }
+  
+  return fe;
+}
+
+/**
+ * Discovers all files in a directory and removes stale entries
+ * Synchronizes virtual filesystem with physical directory
+ * @param path Virtual filesystem path to directory
+ * @param uid Owner object for new entries
+ * @return Number of files discovered
+ */
+int discover_directory(char *path, struct object *uid) {
+  char *phys_path, *entry_path;
+  DIR *dir;
+  struct dirent *entry;
+  struct file_entry *dir_entry, *curr, *next;
+  struct stat st;
+  int count = 0;
+  int path_len, entry_len;
+  
+  /* Build physical path */
+  phys_path = MALLOC(strlen(fs_path) + strlen(path) + 1);
+  strcpy(phys_path, fs_path);
+  strcat(phys_path, path);
+  
+  /* Open physical directory */
+  dir = opendir(phys_path);
+  FREE(phys_path);
+  
+  if (!dir) {
+    return 0;
+  }
+  
+  /* Scan physical directory and discover all files */
+  path_len = strlen(path);
+  while ((entry = readdir(dir)) != NULL) {
+    /* Skip "." and ".." */
+    if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+      continue;
+    }
+    
+    /* Build virtual path for entry */
+    entry_len = path_len + strlen(entry->d_name) + 2; /* +2 for '/' and '\0' */
+    entry_path = MALLOC(entry_len);
+    strcpy(entry_path, path);
+    if (path[path_len - 1] != '/') {
+      strcat(entry_path, "/");
+    }
+    strcat(entry_path, entry->d_name);
+    
+    /* Discover the file (creates entry if doesn't exist) */
+    if (discover_file(entry_path, uid) != NULL) {
+      count++;
+    }
+    
+    FREE(entry_path);
+  }
+  
+  closedir(dir);
+  
+  /* Remove stale entries: check each virtual entry against physical filesystem */
+  dir_entry = find_entry(path);
+  if (dir_entry && (dir_entry->flags & DIRECTORY)) {
+    curr = dir_entry->contents;
+    while (curr) {
+      next = curr->next_file; /* Save next before potential removal */
+      
+      /* Build physical path for this virtual entry */
+      entry_len = path_len + strlen(curr->filename) + 2;
+      entry_path = MALLOC(entry_len);
+      strcpy(entry_path, path);
+      if (path[path_len - 1] != '/') {
+        strcat(entry_path, "/");
+      }
+      strcat(entry_path, curr->filename);
+      
+      phys_path = MALLOC(strlen(fs_path) + strlen(entry_path) + 1);
+      strcpy(phys_path, fs_path);
+      strcat(phys_path, entry_path);
+      
+      /* Check if physical file still exists */
+      if (stat(phys_path, &st) != 0) {
+        /* File doesn't exist - remove stale entry */
+        remove_entry(curr);
+      }
+      
+      FREE(phys_path);
+      FREE(entry_path);
+      
+      curr = next;
+    }
+  }
+  
+  return count;
+}
+
+/**
+ * Recursively discovers all files under a path
+ * @param path Virtual filesystem path to start from
+ * @param uid Owner object for new entries
+ * @return Total number of files discovered
+ */
+int discover_recursive(char *path, struct object *uid) {
+  struct file_entry *fe, *curr;
+  char *subdir_path;
+  int count = 0;
+  int path_len;
+  
+  /* Discover all files in current directory */
+  count = discover_directory(path, uid);
+  
+  /* Find the directory entry */
+  fe = find_entry(path);
+  if (!fe || !(fe->flags & DIRECTORY)) {
+    return count;
+  }
+  
+  /* Recursively discover subdirectories */
+  path_len = strlen(path);
+  curr = fe->contents;
+  while (curr) {
+    if (curr->flags & DIRECTORY) {
+      /* Build path for subdirectory */
+      subdir_path = MALLOC(path_len + strlen(curr->filename) + 2);
+      strcpy(subdir_path, path);
+      if (path[path_len - 1] != '/') {
+        strcat(subdir_path, "/");
+      }
+      strcat(subdir_path, curr->filename);
+      
+      /* Recursively discover */
+      count += discover_recursive(subdir_path, uid);
+      
+      FREE(subdir_path);
+    }
+    curr = curr->next_file;
+  }
+  
+  return count;
+}
+
 int ls_dir(char *filename, struct object *uid, struct object *player) {
   struct file_entry *fe;
   struct fns *listen_func;
@@ -240,6 +428,10 @@ int ls_dir(char *filename, struct object *uid, struct object *player) {
   if (!uid) return 1;
   rcv=player;
   if (!player) rcv=uid;
+  
+  /* Discover directory contents before listing */
+  discover_directory(filename, uid);
+  
   fe=find_entry(filename);
   if (!fe) return 1;
   if (!can_read(fe,uid)) return 1;
@@ -271,8 +463,10 @@ int stat_file(char *filename, struct object *uid) {
   struct file_entry *fe,*homefe;
   char *newbuf;
 
-  fe=find_entry(filename);
+  /* Try to discover the file first */
+  fe = discover_file(filename, uid);
   if (!fe) return -1;
+  
   homefe=split_dir(filename,&newbuf);
   if (!homefe) return -1;
   FREE(newbuf);
@@ -283,8 +477,10 @@ int owner_file(char *filename, struct object *uid) {
   struct file_entry *fe,*homefe;
   char *newbuf;
 
-  fe=find_entry(filename);
+  /* Try to discover the file first */
+  fe = discover_file(filename, uid);
   if (!fe) return -1;
+  
   homefe=split_dir(filename,&newbuf);
   if (!homefe) return -1;
   FREE(newbuf);
@@ -297,8 +493,11 @@ FILE *open_file(char *filename, char *mode, struct object *uid) {
   char *buf,*newbuf;
   FILE *f;
 
-  fe=find_entry(filename);
+  /* Try to discover the file first */
+  fe = discover_file(filename, uid);
+  
   if (!fe) {
+    /* File doesn't exist - handle creation for write modes */
     if (*mode=='r') return NULL;
     if (!uid) return NULL;
     homefe=split_dir(filename,&newbuf);
@@ -323,6 +522,10 @@ FILE *open_file(char *filename, char *mode, struct object *uid) {
   buf=make_path(fe);
   if (!uid && *mode=='r') {
     f=fopen(buf,mode);
+    /* Clean up stale entry if fopen fails */
+    if (!f) {
+      remove_entry(fe);
+    }
     FREE(buf);
     return f;
   }
@@ -332,11 +535,19 @@ FILE *open_file(char *filename, char *mode, struct object *uid) {
   }
   if (uid->refno==fe->owner || (uid->flags & PRIV)) {
     f=fopen(buf,mode);
+    /* Clean up stale entry if fopen fails */
+    if (!f && *mode=='r') {
+      remove_entry(fe);
+    }
     FREE(buf);
     return f;
   }
   if (*mode=='r' && (fe->flags & READ_OK)) {
     f=fopen(buf,mode);
+    /* Clean up stale entry if fopen fails */
+    if (!f) {
+      remove_entry(fe);
+    }
     FREE(buf);
     return f;
   }
@@ -355,8 +566,11 @@ int remove_file(char *filename, struct object *uid) {
 
   if (doing_ls) return 1;
   if (!uid) return 1;
-  fe=find_entry(filename);
+  
+  /* Try to discover the file first */
+  fe = discover_file(filename, uid);
   if (!fe) return 1;
+  
   if (fe->flags & DIRECTORY) return 1;
   if (!can_read(fe->parent,uid)) return 1;
   if (fe->parent->owner!=uid->refno && !(fe->parent->flags & WRITE_OK)
@@ -367,6 +581,7 @@ int remove_file(char *filename, struct object *uid) {
     FREE(buf);
     return 1;
   }
+  /* Remove virtual entry after successful deletion */
   remove_entry(fe);
   FREE(buf);
   return 0;
@@ -378,6 +593,11 @@ int copy_file(char *src, char *dest, struct object *uid) {
 
   if (doing_ls) return 1;
   if (!uid) return 1;
+  
+  /* Discover source and destination files */
+  discover_file(src, uid);
+  discover_file(dest, uid);
+  
   srcf=open_file(src,FREAD_MODE,uid);
   if (!srcf) return 1;
   destf=open_file(dest,FWRITE_MODE,uid);
@@ -404,10 +624,14 @@ int move_file(char *src, char *dest, struct object *uid) {
   if (doing_ls) return 1;
   if (!uid) return 1;
   if (!strcmp(src,dest)) return 1;
-  srcf=find_entry(src);
+  
+  /* Discover source file */
+  srcf = discover_file(src, uid);
   if (!srcf) return 1;
   if (srcf->flags & DIRECTORY) return 1;
-  destf=find_entry(dest);
+  
+  /* Discover or create destination file entry */
+  destf = discover_file(dest, uid);
   if (!destf) {
     homefe=split_dir(dest,&buf);
     if (!homefe) return 1;
@@ -455,6 +679,7 @@ int move_file(char *src, char *dest, struct object *uid) {
     return 1;
   }
   FREE(buf);
+  /* Remove source virtual entry after successful move */
   remove_entry(srcf);
   return 0;
 }
@@ -465,8 +690,11 @@ int make_dir(char *filename, struct object *uid) {
 
   if (doing_ls) return 1;
   if (!uid) return 1;
-  fe=find_entry(filename);
+  
+  /* Check if directory already exists (discover first) */
+  fe = discover_file(filename, uid);
   if (fe) return 1;
+  
   homefe=split_dir(filename,&buf);
   if (!homefe) return 1;
   if (!(homefe->owner==uid->refno || (uid->flags & PRIV) ||
@@ -478,6 +706,7 @@ int make_dir(char *filename, struct object *uid) {
     FREE(buf);
     return 1;
   }
+  /* Set DIRECTORY flag on new entry */
   fe->flags=DIRECTORY;
   buf=make_path(fe);
   if (SYSTEM_mkdir(buf)) {
@@ -495,7 +724,11 @@ int remove_dir(char *filename, struct object *uid) {
 
   if (doing_ls) return 1;
   if (!uid) return 1;
-  fe=find_entry(filename);
+  
+  /* Try to discover the directory first */
+  fe = discover_file(filename, uid);
+  if (!fe) return 1;
+  
   if (!(fe->flags & DIRECTORY)) return 1;
   if (fe->contents) return 1;
   if (fe==root_dir) return 1;
@@ -508,10 +741,17 @@ int remove_dir(char *filename, struct object *uid) {
     return 1;
   }
   FREE(buf);
+  /* Remove virtual entry after successful deletion */
   remove_entry(fe);
   return 0;
 }
 
+/**
+ * Removes a file from the virtual filesystem
+ * Note: With automatic discovery, the file will be auto-rediscovered on next access
+ * This implements a "soft hide" behavior - the file reappears when accessed
+ * Useful for forcing re-discovery (e.g., after external permission changes)
+ */
 int hide(char *filename) {
   struct file_entry *fe;
 
@@ -521,6 +761,16 @@ int hide(char *filename) {
   return remove_entry(fe);
 }
 
+/**
+ * Pre-creates a virtual filesystem entry with specific permissions
+ * Note: File may not exist on disk yet - this is OK
+ * - If file doesn't exist, read operations will fail but write operations can create it
+ * - If file exists on disk, it will be discovered with these permissions
+ * - Useful for pre-creating entries with specific permissions before file exists
+ * Edge cases:
+ * - Reading non-existent unhidden file: discover_file() will remove stale entry
+ * - Writing to non-existent unhidden file: open_file() will create the physical file
+ */
 int unhide(char *filename, struct object *uid, int flags) {
   struct file_entry *fe,*homefe;
   char *buf;

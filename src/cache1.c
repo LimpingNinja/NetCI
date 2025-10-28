@@ -131,6 +131,9 @@ void init_globals(char *loadpath, char *savepath, char *panicpath) {
   root_dir->parent=NULL;
   root_dir->prev_file=NULL;
   root_dir->next_file=NULL;
+  
+  /* Perform initial filesystem scan to make all files visible */
+  discover_recursive("/", NULL);
   num_locals=0;
   locals=NULL;
   c_err_msg=NULL;

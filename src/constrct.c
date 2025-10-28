@@ -7,36 +7,57 @@
 #include "globals.h"
 #include "cache.h"
 
+/**
+ * Validates filename for virtual filesystem
+ * Modern restrictions (removed legacy 8.3 DOS format)
+ * 
+ * Allowed:
+ * - Length: 1-255 characters (POSIX standard)
+ * - Characters: alphanumeric, underscore, hyphen, dot
+ * - Case: both upper and lowercase allowed
+ * - Multiple dots allowed (e.g., "file.tar.gz")
+ * 
+ * Disallowed:
+ * - Leading dot (hidden files)
+ * - Trailing dot
+ * - Path separators: / \
+ * - Wildcards: * ?
+ * - Special chars: : # ~ (filesystem unsafe)
+ * - Control characters and whitespace
+ */
 int is_legal(char *name) {
-  int x,len,ncount,ecount,pcount;
+  int x, len;
 
-  ncount=0;
-  ecount=0;
-  pcount=0;
-  len=strlen(name);
-  if (!len || len>14) return 0;
-  if (*name=='.') return 0;
-  x=0;
-  while (x<len) {
-    if ((!(isgraph(name[x]))) || name[x]=='/' || name[x]=='#' ||
-        name[x]=='\\' || name[x]=='~' || name[x]=='*' || name[x]=='?' ||
-        name[x]==':')
-      return 0;
-    if (isalpha(name[x]))
-      if (isupper(name[x]))
-        return 0;
-    if (name[x]=='.') {
-      pcount++;
-      if (pcount>1) return 0;
-    } else {
-      if (pcount) ecount++;
-      else ncount++;
-      if (ecount>3 || ncount>8) return 0;
-    }
-    x++;
+  len = strlen(name);
+  
+  /* Check length: must be 1-255 characters */
+  if (len < 1 || len > 255) return 0;
+  
+  /* Cannot start with dot (hidden files) */
+  if (name[0] == '.') return 0;
+  
+  /* Cannot end with dot */
+  if (name[len - 1] == '.') return 0;
+  
+  /* Check each character */
+  for (x = 0; x < len; x++) {
+    char c = name[x];
+    
+    /* Allow alphanumeric (both cases) */
+    if (isalnum(c)) continue;
+    
+    /* Allow underscore, hyphen, dot */
+    if (c == '_' || c == '-' || c == '.') continue;
+    
+    /* Reject everything else including:
+     * - Path separators: / \
+     * - Wildcards: * ?
+     * - Special: : # ~
+     * - Whitespace and control characters
+     */
+    return 0;
   }
-  if (ncount<1) return 0;
-  if (name[len-1]=='.') return 0;
+  
   return 1;
 }
 
