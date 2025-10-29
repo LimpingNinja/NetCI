@@ -272,10 +272,12 @@ struct file_entry *discover_file(char *path, struct object *uid) {
     return NULL;
   }
   
-  /* Set DIRECTORY flag for directories */
+  /* Set default flags for discovered files */
   if (S_ISDIR(st.st_mode)) {
     fe->flags |= DIRECTORY;
   }
+  /* Give discovered files default READ_OK permission */
+  fe->flags |= READ_OK;
   
   return fe;
 }

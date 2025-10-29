@@ -281,7 +281,25 @@ int interp(struct object *caller, struct object *obj, struct object *player,
           locals=old_locals;
           num_locals=old_num_locals;
           if (retstatus) {
-            interp_error("system call failed",player,obj,func,line);
+            char *errbuf;
+            char logbuf[300];
+            
+            errbuf=MALLOC(200);
+            
+            /* Build detailed error message with return code */
+            sprintf(errbuf,"system call failed (instruction #%d, return code %d)",
+                    (int) func->code[loop].value.instruction, retstatus);
+            
+            /* Log additional context */
+            logger(LOG_ERROR, errbuf);
+            
+            if (func && func->funcname) {
+              sprintf(logbuf, "  in function: %s, line: %lu", func->funcname, line);
+              logger(LOG_ERROR, logbuf);
+            }
+            
+            interp_error(errbuf,player,obj,func,line);
+            FREE(errbuf);
             free_stack(&rts);
             free_stack(&stack1);
             clear_locals();

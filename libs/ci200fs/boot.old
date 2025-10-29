@@ -1,0 +1,504 @@
+/* boot.c */
+
+#define SAVE_DELAY 3600
+#define STARTING_PACKAGE "core"
+#define PKGLIST_FILE "/etc/pkg/packages.lst"
+#define TMP_FILE "/etc/pkg/packages.tmp"
+
+string pkg_to_build;
+object report_to;
+
+pkg_exists(pkg) {
+  int filepos,line;
+
+  while (line=fread(PKGLIST_FILE,filepos)) {
+    if (rightstr(line,1)=="\n") line=leftstr(line,strlen(line)-1);
+    if (rightstr(line,1)=="\r") line=leftstr(line,strlen(line)-1);
+    if (line==pkg) return 1;
+  }
+  return 0;
+}
+
+static add_pkg_to_list(pkg,version) {
+  int filepos,line,added_pkg;
+
+  while (strlen(pkg)<8) pkg+=" ";
+  if (fstat(PKGLIST_FILE)!=-1) while (line=fread(PKGLIST_FILE,filepos)) {
+    if (rightstr(line,1)=="\n") line=leftstr(line,strlen(line)-1);
+    if (rightstr(line,1)=="\r") line=leftstr(line,strlen(line)-1);
+    if (leftstr(line,8)==pkg) {
+      added_pkg=1;
+      line=pkg+" "+version;
+    } else if (leftstr(line,8)>pkg && !added_pkg) {
+      fwrite(TMP_FILE,pkg+" "+version+"\n");
+      added_pkg=1;
+    }
+    fwrite(TMP_FILE,line+"\n");
+  }
+  if (!added_pkg) fwrite(TMP_FILE,pkg+" "+version+"\n");
+  cp(TMP_FILE,PKGLIST_FILE);
+  rm(TMP_FILE);
+  chmod(PKGLIST_FILE,1);
+}
+
+add_pkg(pkg) {
+  if (!priv(caller_object())) return 0;
+  pkg_to_build=pkg;
+  report_to=this_player();
+  alarm(0,"alarm_add_pkg");
+  return 1;
+}
+
+static alarm_add_pkg() {
+  string filename,cmd,cmdname,args,arg1,arg2,pkg,version_str;
+  int filepos,pos,linecount,flags,version_count;
+
+  pkg=pkg_to_build;
+  filename="/etc/pkg/"+pkg+".pkg";
+  if (fstat(filename)==-1) {
+    unhide(filename,itoo(0),1);
+    if (fread(filename,filepos)==(-1)) {
+      hide(filename);
+      if (report_to)
+        report_to.listen("Package \""+pkg+"\" does not exist.\n");
+      return;
+    }
+  }
+  filepos=0;
+  linecount=0;
+  version_count=0;
+  version_str="<unknown>";
+  while (cmd=fread(filename,filepos)) {
+    linecount++;
+    while (leftstr(cmd,1)==" ") cmd=rightstr(cmd,strlen(cmd)-1);
+    while (rightstr(cmd,1)=="\n") cmd=leftstr(cmd,strlen(cmd)-1);
+    while (rightstr(cmd,1)=="\r") cmd=leftstr(cmd,strlen(cmd)-1);
+    while (rightstr(cmd,1)==" ") cmd=leftstr(cmd,strlen(cmd)-1);
+    if (cmd)
+      if (leftstr(cmd,1)!="#") {
+        pos=instr(cmd,1," ");
+        if (pos) {
+          cmdname=leftstr(cmd,pos-1);
+          args=rightstr(cmd,strlen(cmd)-pos);
+        } else {
+          cmdname=cmd;
+          args=0;
+        }
+        while (leftstr(args,1)==" ") args=rightstr(args,strlen(args)-1);
+        if (cmdname=="version") {
+          if (version_count++) {
+            if (report_to)
+              report_to.listen("Package \""+pkg+"\" build failed at line #"+
+                               itoa(linecount)+"\n");
+            return;
+          }
+          version_str=args;
+        } else if (cmdname=="file") {
+          pos=instr(args,1," ");
+          if (pos) {
+            arg1=leftstr(args,pos-1);
+            arg2=rightstr(args,strlen(args)-pos);
+            while (leftstr(arg2,1)==" ") arg2=rightstr(arg2,strlen(arg2)-1);
+          } else {
+            arg1=0;
+            arg2=args;
+          }
+          if (arg1=="r") flags=1;
+          else if (arg1=="w") flags=2;
+          else if (arg1=="rw" || arg1=="wr") flags=3;
+          else if (!arg1) flags=0;
+          else {
+            if (report_to)
+              report_to.listen("Package \""+pkg+"\" build failed at line #"+
+                               itoa(linecount)+"\n");
+            return;
+          }
+          unhide(arg2,itoo(0),flags);
+        } else if (cmdname=="compile") {
+          if (args=="/boot") {
+            if (atoo("/sys/bcompile"))
+              atoo("/sys/bcompile").bcompile();
+          } else compile_object(args);
+        } else if (cmdname=="sync") {
+          if (args=="/boot") {
+            if (atoo("/sys/bcompile"))
+              atoo("/sys/bcompile").bsync();
+          } else if (atoo(args))
+            atoo(args).sync();
+        } else if (cmdname=="directory") {
+          pos=instr(args,1," ");
+          if (pos) {
+            arg1=leftstr(args,pos-1);
+            arg2=rightstr(args,strlen(args)-pos);
+            while (leftstr(arg2,1)==" ") arg2=rightstr(arg2,strlen(arg2)-1);
+          } else {
+            arg1=0;
+            arg2=args;
+          }
+          if (arg1=="r") flags=5;
+          else if (arg1=="w") flags=6;
+          else if (arg1=="rw" || arg1=="wr") flags=7;
+          else if (!arg1) flags=4;
+          else {
+            if (report_to)
+              report_to.listen("Package \""+pkg+"\" build failed at line #"+
+                               itoa(linecount)+"\n");
+            return;
+          }
+          unhide(arg2,itoo(0),flags);
+        } else {
+          if (report_to)
+            report_to.listen("Package \""+pkg+"\" build failed at line #"+
+                             itoa(linecount)+"\n");
+          return;
+        }
+      }
+  }
+  add_pkg_to_list(pkg,version_str);
+  if (report_to) report_to.listen("Package built\n");
+  return;
+}
+
+get_version(pkg) {
+  string filename,cmd,args,cmdname;
+  int filepos,pos;
+
+  filename="/etc/pkg/"+pkg+".pkg";
+  filepos=0;
+  while (cmd=fread(filename,filepos)) {
+    while (leftstr(cmd,1)==" ") cmd=rightstr(cmd,strlen(cmd)-1);
+    while (rightstr(cmd,1)=="\n") cmd=leftstr(cmd,strlen(cmd)-1);
+    while (rightstr(cmd,1)=="\r") cmd=leftstr(cmd,strlen(cmd)-1);
+    while (rightstr(cmd,1)==" ") cmd=leftstr(cmd,strlen(cmd)-1);
+    if (cmd)
+      if (leftstr(cmd,1)!="#") {
+        pos=instr(cmd,1," ");
+        if (pos) {
+          cmdname=leftstr(cmd,pos-1);
+          args=rightstr(cmd,strlen(cmd)-pos);
+        } else {
+          cmdname=cmd;
+          args=0;
+        }
+        while (leftstr(args,1)==" ") args=rightstr(args,strlen(args)-1);
+        if (cmdname=="version") {
+          return args;
+        }
+      }
+  }
+  return 0;
+}
+
+/**
+ * Helper function to check if caller has a specific role
+ */
+static has_role(caller, role_name) {
+  string name;
+  
+  if (!caller) return 0;
+  name = caller.get_name();
+  if (!name) return 0;
+  
+  /* Case-insensitive comparison - use temporaries directly in comparison */
+  return (downcase(name) == downcase(role_name));
+}
+
+/**
+ * Helper function to check if path starts with a literal prefix
+ * Uses direct comparison without creating temporary strings
+ */
+static path_starts_with(path, prefix) {
+  int prefix_len;
+  
+  if (!path || !prefix) return 0;
+  
+  prefix_len = strlen(prefix);
+  if (strlen(path) < prefix_len) return 0;
+  
+  /* Direct comparison using leftstr */
+  return (leftstr(path, prefix_len) == prefix);
+}
+
+/**
+ * Helper function to check if path is in user's home directory
+ * Checks if path starts with /home/username/ without string concatenation
+ */
+static is_in_home_dir(path, username) {
+  int next_slash;
+  string path_user;
+  
+  if (!path || !username) return 0;
+  
+  /* Check if path starts with /home/ */
+  if (!path_starts_with(path, "/home/")) return 0;
+  
+  /* Find the next slash after /home/ */
+  next_slash = instr(path, 7, "/");
+  if (!next_slash) return 0;
+  
+  /* Extract username from path */
+  path_user = midstr(path, 7, next_slash - 7);
+  
+  /* Compare case-insensitively */
+  return (downcase(path_user) == downcase(username));
+}
+
+/**
+ * Master object callback for read permission validation
+ * Called by driver before any read operation (read_file, stat, get_dir, etc.)
+ * @param path Virtual filesystem path being accessed
+ * @param func Name of operation (e.g., "read_file", "stat", "get_dir")
+ * @param caller Object attempting the operation
+ * @param owner Owner of the file (object reference number, or -1 if file doesn't exist)
+ * @param flags File flags (or -1 if file doesn't exist)
+ * @return 1 to allow, 0 to deny
+ * 
+ * Role-based policy:
+ * - System (NULL caller) → allow all
+ * - Admin (PRIV flag) → allow all
+ * - Wizard → allow all except boot.c
+ * - Programmer → allow all except boot.c and /sys
+ * - Builder → allow all except boot.c and /sys
+ * - Regular user → allow only /home/<username> and public files
+ */
+valid_read(path, func, caller, owner, flags) {
+  int caller_flags;
+  string caller_name;
+  
+  /* System operations always allowed */
+  if (!caller) return 1;
+  
+  /* Admin (PRIV flag) has full access */
+  if (priv(caller)) return 1;
+  
+  /* File doesn't exist - allow (will be handled by file operation) */
+  if (flags == -1) return 1;
+  
+  /* Get caller information */
+  caller_flags = caller.get_flags();
+  caller_name = caller.get_name();
+  
+  /* Wizard: Full read access except boot.c */
+  if (has_role(caller, "Wizard")) {
+    if (path == "/boot.c") return 0;
+    return 1;
+  }
+  
+  /* Programmer: Read all except boot.c and /sys */
+  if (caller_flags & 32) {  /* FLAG_PROGRAMMER */
+    if (path == "/boot.c") return 0;
+    if (path_starts_with(path, "/sys/")) return 0;
+    if (path == "/sys") return 0;
+    return 1;
+  }
+  
+  /* Builder: Read all except boot.c and /sys */
+  if (caller_flags & 8) {  /* FLAG_BUILDER */
+    if (path == "/boot.c") return 0;
+    if (path_starts_with(path, "/sys/")) return 0;
+    if (path == "/sys") return 0;
+    return 1;
+  }
+  
+  /* Regular user: Can read own files and public files */
+  
+  /* Owner can always read their own files */
+  if (owner == otoi(caller)) return 1;
+  
+  /* Can read files in their home directory */
+  if (caller_name) {
+    if (is_in_home_dir(path, caller_name)) return 1;
+  }
+  
+  /* Files with READ_OK flag can be read by anyone */
+  if (flags & 1) return 1;
+  
+  /* Otherwise deny */
+  return 0;
+}
+
+/**
+ * Master object callback for write permission validation
+ * Called by driver before any write operation (write_file, rm, mkdir, etc.)
+ * @param path Virtual filesystem path being accessed
+ * @param func Name of operation (e.g., "write_file", "rm", "mkdir")
+ * @param caller Object attempting the operation
+ * @param owner Owner of the file (object reference number, or -1 if file doesn't exist)
+ * @param flags File flags (or -1 if file doesn't exist)
+ * @return 1 to allow, 0 to deny
+ * 
+ * Role-based policy:
+ * - System (NULL caller) → allow all
+ * - Admin (PRIV flag) → allow all
+ * - Wizard → allow all except boot.c
+ * - Programmer → allow all except /sys and boot.c
+ * - Builder → allow only /etc, deny boot.c and /sys
+ * - Regular user → allow only /home/<username>
+ */
+valid_write(path, func, caller, owner, flags) {
+  int caller_flags;
+  string caller_name;
+  
+  /* System operations always allowed */
+  if (!caller) return 1;
+  
+  /* Admin (PRIV flag) has full access */
+  if (priv(caller)) return 1;
+  
+  /* Get caller information */
+  caller_flags = caller.get_flags();
+  caller_name = caller.get_name();
+  
+  /* Wizard: Full write access except boot.c */
+  if (has_role(caller, "Wizard")) {
+    if (path == "/boot.c") return 0;
+    return 1;
+  }
+  
+  /* Programmer: Write all except /sys and boot.c */
+  if (caller_flags & 32) {  /* FLAG_PROGRAMMER */
+    if (path == "/boot.c") return 0;
+    if (path_starts_with(path, "/sys/")) return 0;
+    if (path == "/sys") return 0;
+    /* For new files, allow creation in allowed areas */
+    if (flags == -1) return 1;
+    /* For existing files, check ownership or WRITE_OK flag */
+    if (owner == otoi(caller)) return 1;
+    if (flags & 2) return 1;
+    return 0;
+  }
+  
+  /* Builder: Write only in /etc, deny boot.c and /sys */
+  if (caller_flags & 8) {  /* FLAG_BUILDER */
+    if (path == "/boot.c") return 0;
+    if (path_starts_with(path, "/sys/")) return 0;
+    if (path == "/sys") return 0;
+    /* Only allow writes in /etc */
+    if (!path_starts_with(path, "/etc/")) return 0;
+    /* For new files in /etc, allow creation */
+    if (flags == -1) return 1;
+    /* For existing files, check ownership or WRITE_OK flag */
+    if (owner == otoi(caller)) return 1;
+    if (flags & 2) return 1;
+    return 0;
+  }
+  
+  /* Regular user: Write only in their home directory */
+  
+  /* Can write in their home directory */
+  if (caller_name) {
+    if (is_in_home_dir(path, caller_name)) {
+      /* For new files, allow creation */
+      if (flags == -1) return 1;
+      /* For existing files, check ownership or WRITE_OK flag */
+      if (owner == otoi(caller)) return 1;
+      if (flags & 2) return 1;
+      return 0;
+    }
+  }
+  
+  /* Owner can write their own files (if not restricted by path) */
+  if (owner == otoi(caller)) {
+    /* But still respect path restrictions for regular users */
+    return 0;
+  }
+  
+  /* Files with WRITE_OK flag can be written by anyone (if path allows) */
+  if (flags & 2) {
+    /* But regular users still can't write outside their home */
+    return 0;
+  }
+  
+  /* Otherwise deny */
+  return 0;
+}
+
+listen(arg) { send_device(arg); }
+
+static save_db() {
+  object curr;
+
+  while (curr=next_who(curr))
+    curr.listen("\n*** Autosaving Database ***\n");
+  flush_device();
+  alarm(SAVE_DELAY,"save_db");
+  sysctl(0);
+}
+
+sync() {
+  int seconds_left;
+
+  if (!priv(caller_object())) return 0;
+  seconds_left=remove_alarm("save_db");
+  if (seconds_left<0) seconds_left=0;
+  if (seconds_left<SAVE_DELAY) alarm(seconds_left,"save_db");
+  else alarm(SAVE_DELAY,"save_db");
+  return 1;
+}
+
+static init() {
+  object me;
+
+  me=this_object();
+  if (prototype(this_object())) {
+    alarm(SAVE_DELAY,"save_db");
+    chmod("/boot.c",1);
+    unhide("/etc",me,5);
+    unhide("/etc/pkg",me,5);
+    add_pkg(STARTING_PACKAGE);
+    alarm(0,"finish_init");
+  } else {
+    destruct(this_object());
+  }
+}
+
+static finish_init() {
+  object wizobj;
+  object room;
+
+  set_priv(atoo("/sys/sys"),1);
+  set_priv(atoo("/sys/ban"),1);
+  atoo("/sys/ban").reload_sites();
+  room=atoo("/obj/room");
+  room.set_flags(19);
+  wizobj=new("/obj/player");
+  wizobj.set_secure();
+  wizobj.set_name("Wizard");
+  wizobj.set_owner(wizobj);
+  wizobj.set_password("potrzebie");
+  wizobj.set_flags(40);
+  table_set("wizard",itoa(otoi(wizobj)));
+  room.set_owner(wizobj);
+  wizobj.set_link(room);
+  move_object(wizobj,room);
+  room.set_name("Limbo");
+  room.set_desc("You are lost in a dense, gray fog.");
+  set_priv(wizobj,1);
+  chown("/home/wizard",wizobj);
+}
+
+get_uid() {
+  return "root";
+}
+
+static connect() {
+  object login_obj;
+
+  login_obj=new("/sys/login");
+  if (!login_obj) {
+    send_device(otoa(this_object())+": unable to clone /sys/login\n");
+    disconnect_device();
+    return;
+  }
+  /* for secure.h */
+  login_obj.set_secure();
+  if (reconnect_device(login_obj)) {
+    send_device(otoa(this_object())+": unable to reconnect to "+
+                otoa(login_obj)+"\n");
+    disconnect_device();
+    destruct(login_obj);
+    return;
+  }
+  set_priv(login_obj,1);
+  login_obj.connect();
+}
