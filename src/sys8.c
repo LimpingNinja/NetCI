@@ -362,3 +362,61 @@ int s_is_master(struct object *caller, struct object *obj,
   push(&tmp,rts);
   return 0;
 }
+
+int s_input_to(struct object *caller, struct object *obj,
+               struct object *player, struct var_stack **rts) {
+  struct var tmp, tmp2;
+
+  if (pop(&tmp,rts,obj)) return 1;
+  if (tmp.type!=NUM_ARGS) {
+    clear_var(&tmp);
+    return 1;
+  }
+  if (tmp.value.num!=2) return 1;
+  
+  /* Pop function name */
+  if (pop(&tmp,rts,obj)) return 1;
+  if (tmp.type!=STRING && !(tmp.type==INTEGER && tmp.value.integer==0)) {
+    clear_var(&tmp);
+    return 1;
+  }
+  
+  /* Pop target object */
+  if (pop(&tmp2,rts,obj)) {
+    clear_var(&tmp);
+    return 1;
+  }
+  if (tmp2.type!=OBJECT) {
+    clear_var(&tmp);
+    clear_var(&tmp2);
+    return 1;
+  }
+  
+  /* Use player object (which has the device connection) instead of obj */
+  if (!player) {
+    clear_var(&tmp);
+    clear_var(&tmp2);
+    return 1;
+  }
+  
+  /* Follow attacher chain to get the device object */
+  while (player->attacher) player=player->attacher;
+  
+  /* Clear existing input handler */
+  if (player->input_func) {
+    FREE(player->input_func);
+    player->input_func=NULL;
+  }
+  player->input_func_obj=NULL;
+  
+  /* Set new input handler */
+  if (tmp.type==STRING) {
+    player->input_func=tmp.value.string;
+    player->input_func_obj=tmp2.value.objptr;
+  }
+  
+  tmp.type=INTEGER;
+  tmp.value.integer=0;
+  push(&tmp,rts);
+  return 0;
+}

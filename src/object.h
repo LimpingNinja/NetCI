@@ -151,6 +151,7 @@ struct object
   char obj_state;
   signed long file_offset;
   char *input_func;
+  struct object *input_func_obj;  /* target object for input_to() */
 };
 
 /* legal object states */

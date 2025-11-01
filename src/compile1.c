@@ -49,7 +49,7 @@ char *scall_array[NUM_SCALLS]={ "add_verb","add_xverb","call_other",
   "flush_device","attach","this_component","detach","table_get","table_set",
   "table_delete","fstat","fowner","get_hostname","get_address",
   "set_localverbs","localverbs","next_verb","get_devport","get_devnet",
-  "redirect_input","get_input_func","get_master","is_master"
+  "redirect_input","get_input_func","get_master","is_master","input_to"
 };
 
 /* The functions themselves */

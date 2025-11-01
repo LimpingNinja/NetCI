@@ -182,6 +182,7 @@ void handle_destruct() {
     }
     curr_dest->obj->devnum=-1;
     curr_dest->obj->input_func=NULL;
+    curr_dest->obj->input_func_obj=NULL;
     curr_dest->obj->flags=GARBAGE;
     curr_dest->obj->parent=NULL;
     curr_dest->obj->next_child=NULL;
@@ -351,8 +352,20 @@ void handle_command() {
 #endif /* CYCLE_SOFT_MAX */
 
     if ((funcname=curr->obj->input_func)) {
+      struct object *target_obj;
+      
       curr->obj->input_func=NULL;
-      func=find_function(funcname,curr->obj,&curr_obj);
+      target_obj=curr->obj->input_func_obj;
+      curr->obj->input_func_obj=NULL;
+      
+      /* If input_to() was used, find function in target object */
+      if (target_obj) {
+        func=find_function(funcname,target_obj,&curr_obj);
+      } else {
+        /* Otherwise use redirect_input() behavior (function in self) */
+        func=find_function(funcname,curr->obj,&curr_obj);
+      }
+      
       FREE(funcname);
       if (func) {
         if (curr->cmd) {

@@ -199,6 +199,7 @@ struct object *newobj() {
   }
   obj->devnum=-1;
   obj->input_func=NULL;
+  obj->input_func_obj=NULL;
   obj->flags=0;
   obj->parent=NULL;
   obj->next_child=NULL;

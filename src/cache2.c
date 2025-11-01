@@ -394,6 +394,7 @@ int init_db() {
       curr_block->block[index].input_func=readstring(infile);
     } else {
       curr_block->block[index].input_func=NULL;
+      curr_block->block[index].input_func_obj=NULL;
       if (c!=EOF) {
         ungetc(c,infile);
       }
@@ -632,6 +633,7 @@ int create_db() {
   obj->refno=0;
   obj->devnum=-1;
   obj->input_func=NULL;
+  obj->input_func_obj=NULL;
   obj->flags=PROTOTYPE | PRIV;
   obj->parent=proto_obj;
   obj->next_child=NULL;
