@@ -51,121 +51,26 @@ void interp_error(char *msg, struct object *player, struct object *obj,
   FREE(buf);
 }
 
-/* Helper function to read a specific line from a source file
- * Returns allocated string with the line content, or NULL if file can't be read.
- * Caller must FREE the returned string.
- */
-static char *read_source_line(char *filepath, unsigned long line_num) {
-  FILE *f;
-  char *line_buf;
-  char *full_path;
-  char *log_buf;
-  unsigned long current_line;
-  int c, pos;
-  
-  /* Build full filesystem path: fs_path + virtual_path + .c extension */
-  full_path = MALLOC(strlen(fs_path) + strlen(filepath) + 3);  /* +3 for ".c" and null */
-  strcpy(full_path, fs_path);
-  strcat(full_path, filepath);
-  strcat(full_path, ".c");  /* Add .c extension */
-  
-  /* Try to open the source file */
-  f = fopen(full_path, "r");
-  
-  if (!f) {
-    /* Log the failure with the attempted path */
-    log_buf = MALLOC(strlen(full_path) + 100);
-    sprintf(log_buf, " traceback: failed to read source file: %s", full_path);
-    logger(LOG_WARNING, log_buf);
-    FREE(log_buf);
-    FREE(full_path);
-    return NULL;  /* File doesn't exist or can't be read */
-  }
-  
-  FREE(full_path);
-  
-  /* Allocate buffer for line (max 512 chars) */
-  line_buf = MALLOC(512);
-  current_line = 1;
-  pos = 0;
-  
-  /* Read file line by line until we reach the target line */
-  while ((c = fgetc(f)) != EOF) {
-    if (current_line == line_num) {
-      /* We're on the target line - collect characters */
-      if (c == '\n' || c == '\r') {
-        /* End of line reached */
-        line_buf[pos] = '\0';
-        fclose(f);
-        return line_buf;
-      } else if (pos < 511) {
-        /* Add character to buffer (leave room for null terminator) */
-        line_buf[pos++] = c;
-      }
-    } else if (c == '\n') {
-      /* Move to next line */
-      current_line++;
-      if (current_line > line_num) {
-        /* We've passed the target line without finding it */
-        break;
-      }
-    }
-  }
-  
-  /* If we're on the target line but hit EOF, null-terminate and return */
-  if (current_line == line_num && pos > 0) {
-    line_buf[pos] = '\0';
-    fclose(f);
-    return line_buf;
-  }
-  
-  /* Line not found or file too short */
-  FREE(line_buf);
-  fclose(f);
-  return NULL;
-}
-
-/* Enhanced error reporting with full call stack trace
- * 
- * ERROR REPORTING FORMAT (Detailed):
- * This function generates LPMud-style error tracebacks showing the complete
- * call chain from the error point back to the root caller.
- * 
- * Output format:
- *   interp: /path/to/file.c#123 line #45: error message
- *   Backtrace (most recent call first):
- *     [0] /path/to/file.c#123:45 in function_name()
- *     [1] /path/to/caller.c#456:78 in caller_function()
- *     ... (trace truncated at N frames)
- * 
- * The traceback walks the call_stack linked list backward from the current
- * frame to the root, displaying up to max_trace_depth frames.
- * 
- * Frame numbering: [0] is the most recent (where error occurred)
- * Each frame shows: file path, object ID, line number, function name
- */
+/* Enhanced error reporting with full call stack trace */
 void interp_error_with_trace(char *msg, struct object *player, struct object *obj,
                               struct fns *func, unsigned long line) {
   char *buf;
   struct call_frame *frame;
   int depth;
+  int max_trace_depth = 20;  /* Default trace depth */
   
-  /* Report the error header with file, object, line, and message */
+  /* Report the error header */
   buf = MALLOC(strlen(obj->parent->pathname) + strlen(msg) + (2 * ITOA_BUFSIZ) + 100);
   sprintf(buf, " interp: %s#%ld line #%ld: %s", 
           obj->parent->pathname, (long)obj->refno, (long)line, msg);
   logger(LOG_ERROR, buf);
   if (player) {
-    send_device(player, buf + 1);  /* Skip leading space for player output */
+    send_device(player, buf + 1);
     send_device(player, "\n");
   }
   FREE(buf);
   
-  /* BACKTRACE GENERATION
-   * Walk the call stack linked list to build the traceback.
-   * Start at call_stack (current frame) and follow prev pointers.
-   * Stop at NULL or when max_trace_depth is reached.
-   */
+  /* Build and display backtrace */
   if (call_stack) {
     buf = MALLOC(256);
     sprintf(buf, "Backtrace (most recent call first):");
@@ -179,13 +84,10 @@ void interp_error_with_trace(char *msg, struct object *player, struct object *ob
     frame = call_stack;
     depth = 0;
     
-    /* Walk backward through call frames */
     while (frame && depth < max_trace_depth) {
       char *func_name = frame->func ? frame->func->funcname : "<unknown>";
       char *pathname = frame->obj->parent->pathname;
-      char *source_line;
       
-      /* Format: [depth] file#obj:line in function() */
       buf = MALLOC(strlen(pathname) + strlen(func_name) + (2 * ITOA_BUFSIZ) + 100);
       sprintf(buf, "  [%d] %s#%ld:%ld in %s()",
               depth, pathname, (long)frame->obj->refno, (long)frame->line, func_name);
@@ -196,29 +98,10 @@ void interp_error_with_trace(char *msg, struct object *player, struct object *ob
       }
       FREE(buf);
       
-      /* Try to read and display the source line */
-      source_line = read_source_line(pathname, frame->line);
-      if (source_line) {
-        /* Trim leading whitespace for display */
-        char *trimmed = source_line;
-        while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
-        
-        buf = MALLOC(strlen(trimmed) + ITOA_BUFSIZ + 20);
-        sprintf(buf, "      Line %ld: %s", (long)frame->line, trimmed);
-        logger(LOG_ERROR, buf);
-        if (player) {
-          send_device(player, buf);
-          send_device(player, "\n");
-        }
-        FREE(buf);
-        FREE(source_line);
-      }
-      
       frame = frame->prev;
       depth++;
     }
     
-    /* Indicate if trace was truncated */
     if (frame) {
       buf = MALLOC(64);
       sprintf(buf, "  ... (trace truncated at %d frames)", max_trace_depth);
@@ -232,29 +115,13 @@ void interp_error_with_trace(char *msg, struct object *player, struct object *ob
   }
 }
 
-/* Compact error reporting format - single line per frame
- * 
- * ERROR REPORTING FORMAT (Compact):
- * Alternative format with reduced verbosity for production environments.
- * 
- * Output format:
- *   Error: error message at /path/to/file.c#123:45
- *     /path/to/file.c#123:45 in function_name()
- *     /path/to/caller.c#456:78 in caller_function()
- * 
- * Differences from detailed format:
- * - No frame numbering
- * - No "Backtrace:" header
- * - Single-line error header
- * - More concise output
- * 
- * Useful for production logs where verbosity should be minimized.
- */
+/* Compact error reporting format - single line per frame */
 void interp_error_compact(char *msg, struct object *player, struct object *obj,
                           struct fns *func, unsigned long line) {
   char *buf;
   struct call_frame *frame;
   int depth;
+  int max_trace_depth = 20;  /* Default trace depth */
   
   /* Single-line error header */
   buf = MALLOC(strlen(obj->parent->pathname) + strlen(msg) + (2 * ITOA_BUFSIZ) + 50);
@@ -274,7 +141,6 @@ void interp_error_compact(char *msg, struct object *player, struct object *obj,
   while (frame && depth < max_trace_depth) {
     char *func_name = frame->func ? frame->func->funcname : "?";
     char *pathname = frame->obj->parent->pathname;
-    char *source_line;
     
     buf = MALLOC(strlen(pathname) + strlen(func_name) + (2 * ITOA_BUFSIZ) + 50);
     sprintf(buf, "  %s#%ld:%ld in %s()",
@@ -285,24 +151,6 @@ void interp_error_compact(char *msg, struct object *player, struct object *obj,
       send_device(player, "\n");
     }
     FREE(buf);
-    
-    /* Try to read and display the source line */
-    source_line = read_source_line(pathname, frame->line);
-    if (source_line) {
-      /* Trim leading whitespace for display */
-      char *trimmed = source_line;
-      while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
-      
-      buf = MALLOC(strlen(trimmed) + ITOA_BUFSIZ + 20);
-      sprintf(buf, "      Line %ld: %s", (long)frame->line, trimmed);
-      logger(LOG_ERROR, buf);
-      if (player) {
-        send_device(player, buf);
-        send_device(player, "\n");
-      }
-      FREE(buf);
-      FREE(source_line);
-    }
     
     frame = frame->prev;
     depth++;
@@ -377,42 +225,23 @@ int interp(struct object *caller, struct object *obj, struct object *player,
   int retstatus;
   int old_use_soft_cycles,old_use_hard_cycles;
   struct object *tmpobj;
-  
-  /* CALL FRAME LIFECYCLE - PUSH
-   * Stack-allocate a call frame for this function execution.
-   * The frame is automatically cleaned up when the function returns.
-   * This provides zero-overhead call tracking for error reporting.
-   */
-  struct call_frame frame;
+  struct call_frame frame;  /* Stack-allocated call frame for this function */
 
   if (caller) while (caller->attacher) caller=caller->attacher;
   
-  /* Initialize call frame with execution context:
-   * - obj: the object whose code is executing
-   * - func: the function being executed
-   * - line: current line number (starts at 0, updated by NEW_LINE instructions)
-   * - prev: pointer to caller's frame (forms linked list for traceback)
-   */
+  /* Initialize call frame and push onto call stack */
   frame.obj = obj;
   frame.func = func;
   frame.line = 0;
   frame.prev = call_stack;
-  
-  /* Push frame onto global call stack by updating the head pointer.
-   * The stack grows downward in memory (newer frames point to older ones).
-   */
   call_stack = &frame;
   call_stack_depth++;
   
-  /* STACK OVERFLOW PROTECTION
-   * Check depth immediately after push to prevent infinite recursion.
-   * If limit exceeded, pop the frame and return gracefully with error.
-   * This prevents stack exhaustion and system crashes.
-   */
+  /* Check for stack overflow - prevent infinite recursion */
   if (call_stack_depth > max_call_stack_depth) {
     call_stack = frame.prev;  /* Pop frame before reporting error */
     call_stack_depth--;
-    interp_error_with_trace("call stack overflow - recursion too deep", player, obj, func, 0);
+    interp_error("call stack overflow - recursion too deep", player, obj, func, 0);
     tmp.type = INTEGER;
     tmp.value.integer = 0;
     pushnocopy(&tmp, arg_stack);
@@ -437,21 +266,21 @@ int interp(struct object *caller, struct object *obj, struct object *player,
     loop++;
   }
   if (pop(&tmp,arg_stack,caller)) {
-    interp_error_with_trace("malformed argument stack",player,obj,func,0);
+    interp_error("malformed argument stack",player,obj,func,0);
     free_stack(arg_stack);
     call_stack = frame.prev;  /* Pop frame on error exit */
     call_stack_depth--;
     return 1;
   }
   if (tmp.type!=NUM_ARGS) {
-    interp_error_with_trace("malformed argument stack",player,obj,func,0);
+    interp_error("malformed argument stack",player,obj,func,0);
     free_stack(arg_stack);
     call_stack = frame.prev;  /* Pop frame on error exit */
     call_stack_depth--;
     return 1;
   }
   if (tmp.value.num>num_locals) {
-    interp_error_with_trace("too many arguments",player,obj,func,0);
+    interp_error("too many arguments",player,obj,func,0);
     call_stack = frame.prev;  /* Pop frame on error exit */
     call_stack_depth--;
     return 1;
@@ -459,7 +288,7 @@ int interp(struct object *caller, struct object *obj, struct object *player,
   loop=tmp.value.num;
   while (loop>0) {
     if (pop(&tmp,arg_stack,caller)) {
-      interp_error_with_trace("malformed argument stack",player,obj,func,0);
+      interp_error("malformed argument stack",player,obj,func,0);
       free_stack(arg_stack);
       clear_locals();
       call_stack = frame.prev;  /* Pop frame on error exit */
@@ -478,7 +307,7 @@ int interp(struct object *caller, struct object *obj, struct object *player,
       if (hard_cycles++>CYCLE_HARD_MAX) {
         tmp.type=INTEGER;
         tmp.value.integer=0;
-        interp_error_with_trace("cycle hard maximum exceeded",player,obj,func,line);
+        interp_error("cycle hard maximum exceeded",player,obj,func,line);
         pushnocopy(&tmp,arg_stack);
         clear_locals();
         call_stack = frame.prev;  /* Pop frame on exit */
@@ -492,7 +321,7 @@ int interp(struct object *caller, struct object *obj, struct object *player,
       if (soft_cycles++>CYCLE_SOFT_MAX) {
         tmp.type=INTEGER;
         tmp.value.integer=0;
-        interp_error_with_trace("cycle soft maximum exceeded",player,obj,func,line);
+        interp_error("cycle soft maximum exceeded",player,obj,func,line);
         pushnocopy(&tmp,arg_stack);
         clear_locals();
         call_stack = frame.prev;  /* Pop frame on exit */
@@ -515,7 +344,7 @@ int interp(struct object *caller, struct object *obj, struct object *player,
       case LOCAL_REF:
       case GLOBAL_REF:
         if (popint(&tmp,&rts,obj)) {
-          interp_error_with_trace("failed array reference",player,obj,func,line);
+          interp_error("failed array reference",player,obj,func,line);
           free_stack(&rts);
           clear_locals();
           use_soft_cycles=old_use_soft_cycles;
@@ -526,7 +355,7 @@ int interp(struct object *caller, struct object *obj, struct object *player,
 	}
         tmp2.value.l_value.size=tmp.value.integer;
         if (popint(&tmp,&rts,obj)) {
-          interp_error_with_trace("failed array reference",player,obj,func,line);
+          interp_error("failed array reference",player,obj,func,line);
           free_stack(&rts);
           clear_locals();
           use_soft_cycles=old_use_soft_cycles;
@@ -538,7 +367,7 @@ int interp(struct object *caller, struct object *obj, struct object *player,
         tmp2.value.l_value.ref=tmp.value.integer;
         if (func->code[loop].type==LOCAL_REF) {
           if (tmp2.value.l_value.ref>=num_locals) {
-            interp_error_with_trace("array reference out of bound",player,obj,func,line);
+            interp_error("array reference out of bound",player,obj,func,line);
             free_stack(&rts);
             clear_locals();
             use_soft_cycles=old_use_soft_cycles;
@@ -549,7 +378,7 @@ int interp(struct object *caller, struct object *obj, struct object *player,
 	  }
 	} else
           if (tmp2.value.l_value.ref>=obj->parent->funcs->num_globals) {
-            interp_error_with_trace("array reference out of bound",player,obj,func,line);
+            interp_error("array reference out of bound",player,obj,func,line);
             free_stack(&rts);
             clear_locals();
             use_soft_cycles=old_use_soft_cycles;
@@ -559,7 +388,7 @@ int interp(struct object *caller, struct object *obj, struct object *player,
             return 1;
 	  }
         if (tmp2.value.l_value.size!=1) {
-          interp_error_with_trace("illegal array reference",player,obj,func,line);
+          interp_error("illegal array reference",player,obj,func,line);
           free_stack(&rts);
           clear_locals();
           use_soft_cycles=old_use_soft_cycles;
@@ -580,7 +409,7 @@ int interp(struct object *caller, struct object *obj, struct object *player,
           retstatus=((*oper_array[func->code[loop].value.instruction])
                      (caller,obj,player,&rts));
           if (retstatus) {
-            interp_error_with_trace("arithmetic operation failed",player,obj,func,line);
+            interp_error("arithmetic operation failed",player,obj,func,line);
             free_stack(&rts);
             clear_locals();
             use_soft_cycles=old_use_soft_cycles;
@@ -620,7 +449,7 @@ int interp(struct object *caller, struct object *obj, struct object *player,
               logger(LOG_ERROR, logbuf);
             }
             
-            interp_error_with_trace(errbuf,player,obj,func,line);
+            interp_error(errbuf,player,obj,func,line);
             FREE(errbuf);
             free_stack(&rts);
             free_stack(&stack1);
@@ -632,7 +461,7 @@ int interp(struct object *caller, struct object *obj, struct object *player,
             return 1;
           }
           if (pop(&tmp,&stack1,obj)) {
-            interp_error_with_trace("system call returned malformed stack",player,obj,
+            interp_error("system call returned malformed stack",player,obj,
                          func,line);
             free_stack(&rts);
             free_stack(&stack1);
@@ -667,7 +496,7 @@ int interp(struct object *caller, struct object *obj, struct object *player,
         locals=old_locals;
         num_locals=old_num_locals;
         if (pop(&tmp,&stack1,obj)) {
-          interp_error_with_trace("function returned malformed stack",player,obj,func,
+          interp_error("function returned malformed stack",player,obj,func,
                        line);
           free_stack(&rts);
           free_stack(&stack1);
@@ -686,7 +515,7 @@ int interp(struct object *caller, struct object *obj, struct object *player,
         temp_fns=find_extern_function(func->code[loop].value.string,obj,
                                       &tmpobj);
         if (!temp_fns) {
-          interp_error_with_trace("unknown function",player,obj,func,line);
+          interp_error("unknown function",player,obj,func,line);
           free_stack(&rts);
           clear_locals();
           use_soft_cycles=old_use_soft_cycles;
@@ -713,7 +542,7 @@ int interp(struct object *caller, struct object *obj, struct object *player,
         locals=old_locals;
         num_locals=old_num_locals;
         if (pop(&tmp,&stack1,obj)) {
-          interp_error_with_trace("function returned malformed stack",player,obj,func,
+          interp_error("function returned malformed stack",player,obj,func,
                        line);
           free_stack(&rts);
           free_stack(&stack1);
@@ -731,7 +560,7 @@ int interp(struct object *caller, struct object *obj, struct object *player,
       case FUNC_NAME:
         temp_fns=find_function(func->code[loop].value.string,obj,&tmpobj);
         if (!temp_fns) {
-          interp_error_with_trace("unknown function",player,obj,func,line);
+          interp_error("unknown function",player,obj,func,line);
           free_stack(&rts);
           clear_locals();
           use_soft_cycles=old_use_soft_cycles;
@@ -753,7 +582,7 @@ int interp(struct object *caller, struct object *obj, struct object *player,
         break;
       case BRANCH:
         if (pop(&tmp,&rts,obj)) {
-          interp_error_with_trace("failed branch instruction",player,obj,func,line);
+          interp_error("failed branch instruction",player,obj,func,line);
           free_stack(&rts);
           clear_locals();
           use_soft_cycles=old_use_soft_cycles;
@@ -763,7 +592,7 @@ int interp(struct object *caller, struct object *obj, struct object *player,
           return 1;
         }
         if (resolve_var(&tmp,obj)) {
-          interp_error_with_trace("failed variable resolution",player,obj,func,line);
+          interp_error("failed variable resolution",player,obj,func,line);
           free_stack(&rts);
           clear_locals();
           use_soft_cycles=old_use_soft_cycles;
@@ -780,25 +609,14 @@ int interp(struct object *caller, struct object *obj, struct object *player,
         }
         break;
       case NEW_LINE:
-        /* LINE NUMBER TRACKING
-         * NEW_LINE instructions mark transitions to new source lines.
-         * Update both the local 'line' variable (for backward compatibility)
-         * and the current frame's line field (for traceback generation).
-         * This provides accurate line numbers in error reports with minimal overhead.
-         */
         free_stack(&rts);
         line=func->code[loop].value.num;
         frame.line = line;  /* Update current frame's line number for traceback */
         loop++;
         break;
       case RETURN:
-        /* CALL FRAME LIFECYCLE - POP (Normal and Error Paths)
-         * All function exits must pop the call frame to maintain stack integrity.
-         * This happens on both normal returns and error paths.
-         * The frame is popped by restoring call_stack to point to the previous frame.
-         */
         if (pop(&tmp,&rts,obj)) {
-          interp_error_with_trace("stack malformed on return",player,obj,func,line);
+          interp_error("stack malformed on return",player,obj,func,line);
           free_stack(&rts);
           clear_locals();
           use_hard_cycles=old_use_hard_cycles;
@@ -808,7 +626,7 @@ int interp(struct object *caller, struct object *obj, struct object *player,
           return 1;
         }
         if (resolve_var(&tmp,obj)) {
-          interp_error_with_trace("stack malformed on return",player,obj,func,line);
+          interp_error("stack malformed on return",player,obj,func,line);
           free_stack(&rts);
           clear_locals();
           use_hard_cycles=old_use_hard_cycles;
@@ -817,7 +635,6 @@ int interp(struct object *caller, struct object *obj, struct object *player,
           call_stack_depth--;
           return 1;
         }
-        /* Normal return path - clean up and pop frame */
         pushnocopy(&tmp,arg_stack);
         free_stack(&rts);
         clear_locals();

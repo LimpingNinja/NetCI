@@ -35,3 +35,10 @@ extern char *panic_name;
 extern struct object *free_obj_list;
 extern signed long objects_allocd;
 extern signed long db_top;
+
+/* Call stack tracking for error tracebacks */
+extern struct call_frame *call_stack;
+extern int call_stack_depth;
+extern int max_call_stack_depth;
+extern int max_trace_depth;
+extern int trace_format;

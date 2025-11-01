@@ -5,6 +5,7 @@
 #include "config.h"
 #include "object.h"
 #include "file.h"
+#include "interp.h"
 
 int doing_ls;
 int verbs_changed;
@@ -39,3 +40,10 @@ char *panic_name;
 struct object *free_obj_list;
 signed long objects_allocd;
 signed long db_top;
+
+/* Call stack tracking for error tracebacks */
+struct call_frame *call_stack = NULL;
+int call_stack_depth = 0;
+int max_call_stack_depth = 100;
+int max_trace_depth = 20;      /* Default: show 20 frames in traceback */
+int trace_format = 0;           /* 0 = detailed, 1 = compact */

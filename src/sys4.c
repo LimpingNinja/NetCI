@@ -152,7 +152,7 @@ int s_sysctl(struct object *caller, struct object *obj, struct object *player,
     clear_var(&tmp);
     return 1;
   }
-  if (tmp.value.integer<0 || tmp.value.integer>8 ||
+  if (tmp.value.integer<0 || tmp.value.integer>11 ||
       ((!(obj->flags & PRIV)) && tmp.value.integer!=8)) {
     tmp.value.integer=1;
     push(&tmp,rts);
@@ -346,6 +346,90 @@ int s_sysctl(struct object *caller, struct object *obj, struct object *player,
       tmp.value.integer=CI_VERSION;
       push(&tmp,rts);
       return 0;
+      break;
+    case 9:
+      /* Get/set max call stack depth */
+      if (num_args==0) {
+        /* Get current value */
+        tmp.type=INTEGER;
+        tmp.value.integer=max_call_stack_depth;
+        push(&tmp,rts);
+        return 0;
+      } else if (num_args==1) {
+        /* Set new value */
+        if (pop(&tmp,rts,obj)) return 1;
+        if (tmp.type!=INTEGER) {
+          clear_var(&tmp);
+          return 1;
+        }
+        if (tmp.value.integer<10 || tmp.value.integer>1000) {
+          /* Enforce reasonable limits: 10-1000 */
+          tmp.value.integer=1;
+          push(&tmp,rts);
+          return 0;
+        }
+        max_call_stack_depth=tmp.value.integer;
+        tmp.value.integer=0;
+        push(&tmp,rts);
+        return 0;
+      }
+      return 1;
+      break;
+    case 10:
+      /* Get/set max trace depth */
+      if (num_args==0) {
+        /* Get current value */
+        tmp.type=INTEGER;
+        tmp.value.integer=max_trace_depth;
+        push(&tmp,rts);
+        return 0;
+      } else if (num_args==1) {
+        /* Set new value */
+        if (pop(&tmp,rts,obj)) return 1;
+        if (tmp.type!=INTEGER) {
+          clear_var(&tmp);
+          return 1;
+        }
+        if (tmp.value.integer<5 || tmp.value.integer>100) {
+          /* Enforce reasonable limits: 5-100 */
+          tmp.value.integer=1;
+          push(&tmp,rts);
+          return 0;
+        }
+        max_trace_depth=tmp.value.integer;
+        tmp.value.integer=0;
+        push(&tmp,rts);
+        return 0;
+      }
+      return 1;
+      break;
+    case 11:
+      /* Get/set trace format (0=detailed, 1=compact) */
+      if (num_args==0) {
+        /* Get current value */
+        tmp.type=INTEGER;
+        tmp.value.integer=trace_format;
+        push(&tmp,rts);
+        return 0;
+      } else if (num_args==1) {
+        /* Set new value */
+        if (pop(&tmp,rts,obj)) return 1;
+        if (tmp.type!=INTEGER) {
+          clear_var(&tmp);
+          return 1;
+        }
+        if (tmp.value.integer!=0 && tmp.value.integer!=1) {
+          /* Only 0 or 1 allowed */
+          tmp.value.integer=1;
+          push(&tmp,rts);
+          return 0;
+        }
+        trace_format=tmp.value.integer;
+        tmp.value.integer=0;
+        push(&tmp,rts);
+        return 0;
+      }
+      return 1;
       break;
     default:
       return 1;
