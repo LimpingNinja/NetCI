@@ -20,6 +20,7 @@
 #include "globals.h"
 #include "interp.h"
 #include "constrct.h"
+#include "cache.h"
 #ifdef USE_WINDOWS
 #include "intrface.h"
 #include "winmain.h"
@@ -230,6 +231,359 @@ int remove_entry(struct file_entry *fe) {
   return 0;
 }
 
+/* Flag to prevent re-entry during callback execution */
+static int in_master_callback = 0;
+
+/**
+ * Calls master object for permission validation
+ * @param path Virtual filesystem path being accessed
+ * @param operation Name of operation (e.g., "read_file", "write_file")
+ * @param uid Calling object
+ * @param is_write 1 for write operations, 0 for read operations
+ * @return 1 if allowed, 0 if denied
+ */
+int check_master_permission(char *path, char *operation, struct object *uid, int is_write) {
+  struct object *master;
+  
+  /* Prevent re-entry during callback execution */
+  if (in_master_callback) {
+    return 1;
+  }
+  
+  /* Check if object system is initialized (bootstrap check) */
+  if (!obj_list) {
+    return 1;
+  }
+  
+  /* If caller is NULL (system operations), allow */
+  if (!uid) {
+    return 1;
+  }
+  
+  /* Get master object (object #0) */
+  master = db_ref_to_obj(0);
+  
+  /* If no master, allow (bootstrap mode) */
+  if (!master) {
+    return 1;
+  }
+  
+  /* If caller IS the master object, allow (prevents recursion during master init) */
+  if (uid == master) {
+    return 1;
+  }
+  
+  /* Check if master has the callback function */
+  struct object *tmpobj;
+  struct fns *callback_func;
+  char *func_name;
+  
+  func_name = is_write ? "valid_write" : "valid_read";
+  callback_func = find_function(func_name, master, &tmpobj);
+  
+  /* If function doesn't exist, just allow */
+  if (!callback_func) {
+    return 1;
+  }
+  
+  /* Save global state before calling interp() */
+  extern unsigned int num_locals;
+  extern struct var *locals;
+  unsigned int old_num_locals = num_locals;
+  struct var *old_locals = locals;
+  
+  /* Get file information to pass to callback */
+  struct file_entry *fe;
+  int file_flags, file_owner;
+  
+  fe = find_entry(path);
+  if (fe) {
+    file_flags = fe->flags;
+    file_owner = fe->owner;
+  } else {
+    file_flags = -1;
+    file_owner = -1;
+  }
+  
+  /* Call the callback with all 5 arguments: path, operation, caller, owner, flags */
+  struct var_stack *rts;
+  struct var tmp;
+  
+  in_master_callback = 1;
+  
+  rts = NULL;
+  
+  /* Push arguments in order */
+  tmp.type = STRING;
+  tmp.value.string = path;
+  push(&tmp, &rts);
+  
+  tmp.type = STRING;
+  tmp.value.string = operation;
+  push(&tmp, &rts);
+  
+  tmp.type = OBJECT;
+  tmp.value.objptr = uid;
+  push(&tmp, &rts);
+  
+  tmp.type = INTEGER;
+  tmp.value.integer = file_owner;
+  push(&tmp, &rts);
+  
+  tmp.type = INTEGER;
+  tmp.value.integer = file_flags;
+  push(&tmp, &rts);
+  
+  /* Push NUM_ARGS */
+  tmp.type = NUM_ARGS;
+  tmp.value.num = 5;
+  push(&tmp, &rts);
+  
+  interp(NULL, tmpobj, NULL, &rts, callback_func);
+  free_stack(&rts);
+  
+  in_master_callback = 0;
+  
+  /* Restore global state */
+  num_locals = old_num_locals;
+  locals = old_locals;
+  
+  /* Pop and check the result */
+  int result;
+  if (pop(&tmp, &rts, master)) {
+    /* Error popping result - allow by default */
+    free_stack(&rts);
+    return 1;
+  }
+  
+  /* Check if result is non-zero (allow) */
+  result = (tmp.type == INTEGER && tmp.value.integer != 0) ? 1 : 0;
+  clear_var(&tmp);
+  
+  return result;
+  
+  /* TODO: Re-enable master callbacks after fixing malloc corruption
+  struct object *master, *tmpobj;
+  struct fns *callback_func;
+  struct var_stack *rts;
+  struct var tmp;
+  char *func_name;
+  char logbuf[512];
+  int result;
+  struct file_entry *fe;
+  int file_flags, file_owner;
+  
+  // Check if object system is initialized (bootstrap check)
+  if (!obj_list) {
+    // During database creation, no objects exist yet - allow all operations
+    return 1;
+  }
+  
+  // If caller is NULL (system operations), allow
+  if (!uid) {
+    return 1;
+  }
+  
+  // Get master object (object #0)
+  master = db_ref_to_obj(0);
+  
+  // If no master, allow (bootstrap mode)
+  if (!master) {
+    return 1;
+  }
+  
+  // If caller IS the master object, allow (prevents recursion during master init)
+  if (uid == master) {
+    return 1;
+  }
+  
+  // Determine which callback to use
+  func_name = is_write ? "valid_write" : "valid_read";
+  
+  // Find the callback function in master object
+  callback_func = find_function(func_name, master, &tmpobj);
+  
+  // If function doesn't exist, fall back to legacy permission check
+  if (!callback_func) {
+    // Use existing can_read() logic as fallback
+    fe = find_entry(path);
+    if (!fe) return 1; // File doesn't exist yet, allow for creation
+    return can_read(fe, uid);
+  }
+  
+  // Get file information to pass to callback (avoids recursion)
+  fe = find_entry(path);
+  if (fe) {
+    file_flags = fe->flags;
+    file_owner = fe->owner;
+  } else {
+    file_flags = -1;  // File doesn't exist
+    file_owner = -1;
+  }
+  
+  // Build argument stack for callback: (path, operation, caller, file_owner, file_flags)
+  rts = NULL;
+  
+  // Push path argument - push() will make its own copy via copy_string()
+  tmp.type = STRING;
+  tmp.value.string = path;
+  push(&tmp, &rts);
+  
+  // Push operation argument - push() will make its own copy via copy_string()
+  tmp.type = STRING;
+  tmp.value.string = operation;
+  push(&tmp, &rts);
+  
+  // Push caller argument
+  tmp.type = OBJECT;
+  tmp.value.objptr = uid;
+  push(&tmp, &rts);
+  
+  // Push file_owner argument
+  tmp.type = INTEGER;
+  tmp.value.integer = file_owner;
+  push(&tmp, &rts);
+  
+  // Push file_flags argument
+  tmp.type = INTEGER;
+  tmp.value.integer = file_flags;
+  push(&tmp, &rts);
+  
+  // Push number of arguments
+  tmp.type = NUM_ARGS;
+  tmp.value.integer = 5;
+  push(&tmp, &rts);
+  
+  // Call the callback function
+  interp(uid, tmpobj, uid, &rts, callback_func);
+  
+  // Pop result
+  if (pop(&tmp, &rts, master)) {
+    // Error popping result - deny by default
+    free_stack(&rts);
+    if (uid) {
+      sprintf(logbuf, "Permission check error for %s by object #%ld", path, (long)uid->refno);
+    } else {
+      sprintf(logbuf, "Permission check error for %s by system", path);
+    }
+    logger(LOG_WARNING, logbuf);
+    return 0;
+  }
+  
+  // Check result - non-zero means allowed
+  if (tmp.type == INTEGER) {
+    result = (tmp.value.integer != 0);
+  } else {
+    // Non-integer result - deny by default
+    result = 0;
+  }
+  
+  // Clean up
+  clear_var(&tmp);
+  free_stack(&rts);
+  
+  // Log denials
+  if (!result) {
+    if (uid) {
+      sprintf(logbuf, "Permission denied: %s for %s by object #%ld", operation, path, (long)uid->refno);
+    } else {
+      sprintf(logbuf, "Permission denied: %s for %s by system", operation, path);
+    }
+    logger(LOG_WARNING, logbuf);
+  }
+  
+  return result;
+  */
+}
+
+/**
+ * Validates that a path is within the mudlib root and doesn't contain malicious patterns
+ * @param path Virtual filesystem path to validate
+ * @return 1 if valid, 0 if invalid
+ */
+int validate_path(char *path) {
+  char *resolved, *ptr, *component;
+  char logbuf[512];
+  int depth = 0;
+  int len, i, j;
+  
+  /* Check for NULL or empty path */
+  if (!path || *path == '\0') {
+    logger(LOG_ERROR, "Security: NULL or empty path rejected");
+    return 0;
+  }
+  
+  /* Check path starts with "/" */
+  if (*path != '/') {
+    sprintf(logbuf, "Security: Relative path rejected: %s", path);
+    logger(LOG_ERROR, logbuf);
+    return 0;
+  }
+  
+  /* Allocate buffer for resolved path */
+  len = strlen(path);
+  resolved = MALLOC(len + 1);
+  strcpy(resolved, path);
+  
+  /* Resolve ".." components and check depth */
+  ptr = resolved;
+  i = 0;
+  j = 0;
+  
+  while (ptr[i] != '\0') {
+    if (ptr[i] == '/') {
+      /* Skip multiple slashes */
+      while (ptr[i] == '/') i++;
+      if (ptr[i] == '\0') break;
+      
+      /* Check for ".." component */
+      if (ptr[i] == '.' && ptr[i+1] == '.' && (ptr[i+2] == '/' || ptr[i+2] == '\0')) {
+        depth--;
+        if (depth < 0) {
+          /* Attempt to escape root */
+          sprintf(logbuf, "Security: Attempt to escape mudlib root: %s", path);
+          logger(LOG_ERROR, logbuf);
+          FREE(resolved);
+          return 0;
+        }
+        i += 2;
+        /* Remove last component from resolved path */
+        while (j > 0 && resolved[j-1] != '/') j--;
+        if (j > 0) j--; /* Remove the slash too */
+        continue;
+      }
+      
+      /* Check for "." component (current directory) */
+      if (ptr[i] == '.' && (ptr[i+1] == '/' || ptr[i+1] == '\0')) {
+        i++;
+        continue;
+      }
+      
+      /* Normal component - copy to resolved */
+      resolved[j++] = '/';
+      depth++;
+      while (ptr[i] != '/' && ptr[i] != '\0') {
+        resolved[j++] = ptr[i++];
+      }
+    } else {
+      i++;
+    }
+  }
+  
+  resolved[j] = '\0';
+  
+  /* If resolved path is empty, it's root */
+  if (j == 0) {
+    resolved[0] = '/';
+    resolved[1] = '\0';
+  }
+  
+  FREE(resolved);
+  
+  /* Path is valid */
+  return 1;
+}
+
 /**
  * Discovers a single file and creates virtual entry if needed
  * @param path Virtual filesystem path (e.g., "/home/wizard/test.c")
@@ -431,8 +785,18 @@ int ls_dir(char *filename, struct object *uid, struct object *player) {
   rcv=player;
   if (!player) rcv=uid;
   
+  /* Validate path first */
+  if (!validate_path(filename)) {
+    return FILE_ERR_PATH_INVALID;
+  }
+  
   /* Discover directory contents before listing */
   discover_directory(filename, uid);
+  
+  /* Check master permission for directory listing */
+  if (!check_master_permission(filename, "get_dir", uid, 0)) {
+    return FILE_ERR_PERMISSION_DENIED;
+  }
   
   fe=find_entry(filename);
   if (!fe) return 1;
@@ -465,9 +829,19 @@ int stat_file(char *filename, struct object *uid) {
   struct file_entry *fe,*homefe;
   char *newbuf;
 
+  /* Validate path first */
+  if (!validate_path(filename)) {
+    return FILE_ERR_PATH_INVALID;
+  }
+
   /* Try to discover the file first */
   fe = discover_file(filename, uid);
-  if (!fe) return -1;
+  if (!fe) return FILE_ERR_NOT_FOUND;
+  
+  /* Check master permission for stat operation */
+  if (!check_master_permission(filename, "stat", uid, 0)) {
+    return FILE_ERR_PERMISSION_DENIED;
+  }
   
   homefe=split_dir(filename,&newbuf);
   if (!homefe) return -1;
@@ -483,6 +857,11 @@ int owner_file(char *filename, struct object *uid) {
   fe = discover_file(filename, uid);
   if (!fe) return -1;
   
+  /* Check master permission for owner query */
+  if (!check_master_permission(filename, "file_owner", uid, 0)) {
+    return FILE_ERR_PERMISSION_DENIED;
+  }
+  
   homefe=split_dir(filename,&newbuf);
   if (!homefe) return -1;
   FREE(newbuf);
@@ -494,14 +873,41 @@ FILE *open_file(char *filename, char *mode, struct object *uid) {
   struct file_entry *fe,*homefe;
   char *buf,*newbuf;
   FILE *f;
+  char logbuf[512];
+
+  /* Log all boot.c access for security auditing */
+  if (strcmp(filename, "/boot.c") == 0) {
+    sprintf(logbuf, "AUDIT: boot.c access - mode=%s uid=%p obj_list=%p", mode, (void*)uid, (void*)obj_list);
+    logger(LOG_INFO, logbuf);
+  }
+
+  /* Validate path first */
+  if (!validate_path(filename)) {
+    if (strcmp(filename, "/boot.c") == 0) {
+      logger(LOG_ERROR, "AUDIT: boot.c DENIED - path validation failed");
+    }
+    return NULL;
+  }
 
   /* Try to discover the file first */
   fe = discover_file(filename, uid);
   
   if (!fe) {
     /* File doesn't exist - handle creation for write modes */
-    if (*mode=='r') return NULL;
+    if (*mode=='r') {
+      /* Check read permission even for non-existent files */
+      if (!check_master_permission(filename, "read_file", uid, 0)) {
+        return NULL;
+      }
+      return NULL;
+    }
     if (!uid) return NULL;
+    
+    /* Check master permission for file creation */
+    if (!check_master_permission(filename, "write_file", uid, 1)) {
+      return NULL;
+    }
+    
     homefe=split_dir(filename,&newbuf);
     if (!homefe) return NULL;
     if (!can_read(homefe,uid)) {
@@ -521,6 +927,14 @@ FILE *open_file(char *filename, char *mode, struct object *uid) {
   }
   if (fe->flags & DIRECTORY) return NULL;
   if (!can_read(fe->parent,uid)) return NULL;
+  
+  /* Check master permission for read operations */
+  if (*mode=='r') {
+    if (!check_master_permission(filename, "read_file", uid, 0)) {
+      return NULL;
+    }
+  }
+  
   buf=make_path(fe);
   if (!uid && *mode=='r') {
     f=fopen(buf,mode);
@@ -536,6 +950,11 @@ FILE *open_file(char *filename, char *mode, struct object *uid) {
     return NULL;
   }
   if (uid->refno==fe->owner || (uid->flags & PRIV)) {
+    /* Check master permission for write operations */
+    if ((*mode=='a' || *mode=='w') && !check_master_permission(filename, "write_file", uid, 1)) {
+      FREE(buf);
+      return NULL;
+    }
     f=fopen(buf,mode);
     /* Clean up stale entry if fopen fails */
     if (!f && *mode=='r') {
@@ -554,6 +973,11 @@ FILE *open_file(char *filename, char *mode, struct object *uid) {
     return f;
   }
   if ((*mode=='a' || *mode=='w') && (fe->flags & WRITE_OK) && !doing_ls) {
+    /* Check master permission for write operations */
+    if (!check_master_permission(filename, "write_file", uid, 1)) {
+      FREE(buf);
+      return NULL;
+    }
     f=fopen(buf,mode);
     FREE(buf);
     return f;
@@ -569,9 +993,19 @@ int remove_file(char *filename, struct object *uid) {
   if (doing_ls) return 1;
   if (!uid) return 1;
   
+  /* Validate path first */
+  if (!validate_path(filename)) {
+    return FILE_ERR_PATH_INVALID;
+  }
+  
   /* Try to discover the file first */
   fe = discover_file(filename, uid);
   if (!fe) return 1;
+  
+  /* Check master permission for file removal */
+  if (!check_master_permission(filename, "rm", uid, 1)) {
+    return FILE_ERR_PERMISSION_DENIED;
+  }
   
   if (fe->flags & DIRECTORY) return 1;
   if (!can_read(fe->parent,uid)) return 1;
@@ -596,9 +1030,19 @@ int copy_file(char *src, char *dest, struct object *uid) {
   if (doing_ls) return 1;
   if (!uid) return 1;
   
+  /* Validate paths first */
+  if (!validate_path(src) || !validate_path(dest)) {
+    return FILE_ERR_PATH_INVALID;
+  }
+  
   /* Discover source and destination files */
   discover_file(src, uid);
   discover_file(dest, uid);
+  
+  /* Check master permission for copy operation (write to destination) */
+  if (!check_master_permission(dest, "cp", uid, 1)) {
+    return FILE_ERR_PERMISSION_DENIED;
+  }
   
   srcf=open_file(src,FREAD_MODE,uid);
   if (!srcf) return 1;
@@ -627,10 +1071,20 @@ int move_file(char *src, char *dest, struct object *uid) {
   if (!uid) return 1;
   if (!strcmp(src,dest)) return 1;
   
+  /* Validate paths first */
+  if (!validate_path(src) || !validate_path(dest)) {
+    return FILE_ERR_PATH_INVALID;
+  }
+  
   /* Discover source file */
   srcf = discover_file(src, uid);
   if (!srcf) return 1;
   if (srcf->flags & DIRECTORY) return 1;
+  
+  /* Check master permission for move operation (write to both source and dest) */
+  if (!check_master_permission(src, "mv", uid, 1) || !check_master_permission(dest, "mv", uid, 1)) {
+    return FILE_ERR_PERMISSION_DENIED;
+  }
   
   /* Discover or create destination file entry */
   destf = discover_file(dest, uid);
@@ -693,9 +1147,19 @@ int make_dir(char *filename, struct object *uid) {
   if (doing_ls) return 1;
   if (!uid) return 1;
   
+  /* Validate path first */
+  if (!validate_path(filename)) {
+    return FILE_ERR_PATH_INVALID;
+  }
+  
   /* Check if directory already exists (discover first) */
   fe = discover_file(filename, uid);
   if (fe) return 1;
+  
+  /* Check master permission for directory creation */
+  if (!check_master_permission(filename, "mkdir", uid, 1)) {
+    return FILE_ERR_PERMISSION_DENIED;
+  }
   
   homefe=split_dir(filename,&buf);
   if (!homefe) return 1;
@@ -727,9 +1191,19 @@ int remove_dir(char *filename, struct object *uid) {
   if (doing_ls) return 1;
   if (!uid) return 1;
   
+  /* Validate path first */
+  if (!validate_path(filename)) {
+    return FILE_ERR_PATH_INVALID;
+  }
+  
   /* Try to discover the directory first */
   fe = discover_file(filename, uid);
   if (!fe) return 1;
+  
+  /* Check master permission for directory removal */
+  if (!check_master_permission(filename, "rmdir", uid, 1)) {
+    return FILE_ERR_PERMISSION_DENIED;
+  }
   
   if (!(fe->flags & DIRECTORY)) return 1;
   if (fe->contents) return 1;
@@ -814,6 +1288,12 @@ int chown_file(char *filename, struct object *uid, struct object *new_owner) {
   if (!uid) return 1;
   if (!new_owner) return 1;
   if (!fe) return 1;
+  
+  /* Check master permission for ownership change */
+  if (!check_master_permission(filename, "chown", uid, 1)) {
+    return FILE_ERR_PERMISSION_DENIED;
+  }
+  
   if (fe!=root_dir)
     if (!can_read(fe->parent,uid))
       return 1;
@@ -828,6 +1308,12 @@ int chmod_file(char *filename, struct object *uid, int flags) {
   fe=find_entry(filename);
   if (!fe) return 1;
   if (!uid) return 1;
+  
+  /* Check master permission for permission change */
+  if (!check_master_permission(filename, "chmod", uid, 1)) {
+    return FILE_ERR_PERMISSION_DENIED;
+  }
+  
   if (fe!=root_dir)
     if (!can_read(fe->parent,uid))
       return 1;

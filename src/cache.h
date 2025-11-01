@@ -2,6 +2,7 @@
 
 /* the cache functions. what else? */
 
+struct object *db_ref_to_obj(signed long refno);
 void unload_object(struct object *obj);
 void load_data(struct object *obj);
 void unload_data();

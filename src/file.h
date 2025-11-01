@@ -2,6 +2,17 @@
 
 /* the file opening, etc, operations */
 
+/* Error codes for file operations */
+#define FILE_ERR_SUCCESS 0
+#define FILE_ERR_GENERAL 1
+#define FILE_ERR_NOT_FOUND -1
+#define FILE_ERR_PERMISSION_DENIED -2
+#define FILE_ERR_PATH_INVALID -3
+
+/* Security functions */
+int validate_path(char *path);
+int check_master_permission(char *path, char *operation, struct object *uid, int is_write);
+
 /* Discovery functions */
 struct file_entry *discover_file(char *path, struct object *uid);
 int discover_directory(char *path, struct object *uid);

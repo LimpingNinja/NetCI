@@ -415,45 +415,48 @@ int main(int argc, char *argv[]) {
   }
 #endif /* !USE_WINDOWS */
   init_globals(loadpath,savepath,panicpath);
-  if ((retval=init_interface(&port,do_single))) {
-    if (retval==NOSINGLE) {
-      logger(LOG_ERROR, " system: single-user mode not supported");
+  /* Skip network initialization if we're just creating a database */
+  if (!do_create) {
+    if ((retval=init_interface(&port,do_single))) {
+      if (retval==NOSINGLE) {
+        logger(LOG_ERROR, " system: single-user mode not supported");
 #ifdef USE_WINDOWS
-      MessageBox(hwnd,"Single-user mode not supported","Error",
-	             MB_OK | MB_ICONSTOP);
+        MessageBox(hwnd,"Single-user mode not supported","Error",
+                   MB_OK | MB_ICONSTOP);
 #endif /* USE_WINDOWS */
-    } else if (retval==NOMULTI) {
-      logger(LOG_ERROR, " system: multi-user mode not supported");
+      } else if (retval==NOMULTI) {
+        logger(LOG_ERROR, " system: multi-user mode not supported");
 #ifdef USE_WINDOWS
-      MessageBox(hwnd,"Multi-user mode not supported","Error",
-	             MB_OK | MB_ICONSTOP);
+        MessageBox(hwnd,"Multi-user mode not supported","Error",
+                   MB_OK | MB_ICONSTOP);
 #endif /* USE_WINDOWS */
-    } else if (retval==PORTINUSE) {
-      logger(LOG_ERROR, " system: port in use");
+      } else if (retval==PORTINUSE) {
+        logger(LOG_ERROR, " system: port in use");
 #ifdef USE_WINDOWS
-      MessageBox(hwnd,"Port in use","Error",
-	             MB_OK | MB_ICONSTOP);
+        MessageBox(hwnd,"Port in use","Error",
+                   MB_OK | MB_ICONSTOP);
 #endif /* USE_WINDOWS */
-    } else if (retval==NOSOCKET) {
-      logger(LOG_ERROR, " system: couldn't create socket");
+      } else if (retval==NOSOCKET) {
+        logger(LOG_ERROR, " system: couldn't create socket");
 #ifdef USE_WINDOWS
-      MessageBox(hwnd,"Couldn't create socket","Error",
-	             MB_OK | MB_ICONSTOP);
+        MessageBox(hwnd,"Couldn't create socket","Error",
+                   MB_OK | MB_ICONSTOP);
 #endif /* USE_WINDOWS */
-    } else if (retval==NOPROT) {
-      logger(LOG_ERROR, " system: network protocol not supported");
+      } else if (retval==NOPROT) {
+        logger(LOG_ERROR, " system: network protocol not supported");
 #ifdef USE_WINDOWS
-      MessageBox(hwnd,"Network protocol not supported","Error",
-	             MB_OK | MB_ICONSTOP);
+        MessageBox(hwnd,"Network protocol not supported","Error",
+                   MB_OK | MB_ICONSTOP);
 #endif /* USE_WINDOWS */
-    } else {
-      logger(LOG_ERROR, " system: unspecified interface initialization error");
+      } else {
+        logger(LOG_ERROR, " system: unspecified interface initialization error");
 #ifdef USE_WINDOWS
       MessageBox(hwnd,"Unspecified interface initialization error","Error",
 	             MB_OK | MB_ICONSTOP);
 #endif /* USE_WINDOWS */
-	}
-    exit(0);
+      }
+      exit(0);
+    }
   }
 #ifdef USE_WINDOWS
   if (!do_create)
@@ -479,7 +482,6 @@ int main(int argc, char *argv[]) {
   if (do_create) {
     if (create_db()) {
       logger(LOG_ERROR, " system: database creation failed");
-      shutdown_interface();
 #ifdef USE_WINDOWS
       MessageBox(hwnd,"Database creation failed","Error",MB_OK |
                  MB_ICONSTOP);
@@ -489,18 +491,16 @@ int main(int argc, char *argv[]) {
       logger(LOG_INFO, " system: database creation complete");
       if (save_db(save_name)) {
         logger(LOG_ERROR, " system: save failed");
-		shutdown_interface();
 #ifdef USE_WINDOWS
-		MessageBox(hwnd,"Save failed","Error",MB_OK | MB_ICONSTOP);
+        MessageBox(hwnd,"Save failed","Error",MB_OK | MB_ICONSTOP);
 #endif /* USE_WINDOWS */
         exit(0);
-	  }	else {
+      } else {
 #ifndef USE_WINDOWS
         logger(LOG_INFO, " system: shutting down");
-	    shutdown_interface();
-		exit(0);
+        exit(0);
 #endif /* !USE_WINDOWS */
-	  }
+      }
     }
   } else {
     if (init_db()) {

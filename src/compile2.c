@@ -3,6 +3,7 @@
 /* This file contains the functions to compile CI-C into an easily
    interpreted form */
 
+#include <time.h>
 #include "config.h"
 #include "object.h"
 #include "instr.h"
@@ -18,12 +19,28 @@ unsigned int parse_code(char *filename, struct object *caller_obj,
   unsigned int line_num;
   filptr file_info;
   char *buf;
+  char logbuf[512];
+  int is_boot;
+  long start_time, end_time;
 
   c_err_msg=NULL;
   buf=(char *) MALLOC(strlen(filename)+3);
   strcpy(buf,filename);
   strcat(buf,".c");
+  
+  /* Check if compiling boot.c for logging */
+  is_boot = (strcmp(filename, "/boot") == 0);
+  
+  if (is_boot) {
+    sprintf(logbuf, "COMPILE: Starting compilation of boot.c");
+    logger(LOG_INFO, logbuf);
+    start_time = time(NULL);
+  }
+  
   if (!(file_info.curr_file=open_file(buf,FREAD_MODE,NULL))) {
+    if (is_boot) {
+      logger(LOG_ERROR, "COMPILE: boot.c FAILED - could not open file");
+    }
     FREE(buf);
     return (unsigned int) -1;
   }
@@ -50,9 +67,19 @@ unsigned int parse_code(char *filename, struct object *caller_obj,
   free_file_stack(&file_info);
   free_define(&file_info);
   if (line_num) {
+    if (is_boot) {
+      sprintf(logbuf, "COMPILE: boot.c FAILED at line %u - %s", line_num, c_err_msg ? c_err_msg : "unknown error");
+      logger(LOG_ERROR, logbuf);
+    }
     free_code(file_info.curr_code);
     return line_num;
   } else {
+    if (is_boot) {
+      end_time = time(NULL);
+      sprintf(logbuf, "COMPILE: boot.c compiled successfully (%ld seconds, %u globals, %p funcs)", 
+              end_time - start_time, file_info.curr_code->num_globals, (void*)file_info.curr_code->func_list);
+      logger(LOG_INFO, logbuf);
+    }
     *result=file_info.curr_code;
     return 0;
   }

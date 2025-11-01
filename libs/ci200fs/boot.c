@@ -189,6 +189,162 @@ get_version(pkg) {
   return 0;
 }
 
+/* Helper function to check if caller has a specific role */
+static has_role(caller, role_name) {
+  string name;
+  
+  if (!caller) return 0;
+  name = caller.get_name();
+  if (!name) return 0;
+  
+  return (downcase(name) == downcase(role_name));
+}
+
+/* Helper function to check if path starts with a prefix */
+static path_starts_with(path, prefix) {
+  int prefix_len;
+  if (!path || !prefix) return 0;
+  prefix_len = strlen(prefix);
+  if (strlen(path) < prefix_len) return 0;
+  return (leftstr(path, prefix_len) == prefix);
+}
+
+/* Helper function to check if path is in user's home directory */
+static is_in_home_dir(path, username) {
+  int next_slash;
+  string path_user;
+  if (!path || !username) return 0;
+  if (!path_starts_with(path, "/home/")) return 0;
+  next_slash = instr(path, 7, "/");
+  if (!next_slash) return 0;
+  path_user = midstr(path, 7, next_slash - 7);
+  return (downcase(path_user) == downcase(username));
+}
+
+/* BASIC SECURITY (commented out - using role-based below)
+valid_read(path, func, caller, owner, flags) {
+  if (!caller) return 1;
+  if (priv(caller)) return 1;
+  if (flags == -1) return 1;
+  if (owner == otoi(caller)) return 1;
+  if (flags & 1) return 1;
+  return 0;
+}
+
+valid_write(path, func, caller, owner, flags) {
+  if (!caller) return 1;
+  if (priv(caller)) return 1;
+  if (flags == -1) {
+    if (priv(caller)) return 1;
+    return 0;
+  }
+  if (owner == otoi(caller)) return 1;
+  if (flags & 2) return 1;
+  return 0;
+}
+*/
+
+/* ROLE-BASED SECURITY */
+valid_read(path, func, caller, owner, flags) {
+  int caller_flags;
+  string caller_name;
+  
+  /* System access - always allow */
+  if (!caller) return 1;
+  
+  /* Privileged objects - always allow */
+  if (priv(caller)) return 1;
+  
+  /* Non-existent files - allow read attempts */
+  if (flags == -1) return 1;
+  
+  /* Get caller info once */
+  caller_flags = caller.get_flags();
+  caller_name = caller.get_name();
+  
+  /* Wizard: Full read access except boot.c */
+  if (has_role(caller, "Wizard")) {
+    if (path == "/boot.c") return 0;
+    return 1;
+  }
+  
+  /* Programmer (flag 32): Read all except boot.c and /sys */
+  if (caller_flags & 32) {
+    if (path == "/boot.c") return 0;
+    if (path == "/sys" || path_starts_with(path, "/sys/")) return 0;
+    return 1;
+  }
+  
+  /* Builder (flag 8): Read all except boot.c and /sys */
+  if (caller_flags & 8) {
+    if (path == "/boot.c") return 0;
+    if (path == "/sys" || path_starts_with(path, "/sys/")) return 0;
+    return 1;
+  }
+  
+  /* Regular user: owner, home directory, or READ_OK flag */
+  if (owner == otoi(caller)) return 1;
+  if (caller_name && is_in_home_dir(path, caller_name)) return 1;
+  if (flags & 1) return 1;
+  
+  return 0;
+}
+
+valid_write(path, func, caller, owner, flags) {
+  int caller_flags, caller_id;
+  string caller_name;
+  
+  /* System access - always allow */
+  if (!caller) return 1;
+  
+  /* Privileged objects - always allow */
+  if (priv(caller)) return 1;
+  
+  /* Get caller info once */
+  caller_flags = caller.get_flags();
+  caller_name = caller.get_name();
+  caller_id = otoi(caller);
+  
+  /* Wizard: Full write access except boot.c */
+  if (has_role(caller, "Wizard")) {
+    if (path == "/boot.c") return 0;
+    return 1;
+  }
+  
+  /* Programmer (flag 32): Write all except /sys and boot.c */
+  if (caller_flags & 32) {
+    if (path == "/boot.c") return 0;
+    if (path == "/sys" || path_starts_with(path, "/sys/")) return 0;
+    /* Allow creating new files, owner files, or WRITE_OK files */
+    if (flags == -1) return 1;
+    if (owner == caller_id) return 1;
+    if (flags & 2) return 1;
+    return 0;
+  }
+  
+  /* Builder (flag 8): Write only in /etc */
+  if (caller_flags & 8) {
+    if (path == "/boot.c") return 0;
+    if (path == "/sys" || path_starts_with(path, "/sys/")) return 0;
+    if (!path_starts_with(path, "/etc/")) return 0;
+    /* Allow creating new files, owner files, or WRITE_OK files */
+    if (flags == -1) return 1;
+    if (owner == caller_id) return 1;
+    if (flags & 2) return 1;
+    return 0;
+  }
+  
+  /* Regular user: Write only in home directory */
+  if (caller_name && is_in_home_dir(path, caller_name)) {
+    if (flags == -1) return 1;
+    if (owner == caller_id) return 1;
+    if (flags & 2) return 1;
+    return 0;
+  }
+  
+  return 0;
+}
+
 listen(arg) { send_device(arg); }
 
 static save_db() {
