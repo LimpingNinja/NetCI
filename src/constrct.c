@@ -262,28 +262,40 @@ int popint(struct var *data, struct var_stack **rts, struct object *obj) {
       break;
     case LOCAL_REF:
     case GLOBAL_REF:
-      if (popint(&tmp,rts,obj)) {
-        FREE(ptr);
-        return 1;
-      }
-      data->value.l_value.size=tmp.value.integer;
-      if (popint(&tmp,rts,obj)) {
-        FREE(ptr);
-        return 1;
-      }
-      data->value.l_value.ref=tmp.value.integer;
-      if (data->type==LOCAL_REF) {
-        if (data->value.l_value.ref>=num_locals) {
+      {
+        unsigned int array_base, array_size, index;
+        /* Pop size, index, base (new 3-value format) */
+        if (popint(&tmp,rts,obj)) {
           FREE(ptr);
           return 1;
         }
-        data->type=LOCAL_L_VALUE;
-      } else {
-        if (data->value.l_value.ref>=obj->parent->funcs->num_globals) {
+        array_size = tmp.value.integer;
+        if (popint(&tmp,rts,obj)) {
           FREE(ptr);
           return 1;
         }
-        data->type=GLOBAL_L_VALUE;
+        index = tmp.value.integer;
+        if (popint(&tmp,rts,obj)) {
+          FREE(ptr);
+          return 1;
+        }
+        array_base = tmp.value.integer;
+        /* Calculate final reference */
+        data->value.l_value.ref = array_base + index;
+        data->value.l_value.size = 1;
+        if (data->type==LOCAL_REF) {
+          if (data->value.l_value.ref>=num_locals) {
+            FREE(ptr);
+            return 1;
+          }
+          data->type=LOCAL_L_VALUE;
+        } else {
+          if (data->value.l_value.ref>=obj->parent->funcs->num_globals) {
+            FREE(ptr);
+            return 1;
+          }
+          data->type=GLOBAL_L_VALUE;
+        }
       }
       break;
     default:
@@ -342,28 +354,40 @@ int pop(struct var *data, struct var_stack **rts, struct object *obj) {
       break;
     case LOCAL_REF:
     case GLOBAL_REF:
-      if (popint(&tmp,rts,obj)) {
-        FREE(ptr);
-        return 1;
-      }
-      data->value.l_value.size=tmp.value.integer;
-      if (popint(&tmp,rts,obj)) {
-        FREE(ptr);
-        return 1;
-      }
-      data->value.l_value.ref=tmp.value.integer;
-      if (data->type==LOCAL_REF) {
-        if (data->value.l_value.ref>=num_locals) {
+      {
+        unsigned int array_base, array_size, index;
+        /* Pop size, index, base (new 3-value format) */
+        if (popint(&tmp,rts,obj)) {
           FREE(ptr);
           return 1;
         }
-        data->type=LOCAL_L_VALUE;
-      } else {
-        if (data->value.l_value.ref>=obj->parent->funcs->num_globals) {
+        array_size = tmp.value.integer;
+        if (popint(&tmp,rts,obj)) {
           FREE(ptr);
           return 1;
         }
-        data->type=GLOBAL_L_VALUE;
+        index = tmp.value.integer;
+        if (popint(&tmp,rts,obj)) {
+          FREE(ptr);
+          return 1;
+        }
+        array_base = tmp.value.integer;
+        /* Calculate final reference */
+        data->value.l_value.ref = array_base + index;
+        data->value.l_value.size = 1;
+        if (data->type==LOCAL_REF) {
+          if (data->value.l_value.ref>=num_locals) {
+            FREE(ptr);
+            return 1;
+          }
+          data->type=LOCAL_L_VALUE;
+        } else {
+          if (data->value.l_value.ref>=obj->parent->funcs->num_globals) {
+            FREE(ptr);
+            return 1;
+          }
+          data->type=GLOBAL_L_VALUE;
+        }
       }
       break;
     default:

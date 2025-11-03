@@ -651,6 +651,7 @@ int create_db() {
   } else
     obj->globals=NULL;
   obj->refd_by=NULL;
+  obj->array_meta=NULL;  /* Initialize array metadata list */
   obj->verb_list=NULL;
   add_loaded(obj);
   obj->obj_state=DIRTY;

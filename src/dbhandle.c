@@ -208,6 +208,7 @@ struct object *newobj() {
   obj->next_object=NULL;
   obj->globals=NULL;
   obj->refd_by=NULL;
+  obj->array_meta=NULL;
   obj->verb_list=NULL;
   obj->attachees=NULL;
   obj->attacher=NULL;

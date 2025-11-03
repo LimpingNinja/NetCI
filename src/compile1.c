@@ -328,15 +328,20 @@ unsigned int parse_base(filptr *file_info,fn_t *curr_fn, sym_tab_t
     return file_info->phys_line;
   add_code_integer(curr_fn,calc_size(*rest));
   add_code_instr(curr_fn,MUL_OPER);
-  add_code_instr(curr_fn,ADD_OPER);
+  
+  /* Check if there's another dimension coming */
   get_token(file_info,&token);
   if (token.type!=RARRAY_TOK) {
     set_c_err_msg("expected ]");
     return file_info->phys_line;
   }
   get_token(file_info,&token);
-  if (token.type==LARRAY_TOK)
+  if (token.type==LARRAY_TOK) {
+    /* More dimensions - ADD now and recurse */
+    add_code_instr(curr_fn,ADD_OPER);
     return parse_base(file_info,curr_fn,loc_sym,rest);
+  }
+  /* Last dimension - DON'T add, let runtime do it after bounds check */
   unget_token(file_info,&token);
   return 0;
 }
@@ -380,7 +385,8 @@ unsigned int parse_var(char *name,filptr *file_info,fn_t *curr_fn,sym_tab_t
     add_code_integer(curr_fn,the_var->base);
     if (parse_base(file_info,curr_fn,loc_sym,&rest))
       return file_info->phys_line;
-    add_code_integer(curr_fn,calc_size(rest));
+    /* Push size of FIRST dimension for bounds checking, not remaining */
+    add_code_integer(curr_fn,the_var->array->size);
     if (global)
       add_code_gr(curr_fn);
     else

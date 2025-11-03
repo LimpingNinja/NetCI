@@ -515,66 +515,106 @@ int interp(struct object *caller, struct object *obj, struct object *player,
         break;
       case LOCAL_REF:
       case GLOBAL_REF:
-        if (popint(&tmp,&rts,obj)) {
-          interp_error_with_trace("failed array reference",player,obj,func,line);
-          free_stack(&rts);
-          clear_locals();
-          use_soft_cycles=old_use_soft_cycles;
-          use_hard_cycles=old_use_hard_cycles;
-          call_stack = frame.prev;  /* Pop frame on error exit */
-          call_stack_depth--;
-          return 1;
-	}
-        tmp2.value.l_value.size=tmp.value.integer;
-        if (popint(&tmp,&rts,obj)) {
-          interp_error_with_trace("failed array reference",player,obj,func,line);
-          free_stack(&rts);
-          clear_locals();
-          use_soft_cycles=old_use_soft_cycles;
-          use_hard_cycles=old_use_hard_cycles;
-          call_stack = frame.prev;  /* Pop frame on error exit */
-          call_stack_depth--;
-          return 1;
-	}
-        tmp2.value.l_value.ref=tmp.value.integer;
-        if (func->code[loop].type==LOCAL_REF) {
-          if (tmp2.value.l_value.ref>=num_locals) {
-            interp_error_with_trace("array reference out of bound",player,obj,func,line);
+        {
+          unsigned int array_base, array_size, index;
+          unsigned char is_global;
+          struct array_metadata *meta;
+          
+          /* Stack now has: [base] [index] [size] (parse_base no longer adds) */
+          
+          /* Pop size */
+          if (popint(&tmp,&rts,obj)) {
+            interp_error_with_trace("failed array reference",player,obj,func,line);
             free_stack(&rts);
             clear_locals();
             use_soft_cycles=old_use_soft_cycles;
             use_hard_cycles=old_use_hard_cycles;
-            call_stack = frame.prev;  /* Pop frame on error exit */
+            call_stack = frame.prev;
             call_stack_depth--;
             return 1;
-	  }
-	} else
-          if (tmp2.value.l_value.ref>=obj->parent->funcs->num_globals) {
-            interp_error_with_trace("array reference out of bound",player,obj,func,line);
+          }
+          array_size = tmp.value.integer;
+          
+          /* Pop index (calculated from parse_base) */
+          if (popint(&tmp,&rts,obj)) {
+            interp_error_with_trace("failed array reference",player,obj,func,line);
             free_stack(&rts);
             clear_locals();
             use_soft_cycles=old_use_soft_cycles;
             use_hard_cycles=old_use_hard_cycles;
-            call_stack = frame.prev;  /* Pop frame on error exit */
+            call_stack = frame.prev;
             call_stack_depth--;
             return 1;
-	  }
-        if (tmp2.value.l_value.size!=1) {
-          interp_error_with_trace("illegal array reference",player,obj,func,line);
-          free_stack(&rts);
-          clear_locals();
-          use_soft_cycles=old_use_soft_cycles;
-          use_hard_cycles=old_use_hard_cycles;
-          call_stack = frame.prev;  /* Pop frame on error exit */
-          call_stack_depth--;
-          return 1;
-	}
-        if (func->code[loop].type==LOCAL_REF)
-          tmp2.type=LOCAL_L_VALUE;
-        else
-          tmp2.type=GLOBAL_L_VALUE;
-        push(&tmp2,&rts);
-        loop++;
+          }
+          index = tmp.value.integer;
+          
+          /* Pop base */
+          if (popint(&tmp,&rts,obj)) {
+            interp_error_with_trace("failed array reference",player,obj,func,line);
+            free_stack(&rts);
+            clear_locals();
+            use_soft_cycles=old_use_soft_cycles;
+            use_hard_cycles=old_use_hard_cycles;
+            call_stack = frame.prev;
+            call_stack_depth--;
+            return 1;
+          }
+          array_base = tmp.value.integer;
+          
+          is_global = (func->code[loop].type == GLOBAL_REF);
+          
+          /* Ensure metadata exists */
+          meta = ensure_array_metadata(obj, array_base, array_size, is_global);
+          if (!meta) {
+            interp_error_with_trace("failed to create array metadata",player,obj,func,line);
+            free_stack(&rts);
+            clear_locals();
+            use_soft_cycles=old_use_soft_cycles;
+            use_hard_cycles=old_use_hard_cycles;
+            call_stack = frame.prev;
+            call_stack_depth--;
+            return 1;
+          }
+          
+          /* Bounds check and resize if needed */
+          if (index >= meta->current_size) {
+            if (meta->max_size == UNLIMITED_ARRAY_SIZE || index < meta->max_size) {
+              /* Resize allowed */
+              if (resize_array(obj, array_base, index + 1, is_global, &locals, &num_locals)) {
+                interp_error_with_trace("array resize failed",player,obj,func,line);
+                free_stack(&rts);
+                clear_locals();
+                use_soft_cycles=old_use_soft_cycles;
+                use_hard_cycles=old_use_hard_cycles;
+                call_stack = frame.prev;
+                call_stack_depth--;
+                return 1;
+              }
+            } else{
+              /* Bounds exceeded */
+              interp_error_with_trace("array index out of bounds",player,obj,func,line);
+              free_stack(&rts);
+              clear_locals();
+              use_soft_cycles=old_use_soft_cycles;
+              use_hard_cycles=old_use_hard_cycles;
+              call_stack = frame.prev;
+              call_stack_depth--;
+              return 1;
+            }
+          }
+          
+          /* NOW do the addition (after bounds check) */
+          tmp2.value.l_value.ref = array_base + index;
+          tmp2.value.l_value.size = 1;
+          
+          if (is_global)
+            tmp2.type = GLOBAL_L_VALUE;
+          else
+            tmp2.type = LOCAL_L_VALUE;
+            
+          push(&tmp2,&rts);
+          loop++;
+        }
         break;
       case ASM_INSTR:
         if (func->code[loop].value.instruction<NUM_OPERS) {

@@ -122,6 +122,21 @@ struct ref_list
   struct ref_list *next;
 };
 
+/* the array_metadata structure tracks runtime array information
+   for dynamic arrays with bounds checking and refcounting */
+
+#define UNLIMITED_ARRAY_SIZE 0xFFFFFFFF
+
+struct array_metadata
+{
+  unsigned int base;           /* Index in locals/globals array */
+  unsigned int current_size;   /* Current allocated size */
+  unsigned int max_size;       /* Max allowed size (or UNLIMITED_ARRAY_SIZE) */
+  unsigned int ref_count;      /* Reference count for cleanup */
+  unsigned char is_global;     /* 1 if global array, 0 if local */
+  struct array_metadata *next; /* Linked list */
+};
+
 /* the attach_list structure is a linked list of objects which
    are attached to this object */
 
@@ -147,6 +162,7 @@ struct object
   struct attach_list *attachees;
   struct var *globals;
   struct ref_list *refd_by;
+  struct array_metadata *array_meta;  /* Runtime array metadata */
   struct verb *verb_list;       /* PROTO: activated verbs */
   char obj_state;
   signed long file_offset;
