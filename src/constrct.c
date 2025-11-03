@@ -184,10 +184,15 @@ void pushnocopy(struct var *data, struct var_stack **rts) {
 
 int resolve_var(struct var *data, struct object *obj) {
   struct var *element_ptr;
+  char logbuf[256];
+  
+  sprintf(logbuf, "resolve_var: type=%d", data->type);
+  logger(LOG_DEBUG, logbuf);
   
   if (data->type==GLOBAL_L_VALUE) {
-    if (data->value.l_value.size!=1)
-      return 1;
+    sprintf(logbuf, "resolve_var: GLOBAL_L_VALUE ref=%lu, size=%u", 
+            data->value.l_value.ref, data->value.l_value.size);
+    logger(LOG_DEBUG, logbuf);
     
     /* Check if this is a heap array element (pointer) or regular global */
     if (data->value.l_value.ref>=obj->parent->funcs->num_globals) {
@@ -236,9 +241,6 @@ int resolve_var(struct var *data, struct object *obj) {
     }
   } else
     if (data->type==LOCAL_L_VALUE) {
-      if (data->value.l_value.size!=1)
-        return 1;
-      
       /* Check if this is a heap array element (pointer) or regular local */
       if (data->value.l_value.ref>=num_locals) {
         /* This is a pointer to a heap array element */
@@ -361,11 +363,7 @@ int popint(struct var *data, struct var_stack **rts, struct object *obj) {
       data->value.num=ptr->data.value.num;
       break;
   }
-  if (data->type==LOCAL_L_VALUE || data->type==GLOBAL_L_VALUE)
-    if (data->value.l_value.size!=1) {
-      FREE(ptr);
-      return 1;
-    }
+  /* Allow arrays (size>1) to be popped for array operations like sizeof(), join(), etc. */
   if (resolve_var(data,obj)) {
     clear_var(data);
     FREE(ptr);

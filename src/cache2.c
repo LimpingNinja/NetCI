@@ -10,6 +10,7 @@
 #include "clearq.h"
 #include "table.h"
 #include "cache.h"
+#include "protos.h"
 
 #ifdef USE_WINDOWS
 #include <winsock.h>
@@ -644,8 +645,45 @@ int create_db() {
     obj->globals=MALLOC(sizeof(struct var)*(the_code->num_globals));
     loop=0;
     while (loop<the_code->num_globals) {
-      obj->globals[loop].type=INTEGER;
-      obj->globals[loop].value.integer=0;
+      struct var_tab *var_info = the_code->gst;
+      struct heap_array *arr;
+      int is_array = 0;
+      unsigned int array_size = 0;
+      unsigned int max_size = 0;
+      
+      /* Find this variable in the global symbol table */
+      while (var_info) {
+        if (var_info->base == loop && var_info->array) {
+          is_array = 1;
+          /* Calculate total array size (product of all dimensions) */
+          struct array_size *dim = var_info->array;
+          array_size = 1;
+          while (dim) {
+            if (dim->size == 255) {
+              /* Unlimited size - start with 0 elements, will grow on access */
+              array_size = 0;
+              break;
+            }
+            array_size *= dim->size;
+            dim = dim->next;
+          }
+          /* Determine max_size (255 means unlimited) */
+          max_size = (var_info->array->size == 255) ? UNLIMITED_ARRAY_SIZE : array_size;
+          break;
+        }
+        var_info = var_info->next;
+      }
+      
+      if (is_array) {
+        /* Allocate heap array */
+        arr = allocate_array(array_size, max_size);
+        obj->globals[loop].type = ARRAY;
+        obj->globals[loop].value.array_ptr = arr;
+      } else {
+        /* Regular variable - initialize to 0 */
+        obj->globals[loop].type=INTEGER;
+        obj->globals[loop].value.integer=0;
+      }
       loop++;
     }
   } else

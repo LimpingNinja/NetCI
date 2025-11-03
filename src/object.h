@@ -36,10 +36,11 @@
 #define UNLIMITED_ARRAY_SIZE 0xFFFFFFFF
 
 struct heap_array {
-  unsigned int size;        /* Current number of elements */
+  unsigned int size;        /* Current number of elements (logical size) */
+  unsigned int capacity;    /* Allocated capacity (physical size) */
   unsigned int max_size;    /* Maximum size (or UNLIMITED_ARRAY_SIZE) */
   unsigned int refcount;    /* Reference count for garbage collection */
-  struct var *elements;     /* Actual array data */
+  struct var *elements;     /* Array of elements */
 };
 
 /* The lval structure contains information about lvalues */
@@ -87,6 +88,7 @@ struct fns
   struct var *code;           /* To be treated as an array */
   unsigned long num_instr;
   char *funcname;
+  struct var_tab *lst;        /* Local symbol table (for array initialization) */
   struct fns *next;
 };
 

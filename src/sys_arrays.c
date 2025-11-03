@@ -33,6 +33,7 @@ struct heap_array* allocate_array(unsigned int size, unsigned int max_size) {
   
   /* Initialize fields */
   arr->size = size;
+  arr->capacity = size;  /* Initial capacity equals initial size */
   arr->max_size = max_size;
   arr->refcount = 1;  /* Start with refcount 1 */
   
@@ -110,17 +111,18 @@ void array_release(struct heap_array *arr) {
 }
 
 /* Resize heap array to new size
+ * Uses geometric growth (1.5x) for efficiency
  * Returns: 0 on success, 1 on failure
  */
 int resize_heap_array(struct heap_array *arr, unsigned int new_size) {
   struct var *new_elements;
-  unsigned int i;
+  unsigned int i, new_capacity;
   char logbuf[256];
   
   if (!arr) return 1;
   
-  sprintf(logbuf, "resize_heap_array: array %p from %u to %u elements", 
-          (void*)arr, arr->size, new_size);
+  sprintf(logbuf, "resize_heap_array: array %p from size=%u to size=%u (capacity=%u)", 
+          (void*)arr, arr->size, new_size, arr->capacity);
   logger(LOG_DEBUG, logbuf);
   
   /* Check against max_size */
@@ -129,20 +131,48 @@ int resize_heap_array(struct heap_array *arr, unsigned int new_size) {
     return 1;
   }
   
+  /* If new size fits in current capacity, just update size */
+  if (new_size <= arr->capacity) {
+    /* Initialize any new elements to INTEGER 0 */
+    for (i = arr->size; i < new_size; i++) {
+      arr->elements[i].type = INTEGER;
+      arr->elements[i].value.integer = 0;
+    }
+    arr->size = new_size;
+    sprintf(logbuf, "resize_heap_array: fits in capacity, new size=%u", new_size);
+    logger(LOG_DEBUG, logbuf);
+    return 0;
+  }
+  
+  /* Need to grow capacity - use 1.5x growth strategy */
+  new_capacity = arr->capacity + (arr->capacity / 2);  /* 1.5x */
+  if (new_capacity < new_size) {
+    new_capacity = new_size;  /* Ensure we have enough */
+  }
+  
+  /* Cap at max_size if not unlimited */
+  if (arr->max_size != UNLIMITED_ARRAY_SIZE && new_capacity > arr->max_size) {
+    new_capacity = arr->max_size;
+  }
+  
+  sprintf(logbuf, "resize_heap_array: growing capacity from %u to %u", 
+          arr->capacity, new_capacity);
+  logger(LOG_DEBUG, logbuf);
+  
   /* Allocate new elements array */
-  new_elements = (struct var *) MALLOC(sizeof(struct var) * new_size);
+  new_elements = (struct var *) MALLOC(sizeof(struct var) * new_capacity);
   if (!new_elements) {
     logger(LOG_ERROR, "resize_heap_array: allocation failed");
     return 1;
   }
   
   /* Copy existing elements */
-  for (i = 0; i < arr->size && i < new_size; i++) {
+  for (i = 0; i < arr->size; i++) {
     new_elements[i] = arr->elements[i];
   }
   
   /* Initialize new elements to INTEGER 0 */
-  for (i = arr->size; i < new_size; i++) {
+  for (i = arr->size; i < new_capacity; i++) {
     new_elements[i].type = INTEGER;
     new_elements[i].value.integer = 0;
   }
@@ -152,9 +182,11 @@ int resize_heap_array(struct heap_array *arr, unsigned int new_size) {
     FREE(arr->elements);
   }
   arr->elements = new_elements;
+  arr->capacity = new_capacity;
   arr->size = new_size;
   
-  sprintf(logbuf, "resize_heap_array: success, new size %u", new_size);
+  sprintf(logbuf, "resize_heap_array: success, size=%u, capacity=%u", 
+          arr->size, arr->capacity);
   logger(LOG_DEBUG, logbuf);
   
   return 0;

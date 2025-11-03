@@ -138,6 +138,12 @@ OPER_PROTO(s_get_master)
 OPER_PROTO(s_is_master)
 OPER_PROTO(s_input_to)
 OPER_PROTO(s_sizeof)
+OPER_PROTO(s_implode)
+OPER_PROTO(s_explode)
+OPER_PROTO(s_member_array)
+OPER_PROTO(s_sort_array)
+OPER_PROTO(s_reverse)
+OPER_PROTO(s_unique_array)
 
 /* Heap array functions (Phase 2.5) */
 struct heap_array* allocate_array(unsigned int size, unsigned int max_size);

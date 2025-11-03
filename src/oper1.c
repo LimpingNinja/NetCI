@@ -6,6 +6,7 @@
 #include "operdef.h"
 #include "globals.h"
 #include "cache.h"
+#include "file.h"
 
 int comma_oper(struct object *caller, struct object *obj,
                 struct object *player, struct var_stack **rts) {
@@ -33,7 +34,8 @@ int eq_oper(struct object *caller, struct object *obj,
     clear_var(&tmp2);
     return 1;
   }
-  if (tmp1.value.l_value.size!=1) {
+  /* Sanity check: size should be at least 1 */
+  if (tmp1.value.l_value.size < 1) {
     clear_var(&tmp2);
     return 1;
   }
@@ -114,7 +116,8 @@ int pleq_oper(struct object *caller, struct object *obj,
     clear_var(&tmp1);
     return 1;
   }
-  if (tmp1.value.l_value.size!=1) {
+  /* Sanity check: size should be at least 1 */
+  if (tmp1.value.l_value.size < 1) {
     clear_var(&tmp2);
     return 1;
   }

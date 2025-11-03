@@ -50,7 +50,8 @@ char *scall_array[NUM_SCALLS]={ "add_verb","add_xverb","call_other",
   "table_delete","fstat","fowner","get_hostname","get_address",
   "set_localverbs","localverbs","next_verb","get_devport","get_devnet",
   "redirect_input","get_input_func","get_master","is_master","input_to",
-  "sizeof"
+  "sizeof","implode","explode","member_array","sort_array","reverse",
+  "unique_array"
 };
 
 /* The functions themselves */
@@ -860,6 +861,7 @@ unsigned int top_level_parse(filptr *file_info)
         tmp_fns->num_locals=0;
         tmp_fns->code=NULL;
         tmp_fns->funcname=copy_string(token.token_data.name);
+        tmp_fns->lst=NULL;  /* Initialize local symbol table */
         tmp_fns->next=file_info->curr_code->func_list;
         file_info->curr_code->func_list=tmp_fns;
         get_token(file_info,&token);
@@ -909,6 +911,8 @@ unsigned int top_level_parse(filptr *file_info)
         tmp_fns->code=curr_func.code;
         tmp_fns->num_locals=loc_sym.num;
         tmp_fns->num_instr=curr_func.num_code;
+        tmp_fns->lst=loc_sym.varlist;  /* Save local symbol table for array init */
+        loc_sym.varlist=NULL;  /* Prevent free_sym_t from freeing it */
         free_sym_t(&loc_sym);
         break;
       default:

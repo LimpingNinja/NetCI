@@ -3,7 +3,7 @@
 /* contains the definitions for the object-code instructions */
 
 #define NUM_OPERS      38
-#define NUM_SCALLS     98
+#define NUM_SCALLS     104
 
 #define COMMA_OPER     0    /*  ,   */
 #define EQ_OPER        1    /*  =   */
@@ -167,3 +167,9 @@
 /* Array Functions */
 
 #define S_SIZEOF        135 /* sizeof(array arr) - returns array length */
+#define S_IMPLODE       136 /* implode(array arr, string sep) - join array into string */
+#define S_EXPLODE       137 /* explode(string str, string sep) - split string into array */
+#define S_MEMBER_ARRAY  138 /* member_array(mixed elem, array arr) - find element in array */
+#define S_SORT_ARRAY    139 /* sort_array(array arr) - sort array in place */
+#define S_REVERSE       140 /* reverse(array arr) - reverse array in place */
+#define S_UNIQUE_ARRAY  141 /* unique_array(array arr) - remove duplicates */

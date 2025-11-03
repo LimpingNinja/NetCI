@@ -35,7 +35,8 @@ int (*oper_array[NUM_OPERS+NUM_SCALLS])(struct object *caller, struct object
   s_table_get,s_table_set,s_table_delete,s_fstat,s_fowner,s_get_hostname,
   s_get_address,s_set_localverbs,s_localverbs,s_next_verb,s_get_devport,
   s_get_devnet,s_redirect_input,s_get_input_func,s_get_master,s_is_master,
-  s_input_to,s_sizeof };
+  s_input_to,s_sizeof,s_implode,s_explode,s_member_array,s_sort_array,
+  s_reverse,s_unique_array };
 
 void interp_error(char *msg, struct object *player, struct object *obj,
                   struct fns *func, unsigned long line) {
@@ -432,9 +433,69 @@ int interp(struct object *caller, struct object *obj, struct object *player,
     locals=(struct var *) MALLOC(sizeof(struct var)*num_locals);
   else
     locals=NULL;
+  
+  /* Initialize locals - allocate arrays for array variables */
   while (loop<num_locals) {
-    locals[loop].type=INTEGER;
-    locals[loop].value.integer=0;
+    struct var_tab *var_info = func->lst;
+    struct heap_array *arr;
+    int is_array = 0;
+    unsigned int array_size = 0;
+    unsigned int max_size = 0;
+    char logbuf[256];
+    
+    sprintf(logbuf, "init_locals: checking local %d, lst=%p", loop, (void*)func->lst);
+    logger(LOG_DEBUG, logbuf);
+    
+    /* Find this variable in the local symbol table */
+    while (var_info) {
+      sprintf(logbuf, "init_locals: var_info base=%u, loop=%d, array=%p", 
+              var_info->base, loop, (void*)var_info->array);
+      logger(LOG_DEBUG, logbuf);
+      
+      if (var_info->base == loop && var_info->array) {
+        is_array = 1;
+        /* Calculate total array size (product of all dimensions) */
+        struct array_size *dim = var_info->array;
+        array_size = 1;
+        while (dim) {
+          if (dim->size == 255) {
+            /* Unlimited size - start with 0 elements, will grow on access */
+            array_size = 0;
+            break;
+          }
+          array_size *= dim->size;
+          dim = dim->next;
+        }
+        /* Determine max_size (255 means unlimited) */
+        max_size = (var_info->array->size == 255) ? UNLIMITED_ARRAY_SIZE : array_size;
+        
+        sprintf(logbuf, "init_locals: found array at local %d, size=%u, max=%u", 
+                loop, array_size, max_size);
+        logger(LOG_DEBUG, logbuf);
+        break;
+      }
+      var_info = var_info->next;
+    }
+    
+    if (is_array) {
+      /* Allocate heap array */
+      arr = allocate_array(array_size, max_size);
+      if (arr) {
+        locals[loop].type = ARRAY;
+        locals[loop].value.array_ptr = arr;
+        sprintf(logbuf, "init_locals: allocated array for local %d", loop);
+        logger(LOG_DEBUG, logbuf);
+      } else {
+        /* Allocation failed - initialize as INTEGER 0 */
+        locals[loop].type = INTEGER;
+        locals[loop].value.integer = 0;
+        logger(LOG_ERROR, "init_locals: array allocation failed!");
+      }
+    } else {
+      /* Regular variable - initialize to INTEGER 0 */
+      locals[loop].type = INTEGER;
+      locals[loop].value.integer = 0;
+    }
     loop++;
   }
   if (pop(&tmp,arg_stack,caller)) {
