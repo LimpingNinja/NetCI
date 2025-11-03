@@ -38,22 +38,60 @@ int eq_oper(struct object *caller, struct object *obj,
     return 1;
   }
   if (resolve_var(&tmp2,obj)) return 1;
+  
+  /* Increment refcount for arrays on assignment */
+  if (tmp2.type == ARRAY) {
+    array_addref(tmp2.value.array_ptr);
+  }
+  
   if (tmp1.type==GLOBAL_L_VALUE) {
     obj->obj_state=DIRTY;
-    if (tmp2.type==OBJECT) {
-      load_data(tmp2.value.objptr);
-      tmp2.value.objptr->obj_state=DIRTY;
-      tmpref=MALLOC(sizeof(struct ref_list));
-      tmpref->ref_obj=obj;
-      tmpref->ref_num=tmp1.value.l_value.ref;
-      tmpref->next=tmp2.value.objptr->refd_by;
-      tmp2.value.objptr->refd_by=tmpref;
+    
+    /* Check if this is a heap array element (pointer) or regular global */
+    if (tmp1.value.l_value.ref >= obj->parent->funcs->num_globals) {
+      /* Heap array element - direct pointer assignment */
+      struct var *element_ptr = (struct var *)tmp1.value.l_value.ref;
+      /* Clear old value before overwriting */
+      if (element_ptr->type == STRING || element_ptr->type == FUNC_NAME || 
+          element_ptr->type == EXTERN_FUNC) {
+        FREE(element_ptr->value.string);
+      } else if (element_ptr->type == ARRAY) {
+        array_release(element_ptr->value.array_ptr);
+      }
+      *element_ptr = tmp2;
+    } else {
+      /* Regular global variable */
+      if (tmp2.type==OBJECT) {
+        load_data(tmp2.value.objptr);
+        tmp2.value.objptr->obj_state=DIRTY;
+        tmpref=MALLOC(sizeof(struct ref_list));
+        tmpref->ref_obj=obj;
+        tmpref->ref_num=tmp1.value.l_value.ref;
+        tmpref->next=tmp2.value.objptr->refd_by;
+        tmp2.value.objptr->refd_by=tmpref;
+      }
+      clear_global_var(obj,tmp1.value.l_value.ref);
+      obj->globals[tmp1.value.l_value.ref]=tmp2;
     }
-    clear_global_var(obj,tmp1.value.l_value.ref);
-    obj->globals[tmp1.value.l_value.ref]=tmp2;
   } else {
-    clear_var(&(locals[tmp1.value.l_value.ref]));
-    locals[tmp1.value.l_value.ref]=tmp2;
+    /* LOCAL_L_VALUE */
+    /* Check if this is a heap array element (pointer) or regular local */
+    if (tmp1.value.l_value.ref >= num_locals) {
+      /* Heap array element - direct pointer assignment */
+      struct var *element_ptr = (struct var *)tmp1.value.l_value.ref;
+      /* Clear old value before overwriting */
+      if (element_ptr->type == STRING || element_ptr->type == FUNC_NAME || 
+          element_ptr->type == EXTERN_FUNC) {
+        FREE(element_ptr->value.string);
+      } else if (element_ptr->type == ARRAY) {
+        array_release(element_ptr->value.array_ptr);
+      }
+      *element_ptr = tmp2;
+    } else {
+      /* Regular local variable */
+      clear_var(&(locals[tmp1.value.l_value.ref]));
+      locals[tmp1.value.l_value.ref]=tmp2;
+    }
   }
   push(&tmp2,rts);
   return 0;

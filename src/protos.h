@@ -139,15 +139,21 @@ OPER_PROTO(s_is_master)
 OPER_PROTO(s_input_to)
 OPER_PROTO(s_sizeof)
 
-/* Array metadata management functions */
+/* Heap array functions (Phase 2.5) */
+struct heap_array* allocate_array(unsigned int size, unsigned int max_size);
+void array_addref(struct heap_array *arr);
+void array_release(struct heap_array *arr);
+int resize_heap_array(struct heap_array *arr, unsigned int new_size);
+
+/* Array metadata management functions (Phase 2 - OLD, TO BE REMOVED) */
 struct array_metadata* find_array_metadata(struct object *obj, unsigned int base, 
                                            unsigned char is_global);
 struct array_metadata* register_array_metadata(struct object *obj, unsigned int base,
                                                unsigned int initial_size, 
                                                unsigned int max_size,
                                                unsigned char is_global);
-void array_addref(struct array_metadata *meta);
-void array_release(struct object *obj, struct array_metadata *meta);
+void metadata_addref(struct array_metadata *meta);
+void metadata_release(struct object *obj, struct array_metadata *meta);
 void free_all_array_metadata(struct object *obj);
 int resize_array(struct object *obj, unsigned int base, unsigned int new_size,
                  unsigned char is_global, struct var **locals_ptr, unsigned int *num_locals_ptr);

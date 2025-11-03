@@ -7,6 +7,163 @@
 #include "constrct.h"
 #include "file.h"
 
+/* ========================================================================
+ * HEAP ARRAY FUNCTIONS (Phase 2.5)
+ * ======================================================================== */
+
+/* Create a new heap-allocated array
+ * size: Initial number of elements
+ * max_size: Maximum allowed size (or UNLIMITED_ARRAY_SIZE)
+ * Returns: Pointer to new array, or NULL on failure
+ */
+struct heap_array* allocate_array(unsigned int size, unsigned int max_size) {
+  struct heap_array *arr;
+  unsigned int i;
+  char logbuf[256];
+  
+  sprintf(logbuf, "allocate_array: size=%u, max_size=%u", size, max_size);
+  logger(LOG_DEBUG, logbuf);
+  
+  /* Allocate array structure */
+  arr = (struct heap_array *) MALLOC(sizeof(struct heap_array));
+  if (!arr) {
+    logger(LOG_ERROR, "allocate_array: failed to allocate array structure");
+    return NULL;
+  }
+  
+  /* Initialize fields */
+  arr->size = size;
+  arr->max_size = max_size;
+  arr->refcount = 1;  /* Start with refcount 1 */
+  
+  /* Allocate elements */
+  if (size > 0) {
+    arr->elements = (struct var *) MALLOC(sizeof(struct var) * size);
+    if (!arr->elements) {
+      logger(LOG_ERROR, "allocate_array: failed to allocate elements");
+      FREE(arr);
+      return NULL;
+    }
+    
+    /* Initialize all elements to INTEGER 0 */
+    for (i = 0; i < size; i++) {
+      arr->elements[i].type = INTEGER;
+      arr->elements[i].value.integer = 0;
+    }
+  } else {
+    arr->elements = NULL;
+  }
+  
+  sprintf(logbuf, "allocate_array: created array %p with %u elements", 
+          (void*)arr, size);
+  logger(LOG_DEBUG, logbuf);
+  
+  return arr;
+}
+
+/* Increment array reference count */
+void array_addref(struct heap_array *arr) {
+  char logbuf[256];
+  
+  if (!arr) return;
+  
+  arr->refcount++;
+  sprintf(logbuf, "array_addref: array %p refcount now %u", 
+          (void*)arr, arr->refcount);
+  logger(LOG_DEBUG, logbuf);
+}
+
+/* Decrement array reference count and free if zero */
+void array_release(struct heap_array *arr) {
+  unsigned int i;
+  char logbuf[256];
+  
+  if (!arr) return;
+  
+  sprintf(logbuf, "array_release: array %p refcount %u", 
+          (void*)arr, arr->refcount);
+  logger(LOG_DEBUG, logbuf);
+  
+  if (arr->refcount == 0) {
+    logger(LOG_ERROR, "array_release: refcount already zero!");
+    return;
+  }
+  
+  arr->refcount--;
+  
+  if (arr->refcount == 0) {
+    sprintf(logbuf, "array_release: freeing array %p with %u elements", 
+            (void*)arr, arr->size);
+    logger(LOG_DEBUG, logbuf);
+    
+    /* Free all elements */
+    if (arr->elements) {
+      for (i = 0; i < arr->size; i++) {
+        clear_var(&arr->elements[i]);
+      }
+      FREE(arr->elements);
+    }
+    
+    /* Free array structure */
+    FREE(arr);
+  }
+}
+
+/* Resize heap array to new size
+ * Returns: 0 on success, 1 on failure
+ */
+int resize_heap_array(struct heap_array *arr, unsigned int new_size) {
+  struct var *new_elements;
+  unsigned int i;
+  char logbuf[256];
+  
+  if (!arr) return 1;
+  
+  sprintf(logbuf, "resize_heap_array: array %p from %u to %u elements", 
+          (void*)arr, arr->size, new_size);
+  logger(LOG_DEBUG, logbuf);
+  
+  /* Check against max_size */
+  if (arr->max_size != UNLIMITED_ARRAY_SIZE && new_size > arr->max_size) {
+    logger(LOG_ERROR, "resize_heap_array: exceeds max_size");
+    return 1;
+  }
+  
+  /* Allocate new elements array */
+  new_elements = (struct var *) MALLOC(sizeof(struct var) * new_size);
+  if (!new_elements) {
+    logger(LOG_ERROR, "resize_heap_array: allocation failed");
+    return 1;
+  }
+  
+  /* Copy existing elements */
+  for (i = 0; i < arr->size && i < new_size; i++) {
+    new_elements[i] = arr->elements[i];
+  }
+  
+  /* Initialize new elements to INTEGER 0 */
+  for (i = arr->size; i < new_size; i++) {
+    new_elements[i].type = INTEGER;
+    new_elements[i].value.integer = 0;
+  }
+  
+  /* Free old elements and update */
+  if (arr->elements) {
+    FREE(arr->elements);
+  }
+  arr->elements = new_elements;
+  arr->size = new_size;
+  
+  sprintf(logbuf, "resize_heap_array: success, new size %u", new_size);
+  logger(LOG_DEBUG, logbuf);
+  
+  return 0;
+}
+
+/* ========================================================================
+ * OLD METADATA FUNCTIONS (Phase 2 - TO BE REMOVED)
+ * ======================================================================== */
+
 /* Helper function to calculate array size from var_tab
  * Based on GetVarSize() from winmain.c
  */
@@ -39,15 +196,16 @@ static unsigned int calc_array_size(unsigned int base_index, struct var_tab *gst
 
 /* s_sizeof() - Return the size of an array
  * Usage: int size = sizeof(array_var);
- * Note: Uses gen_stack_noresolve, so receives unresolved L_VALUES
+ * Note: Works with heap arrays (Phase 2.5)
  */
 int s_sizeof(struct object *caller, struct object *obj, struct object *player,
              struct var_stack **rts) {
   struct var tmp, result;
   unsigned int array_size;
+  struct heap_array *arr;
   char logbuf[256];
   
-  sprintf(logbuf, "s_sizeof: called, rts=%p", (void*)rts);
+  sprintf(logbuf, "s_sizeof: called");
   logger(LOG_DEBUG, logbuf);
   
   /* Pop number of arguments */
@@ -55,9 +213,6 @@ int s_sizeof(struct object *caller, struct object *obj, struct object *player,
     logger(LOG_ERROR, "s_sizeof: failed to pop NUM_ARGS");
     return 1;
   }
-  
-  sprintf(logbuf, "s_sizeof: NUM_ARGS type=%d, value=%ld", tmp.type, tmp.value.num);
-  logger(LOG_DEBUG, logbuf);
   
   if (tmp.type != NUM_ARGS) {
     logger(LOG_ERROR, "s_sizeof: not NUM_ARGS");
@@ -69,21 +224,42 @@ int s_sizeof(struct object *caller, struct object *obj, struct object *player,
     return 1;
   }
   
-  /* Pop the array L_VALUE */
+  /* Pop the array variable */
   if (pop(&tmp, rts, obj)) {
     logger(LOG_ERROR, "s_sizeof: failed to pop argument");
     return 1;
   }
   
-  /* Check if it's an L_VALUE */
-  if (tmp.type != LOCAL_L_VALUE && tmp.type != GLOBAL_L_VALUE) {
-    logger(LOG_ERROR, "s_sizeof: not an L_VALUE");
+  /* Resolve L_VALUE to get actual value */
+  if (tmp.type == LOCAL_L_VALUE || tmp.type == GLOBAL_L_VALUE) {
+    if (resolve_var(&tmp, obj)) {
+      logger(LOG_ERROR, "s_sizeof: failed to resolve variable");
+      clear_var(&tmp);
+      return 1;
+    }
+  }
+  
+  /* Check if it's an array or uninitialized (INTEGER 0) */
+  if (tmp.type == INTEGER && tmp.value.integer == 0) {
+    /* Uninitialized array - return 0 */
+    sprintf(logbuf, "s_sizeof: uninitialized array, returning 0");
+    logger(LOG_DEBUG, logbuf);
+    array_size = 0;
+  } else if (tmp.type == ARRAY) {
+    /* Get array size from heap array */
+    arr = tmp.value.array_ptr;
+    if (!arr) {
+      logger(LOG_ERROR, "s_sizeof: NULL array pointer");
+      clear_var(&tmp);
+      return 1;
+    }
+    array_size = arr->size;
+  } else {
+    sprintf(logbuf, "s_sizeof: not an array (type=%d)", tmp.type);
+    logger(LOG_ERROR, logbuf);
     clear_var(&tmp);
     return 1;
   }
-  
-  /* Get array size from L_VALUE metadata */
-  array_size = tmp.value.l_value.size;
   
   sprintf(logbuf, "s_sizeof: array_size=%u", array_size);
   logger(LOG_DEBUG, logbuf);
@@ -154,15 +330,15 @@ struct array_metadata* register_array_metadata(struct object *obj, unsigned int 
   return meta;
 }
 
-/* Increment array reference count */
-void array_addref(struct array_metadata *meta) {
+/* Increment refcount for array metadata */
+void metadata_addref(struct array_metadata *meta) {
   if (meta) {
     meta->ref_count++;
   }
 }
 
 /* Decrement array reference count and free if zero */
-void array_release(struct object *obj, struct array_metadata *meta) {
+void metadata_release(struct object *obj, struct array_metadata *meta) {
   struct array_metadata *curr, *prev;
   
   if (!meta) return;

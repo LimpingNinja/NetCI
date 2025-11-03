@@ -30,12 +30,23 @@
                                        to FUNC_CALL at run-time */
 
 #define EXTERN_FUNC 16              /* call to external function */
+#define ARRAY 17                    /* heap-allocated array pointer */
+
+/* Heap-allocated array structure */
+#define UNLIMITED_ARRAY_SIZE 0xFFFFFFFF
+
+struct heap_array {
+  unsigned int size;        /* Current number of elements */
+  unsigned int max_size;    /* Maximum size (or UNLIMITED_ARRAY_SIZE) */
+  unsigned int refcount;    /* Reference count for garbage collection */
+  struct var *elements;     /* Actual array data */
+};
 
 /* The lval structure contains information about lvalues */
 
 struct lval
 {
-  unsigned int ref;
+  unsigned long ref;   /* Changed to unsigned long to hold pointers on 64-bit systems */
   unsigned int size;
 };
 
@@ -54,6 +65,7 @@ struct var
     struct lval l_value;             /* l-value reference */
     struct fns *func_call;           /* pointer to a function */
     unsigned long num;               /* generic integer value */
+    struct heap_array *array_ptr;   /* pointer to heap array */
   } value;
 };
 

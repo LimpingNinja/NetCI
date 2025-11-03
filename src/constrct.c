@@ -4,6 +4,7 @@
 #include "object.h"
 #include "instr.h"
 #include "constrct.h"
+#include "protos.h"
 #include "globals.h"
 #include "cache.h"
 #include "file.h"
@@ -182,48 +183,106 @@ void pushnocopy(struct var *data, struct var_stack **rts) {
 }
 
 int resolve_var(struct var *data, struct object *obj) {
+  struct var *element_ptr;
+  
   if (data->type==GLOBAL_L_VALUE) {
     if (data->value.l_value.size!=1)
       return 1;
-    if (data->value.l_value.ref>=obj->parent->funcs->num_globals)
-      return 1;
-    data->type=obj->globals[data->value.l_value.ref].type;
-    switch (data->type) {
-      case INTEGER:
-        data->value.integer=obj->globals[data->value.l_value.ref].value.integer;
-        break;
-      case STRING:
-        data->value.string=copy_string(obj->globals[data->value.l_value.ref].
-                                       value.string);
-        break;
-      case OBJECT:
-        data->value.objptr=obj->globals[data->value.l_value.ref].value.objptr;
-        break;
-      default:
-        return 1;
-        break;
+    
+    /* Check if this is a heap array element (pointer) or regular global */
+    if (data->value.l_value.ref>=obj->parent->funcs->num_globals) {
+      /* This is a pointer to a heap array element */
+      element_ptr = (struct var *)data->value.l_value.ref;
+      data->type = element_ptr->type;
+      switch (data->type) {
+        case INTEGER:
+          data->value.integer = element_ptr->value.integer;
+          break;
+        case STRING:
+          data->value.string = copy_string(element_ptr->value.string);
+          break;
+        case OBJECT:
+          data->value.objptr = element_ptr->value.objptr;
+          break;
+        case ARRAY:
+          data->value.array_ptr = element_ptr->value.array_ptr;
+          array_addref(data->value.array_ptr);  /* Increment refcount */
+          break;
+        default:
+          return 1;
+      }
+    } else {
+      /* Regular global variable */
+      data->type=obj->globals[data->value.l_value.ref].type;
+      switch (data->type) {
+        case INTEGER:
+          data->value.integer=obj->globals[data->value.l_value.ref].value.integer;
+          break;
+        case STRING:
+          data->value.string=copy_string(obj->globals[data->value.l_value.ref].
+                                         value.string);
+          break;
+        case OBJECT:
+          data->value.objptr=obj->globals[data->value.l_value.ref].value.objptr;
+          break;
+        case ARRAY:
+          data->value.array_ptr=obj->globals[data->value.l_value.ref].value.array_ptr;
+          array_addref(data->value.array_ptr);  /* Increment refcount */
+          break;
+        default:
+          return 1;
+          break;
+      }
     }
   } else
     if (data->type==LOCAL_L_VALUE) {
       if (data->value.l_value.size!=1)
         return 1;
-      if (data->value.l_value.ref>=num_locals)
-        return 1;
-      data->type=locals[data->value.l_value.ref].type;
-      switch (data->type) {
-        case INTEGER:
-          data->value.integer=locals[data->value.l_value.ref].value.integer;
-          break;
-        case STRING:
-          data->value.string=copy_string(locals[data->value.l_value.ref].
-                                         value.string);
-          break;
-        case OBJECT:
-          data->value.objptr=locals[data->value.l_value.ref].value.objptr;
-          break;
-        default:
-          return 1;
-          break;
+      
+      /* Check if this is a heap array element (pointer) or regular local */
+      if (data->value.l_value.ref>=num_locals) {
+        /* This is a pointer to a heap array element */
+        element_ptr = (struct var *)data->value.l_value.ref;
+        data->type = element_ptr->type;
+        switch (data->type) {
+          case INTEGER:
+            data->value.integer = element_ptr->value.integer;
+            break;
+          case STRING:
+            data->value.string = copy_string(element_ptr->value.string);
+            break;
+          case OBJECT:
+            data->value.objptr = element_ptr->value.objptr;
+            break;
+          case ARRAY:
+            data->value.array_ptr = element_ptr->value.array_ptr;
+            array_addref(data->value.array_ptr);  /* Increment refcount */
+            break;
+          default:
+            return 1;
+        }
+      } else {
+        /* Regular local variable */
+        data->type=locals[data->value.l_value.ref].type;
+        switch (data->type) {
+          case INTEGER:
+            data->value.integer=locals[data->value.l_value.ref].value.integer;
+            break;
+          case STRING:
+            data->value.string=copy_string(locals[data->value.l_value.ref].
+                                           value.string);
+            break;
+          case OBJECT:
+            data->value.objptr=locals[data->value.l_value.ref].value.objptr;
+            break;
+          case ARRAY:
+            data->value.array_ptr=locals[data->value.l_value.ref].value.array_ptr;
+            array_addref(data->value.array_ptr);  /* Increment refcount */
+            break;
+          default:
+            return 1;
+            break;
+        }
       }
     }
   return 0;
@@ -419,6 +478,8 @@ void free_stack(struct var_stack **rts) {
 void clear_var(struct var *data) {
   if (data->type==STRING || data->type==FUNC_NAME || data->type==EXTERN_FUNC)
     FREE(data->value.string);
+  else if (data->type==ARRAY)
+    array_release(data->value.array_ptr);  /* Release heap array */
   data->type=INTEGER;
   data->value.integer=0;
 }

@@ -516,13 +516,15 @@ int interp(struct object *caller, struct object *obj, struct object *player,
       case LOCAL_REF:
       case GLOBAL_REF:
         {
-          unsigned int array_base, array_size, index;
+          unsigned int var_index, array_index, declared_size;
           unsigned char is_global;
-          struct array_metadata *meta;
+          struct var *var_slot;
+          struct heap_array *arr;
+          char logbuf[256];
           
-          /* Stack now has: [base] [index] [size] (parse_base no longer adds) */
+          /* Stack has: [base] [index] [size] */
           
-          /* Pop size */
+          /* Pop declared size */
           if (popint(&tmp,&rts,obj)) {
             interp_error_with_trace("failed array reference",player,obj,func,line);
             free_stack(&rts);
@@ -533,9 +535,9 @@ int interp(struct object *caller, struct object *obj, struct object *player,
             call_stack_depth--;
             return 1;
           }
-          array_size = tmp.value.integer;
+          declared_size = tmp.value.integer;
           
-          /* Pop index (calculated from parse_base) */
+          /* Pop array index */
           if (popint(&tmp,&rts,obj)) {
             interp_error_with_trace("failed array reference",player,obj,func,line);
             free_stack(&rts);
@@ -546,9 +548,9 @@ int interp(struct object *caller, struct object *obj, struct object *player,
             call_stack_depth--;
             return 1;
           }
-          index = tmp.value.integer;
+          array_index = tmp.value.integer;
           
-          /* Pop base */
+          /* Pop variable index (where array pointer is stored) */
           if (popint(&tmp,&rts,obj)) {
             interp_error_with_trace("failed array reference",player,obj,func,line);
             free_stack(&rts);
@@ -559,14 +561,64 @@ int interp(struct object *caller, struct object *obj, struct object *player,
             call_stack_depth--;
             return 1;
           }
-          array_base = tmp.value.integer;
+          var_index = tmp.value.integer;
           
           is_global = (func->code[loop].type == GLOBAL_REF);
           
-          /* Ensure metadata exists */
-          meta = ensure_array_metadata(obj, array_base, array_size, is_global);
-          if (!meta) {
-            interp_error_with_trace("failed to create array metadata",player,obj,func,line);
+          /* Get variable slot */
+          if (is_global) {
+            if (var_index >= obj->parent->funcs->num_globals) {
+              interp_error_with_trace("global variable index out of bounds",player,obj,func,line);
+              free_stack(&rts);
+              clear_locals();
+              use_soft_cycles=old_use_soft_cycles;
+              use_hard_cycles=old_use_hard_cycles;
+              call_stack = frame.prev;
+              call_stack_depth--;
+              return 1;
+            }
+            var_slot = &obj->globals[var_index];
+          } else {
+            if (var_index >= num_locals) {
+              interp_error_with_trace("local variable index out of bounds",player,obj,func,line);
+              free_stack(&rts);
+              clear_locals();
+              use_soft_cycles=old_use_soft_cycles;
+              use_hard_cycles=old_use_hard_cycles;
+              call_stack = frame.prev;
+              call_stack_depth--;
+              return 1;
+            }
+            var_slot = &locals[var_index];
+          }
+          
+          /* Create heap array if this is first access */
+          if (var_slot->type == INTEGER && var_slot->value.integer == 0) {
+            unsigned int max_size = (declared_size == 255) ? UNLIMITED_ARRAY_SIZE : declared_size;
+            sprintf(logbuf, "Creating heap array: var_index=%u, declared_size=%u, max_size=%u, global=%d",
+                    var_index, declared_size, max_size, is_global);
+            logger(LOG_DEBUG, logbuf);
+            
+            arr = allocate_array(declared_size, max_size);
+            if (!arr) {
+              interp_error_with_trace("failed to allocate array",player,obj,func,line);
+              free_stack(&rts);
+              clear_locals();
+              use_soft_cycles=old_use_soft_cycles;
+              use_hard_cycles=old_use_hard_cycles;
+              call_stack = frame.prev;
+              call_stack_depth--;
+              return 1;
+            }
+            
+            var_slot->type = ARRAY;
+            var_slot->value.array_ptr = arr;
+            if (is_global) obj->obj_state = DIRTY;
+          }
+          
+          /* Check it's an array */
+          if (var_slot->type != ARRAY) {
+            interp_error_with_trace("not an array",player,obj,func,line);
             free_stack(&rts);
             clear_locals();
             use_soft_cycles=old_use_soft_cycles;
@@ -576,11 +628,15 @@ int interp(struct object *caller, struct object *obj, struct object *player,
             return 1;
           }
           
+          arr = var_slot->value.array_ptr;
+          
           /* Bounds check and resize if needed */
-          if (index >= meta->current_size) {
-            if (meta->max_size == UNLIMITED_ARRAY_SIZE || index < meta->max_size) {
-              /* Resize allowed */
-              if (resize_array(obj, array_base, index + 1, is_global, &locals, &num_locals)) {
+          if (array_index >= arr->size) {
+            if (arr->max_size == UNLIMITED_ARRAY_SIZE || array_index < arr->max_size) {
+              sprintf(logbuf, "Resizing array from %u to %u elements", arr->size, array_index + 1);
+              logger(LOG_DEBUG, logbuf);
+              
+              if (resize_heap_array(arr, array_index + 1)) {
                 interp_error_with_trace("array resize failed",player,obj,func,line);
                 free_stack(&rts);
                 clear_locals();
@@ -590,8 +646,8 @@ int interp(struct object *caller, struct object *obj, struct object *player,
                 call_stack_depth--;
                 return 1;
               }
-            } else{
-              /* Bounds exceeded */
+              if (is_global) obj->obj_state = DIRTY;
+            } else {
               interp_error_with_trace("array index out of bounds",player,obj,func,line);
               free_stack(&rts);
               clear_locals();
@@ -603,15 +659,14 @@ int interp(struct object *caller, struct object *obj, struct object *player,
             }
           }
           
-          /* NOW do the addition (after bounds check) */
-          tmp2.value.l_value.ref = array_base + index;
+          /* Push L_VALUE reference to array element
+           * Store the actual memory address as the ref (pointer to element)
+           * This works because resolve_var will dereference it
+           */
+          tmp2.type = (is_global) ? GLOBAL_L_VALUE : LOCAL_L_VALUE;
+          tmp2.value.l_value.ref = (unsigned long)&arr->elements[array_index];
           tmp2.value.l_value.size = 1;
           
-          if (is_global)
-            tmp2.type = GLOBAL_L_VALUE;
-          else
-            tmp2.type = LOCAL_L_VALUE;
-            
           push(&tmp2,&rts);
           loop++;
         }
