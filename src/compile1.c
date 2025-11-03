@@ -7,9 +7,9 @@
 #include "object.h"
 #include "instr.h"
 #include "constrct.h"
-#include "file.h"
 #include "token.h"
 #include "globals.h"
+#include "file.h"
 
 /* The precedence array - keeps track of operator precedences */
 
@@ -49,7 +49,8 @@ char *scall_array[NUM_SCALLS]={ "add_verb","add_xverb","call_other",
   "flush_device","attach","this_component","detach","table_get","table_set",
   "table_delete","fstat","fowner","get_hostname","get_address",
   "set_localverbs","localverbs","next_verb","get_devport","get_devnet",
-  "redirect_input","get_input_func","get_master","is_master","input_to"
+  "redirect_input","get_input_func","get_master","is_master","input_to",
+  "sizeof"
 };
 
 /* The functions themselves */
@@ -249,8 +250,15 @@ unsigned int add_var(filptr *file_info, sym_tab_t *sym)
   struct var_tab *curr_var;
   int done;
   struct array_size **rest;
+  int is_pointer = 0;
 
+  /* Check for pointer syntax: int *name */
   get_token(file_info,&token);
+  if (token.type == MUL_OPER) {
+    is_pointer = 1;
+    get_token(file_info,&token);
+  }
+  
   if (token.type!=NAME_TOK) {
     set_c_err_msg("expected variable name declaration");
     return file_info->phys_line;
@@ -294,6 +302,14 @@ unsigned int add_var(filptr *file_info, sym_tab_t *sym)
     }
   }
   unget_token(file_info,&token);
+  
+  /* If pointer syntax was used without brackets, create default array */
+  if (is_pointer && curr_var->array == NULL) {
+    curr_var->array = (struct array_size *) MALLOC(sizeof(struct array_size));
+    curr_var->array->size = 255;  /* Default size for unsized arrays */
+    curr_var->array->next = NULL;
+  }
+  
   sym->num+=calc_size(curr_var->array);
   return 0;
 }
@@ -332,6 +348,10 @@ unsigned int parse_var(char *name,filptr *file_info,fn_t *curr_fn,sym_tab_t
   int global;
   struct var_tab *the_var;
   struct array_size *rest;
+  char logbuf[256];
+
+  sprintf(logbuf, "parse_var: name='%s'", name);
+  logger(LOG_DEBUG, logbuf);
 
   if ((the_var=find_var(name,loc_sym)))
     global=0;
@@ -343,8 +363,14 @@ unsigned int parse_var(char *name,filptr *file_info,fn_t *curr_fn,sym_tab_t
       return file_info->phys_line;
     }
   get_token(file_info,&token);
+  
+  sprintf(logbuf, "parse_var: next token.type=%d (LARRAY_TOK=%d)", token.type, LARRAY_TOK);
+  logger(LOG_DEBUG, logbuf);
+  
   if (token.type!=LARRAY_TOK) {
     unget_token(file_info,&token);
+    sprintf(logbuf, "parse_var: generating L_VALUE for '%s', global=%d", name, global);
+    logger(LOG_DEBUG, logbuf);
     if (global)
       add_code_glv(curr_fn,the_var->base,calc_size(the_var->array));
     else
@@ -401,6 +427,7 @@ unsigned int parse_exp(filptr *file_info, fn_t *curr_fn, sym_tab_t *loc_sym,
   unsigned char instr;
   struct fns *func;
   unsigned long marker1,marker2;
+  char logbuf[256];
 
   get_token(file_info,&token);
   if (token.type==LPAR_TOK) {

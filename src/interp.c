@@ -35,7 +35,7 @@ int (*oper_array[NUM_OPERS+NUM_SCALLS])(struct object *caller, struct object
   s_table_get,s_table_set,s_table_delete,s_fstat,s_fowner,s_get_hostname,
   s_get_address,s_set_localverbs,s_localverbs,s_next_verb,s_get_devport,
   s_get_devnet,s_redirect_input,s_get_input_func,s_get_master,s_is_master,
-  s_input_to };
+  s_input_to,s_sizeof };
 
 void interp_error(char *msg, struct object *player, struct object *obj,
                   struct fns *func, unsigned long line) {
@@ -591,14 +591,24 @@ int interp(struct object *caller, struct object *obj, struct object *player,
             return 1;
           }
         } else {
+          char logbuf[256];
+          sprintf(logbuf, "interp: syscall #%d, rts=%p, *rts=%p", 
+                  func->code[loop].value.instruction, (void*)&rts, (void*)rts);
+          logger(LOG_DEBUG, logbuf);
+          
           old_locals=locals;
           old_num_locals=num_locals;
           if (func->code[loop].value.instruction==S_SSCANF ||
               func->code[loop].value.instruction==S_SPRINTF ||
-              func->code[loop].value.instruction==S_FREAD)
+              func->code[loop].value.instruction==S_FREAD ||
+              func->code[loop].value.instruction==S_SIZEOF)
             stack1=gen_stack_noresolve(&rts,obj);
           else
             stack1=gen_stack(&rts,obj);
+          
+          sprintf(logbuf, "interp: after gen_stack, stack1=%p", (void*)stack1);
+          logger(LOG_DEBUG, logbuf);
+          
           retstatus=((*oper_array[func->code[loop].value.instruction])
                      (caller,obj,player,&stack1));
           locals=old_locals;

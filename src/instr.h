@@ -3,7 +3,7 @@
 /* contains the definitions for the object-code instructions */
 
 #define NUM_OPERS      38
-#define NUM_SCALLS     97
+#define NUM_SCALLS     98
 
 #define COMMA_OPER     0    /*  ,   */
 #define EQ_OPER        1    /*  =   */
@@ -163,3 +163,7 @@
 #define S_GET_INPUT_FUNC 131 /* get_input_func() */
 #define S_GET_MASTER    132 /* get_master(object obj) */
 #define S_IS_MASTER     133 /* is_master(object obj) */
+
+/* Array Functions */
+
+#define S_SIZEOF        135 /* sizeof(array arr) - returns array length */

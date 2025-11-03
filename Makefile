@@ -53,7 +53,6 @@ clean:
 	@if [ -f gmon.out ] ; then rm -f gmon.out ; fi
 	@if [ -f src/autoconf.h ] ; then rm -f src/autoconf.h ; fi
 	@if [ -f src/autoconf ] ; then rm -f src/autoconf ; fi
-	@if [ -f src/Makefile ] ; then rm -f src/Makefile ; fi
 	@if [ -f src/release.bld ] ; then rm -f src/release.bld ; fi
 	@if [ -f src/debug.bld ] ; then rm -f src/debug.bld ; fi
 	@touch src/dummy.o

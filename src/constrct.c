@@ -6,6 +6,8 @@
 #include "constrct.h"
 #include "globals.h"
 #include "cache.h"
+#include "file.h"
+#include "cache.h"
 
 /**
  * Validates filename for virtual filesystem
@@ -368,11 +370,10 @@ int pop(struct var *data, struct var_stack **rts, struct object *obj) {
       data->value.num=ptr->data.value.num;
       break;
   }
-  if (data->type==LOCAL_L_VALUE || data->type==GLOBAL_L_VALUE)
-    if (data->value.l_value.size!=1) {
-      FREE(ptr);
-      return 1;
-    }
+  /* Note: Removed size==1 validation to allow arrays to be passed as values
+   * This is needed for array operations like sizeof(), join(), etc.
+   * The old check prevented arrays from being used as first-class values.
+   */
   FREE(ptr);
   return 0;
 }
@@ -460,18 +461,38 @@ void copy_var(struct var *dest, struct var *src) {
 struct var_stack *gen_stack(struct var_stack **rts, struct object *obj) {
   struct var_stack *tmp,*stack1;
   unsigned long arg_count;
+  char logbuf[256];
 
   stack1=*rts;
   tmp=*rts;
   if (!tmp) return NULL;
+  
+  sprintf(logbuf, "gen_stack: top of stack type=%d (NUM_ARGS=%d)", tmp->data.type, NUM_ARGS);
+  logger(LOG_DEBUG, logbuf);
+  
   arg_count=tmp->data.value.num;
+  sprintf(logbuf, "gen_stack: arg_count=%lu", arg_count);
+  logger(LOG_DEBUG, logbuf);
+  
   while (arg_count && tmp->next) {
     tmp=tmp->next;
     arg_count--;
-    if (resolve_var(&(tmp->data),obj))
+    sprintf(logbuf, "gen_stack: processing arg, remaining=%lu", arg_count);
+    logger(LOG_DEBUG, logbuf);
+    if (resolve_var(&(tmp->data),obj)) {
+      logger(LOG_ERROR, "gen_stack: resolve_var failed");
       return NULL;
+    }
   }
-  if (arg_count) return NULL;
+  
+  sprintf(logbuf, "gen_stack: after loop, arg_count=%lu, tmp->next=%p", arg_count, (void*)tmp->next);
+  logger(LOG_DEBUG, logbuf);
+  
+  if (arg_count) {
+    sprintf(logbuf, "gen_stack: FAIL - arg_count still %lu", arg_count);
+    logger(LOG_DEBUG, logbuf);
+    return NULL;
+  }
   *rts=tmp->next;
   tmp->next=NULL;
   return stack1;
