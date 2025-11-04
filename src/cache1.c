@@ -88,7 +88,6 @@ void freedata(struct object *obj) {
     curr=next;
   }
   obj->refd_by=NULL;
-  obj->array_meta=NULL;
   obj->flags&=~(RESIDENT);
 }
 

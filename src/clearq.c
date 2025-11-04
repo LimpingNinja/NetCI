@@ -191,7 +191,6 @@ void handle_destruct() {
     curr_dest->obj->next_object=free_obj_list;
     curr_dest->obj->globals=NULL;
     curr_dest->obj->refd_by=NULL;
-    curr_dest->obj->array_meta=NULL;
     curr_dest->obj->verb_list=NULL;
     free_obj_list=curr_dest->obj;
     FREE(curr_dest);
