@@ -133,6 +133,26 @@ int pleq_oper(struct object *caller, struct object *obj,
       push(&tmp2,rts);
       return intaddeq(caller,obj,player,rts);
     }
+    /* Array concatenation assignment: array += array */
+    if (tmp2.type==ARRAY && obj->globals[tmp1.value.l_value.ref].type==ARRAY) {
+      struct heap_array *result;
+      
+      result = array_concat(obj->globals[tmp1.value.l_value.ref].value.array_ptr, tmp2.value.array_ptr);
+      if (!result) {
+        clear_var(&tmp1);
+        clear_var(&tmp2);
+        return 1;
+      }
+      
+      /* Release old array, assign new one */
+      array_release(obj->globals[tmp1.value.l_value.ref].value.array_ptr);
+      obj->globals[tmp1.value.l_value.ref].value.array_ptr = result;
+      obj->obj_state=DIRTY;
+      
+      clear_var(&tmp1);
+      clear_var(&tmp2);
+      return 0;
+    }
     if (tmp2.type==INTEGER && tmp2.value.integer==0) {
       tmp2.type=STRING;
       tmp2.value.string=copy_string("");
@@ -163,6 +183,25 @@ int pleq_oper(struct object *caller, struct object *obj,
       push(&tmp1,rts);
       push(&tmp2,rts);
       return intaddeq(caller,obj,player,rts);
+    }
+    /* Array concatenation assignment: array += array */
+    if (tmp2.type==ARRAY && locals[tmp1.value.l_value.ref].type==ARRAY) {
+      struct heap_array *result;
+      
+      result = array_concat(locals[tmp1.value.l_value.ref].value.array_ptr, tmp2.value.array_ptr);
+      if (!result) {
+        clear_var(&tmp1);
+        clear_var(&tmp2);
+        return 1;
+      }
+      
+      /* Release old array, assign new one */
+      array_release(locals[tmp1.value.l_value.ref].value.array_ptr);
+      locals[tmp1.value.l_value.ref].value.array_ptr = result;
+      
+      clear_var(&tmp1);
+      clear_var(&tmp2);
+      return 0;
     }
     if (tmp2.type==INTEGER && tmp2.value.integer==0) {
       tmp2.type=STRING;
@@ -343,6 +382,26 @@ int add_oper(struct object *caller, struct object *obj,
     push(&tmp1,rts);
     push(&tmp2,rts);
     return intadd(caller,obj,player,rts);
+  }
+  /* Array concatenation: array + array */
+  if (tmp1.type==ARRAY && tmp2.type==ARRAY) {
+    struct heap_array *result;
+    struct var result_var;
+    
+    result = array_concat(tmp1.value.array_ptr, tmp2.value.array_ptr);
+    if (!result) {
+      clear_var(&tmp1);
+      clear_var(&tmp2);
+      return 1;
+    }
+    
+    result_var.type = ARRAY;
+    result_var.value.array_ptr = result;
+    push(&result_var, rts);
+    
+    clear_var(&tmp1);
+    clear_var(&tmp2);
+    return 0;
   }
   if (tmp1.type==INTEGER && tmp1.value.integer==0) {
     tmp1.type=STRING;

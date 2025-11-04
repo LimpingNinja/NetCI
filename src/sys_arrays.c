@@ -323,3 +323,135 @@ int s_array_literal(struct object *caller, struct object *obj, struct object *pl
   logger(LOG_DEBUG, "s_array_literal: success");
   return 0;
 }
+
+/* array_concat() - Concatenate two arrays
+ * Returns a new heap array containing all elements from arr1 followed by arr2
+ * Caller is responsible for managing refcounts
+ */
+struct heap_array* array_concat(struct heap_array *arr1, struct heap_array *arr2) {
+  struct heap_array *result;
+  unsigned int i;
+  char logbuf[256];
+  
+  sprintf(logbuf, "array_concat: arr1 size=%u, arr2 size=%u", arr1->size, arr2->size);
+  logger(LOG_DEBUG, logbuf);
+  
+  /* Allocate new array with combined size */
+  result = allocate_array(arr1->size + arr2->size, UNLIMITED_ARRAY_SIZE);
+  if (!result) {
+    logger(LOG_ERROR, "array_concat: failed to allocate result array");
+    return NULL;
+  }
+  
+  /* Copy elements from arr1 */
+  for (i = 0; i < arr1->size; i++) {
+    result->elements[i] = arr1->elements[i];
+    /* Increment refcount for arrays and strings */
+    if (result->elements[i].type == ARRAY && result->elements[i].value.array_ptr) {
+      array_addref(result->elements[i].value.array_ptr);
+    } else if (result->elements[i].type == STRING && result->elements[i].value.string) {
+      result->elements[i].value.string = copy_string(result->elements[i].value.string);
+    }
+  }
+  
+  /* Copy elements from arr2 */
+  for (i = 0; i < arr2->size; i++) {
+    result->elements[arr1->size + i] = arr2->elements[i];
+    /* Increment refcount for arrays and strings */
+    if (result->elements[arr1->size + i].type == ARRAY && result->elements[arr1->size + i].value.array_ptr) {
+      array_addref(result->elements[arr1->size + i].value.array_ptr);
+    } else if (result->elements[arr1->size + i].type == STRING && result->elements[arr1->size + i].value.string) {
+      result->elements[arr1->size + i].value.string = copy_string(result->elements[arr1->size + i].value.string);
+    }
+  }
+  
+  sprintf(logbuf, "array_concat: created array with %u elements", result->size);
+  logger(LOG_DEBUG, logbuf);
+  
+  return result;
+}
+
+/* array_subtract() - Remove elements from arr1 that are in arr2
+ * Returns a new heap array containing elements from arr1 not found in arr2
+ * Removes ALL occurrences of matching elements
+ */
+struct heap_array* array_subtract(struct heap_array *arr1, struct heap_array *arr2) {
+  struct heap_array *result;
+  unsigned int i, j, result_count, found;
+  struct var *temp_elements;
+  char logbuf[256];
+  
+  sprintf(logbuf, "array_subtract: arr1 size=%u, arr2 size=%u", arr1->size, arr2->size);
+  logger(LOG_DEBUG, logbuf);
+  
+  /* Allocate temporary array to hold result elements */
+  temp_elements = (struct var *) MALLOC(sizeof(struct var) * arr1->size);
+  if (!temp_elements) {
+    logger(LOG_ERROR, "array_subtract: failed to allocate temp array");
+    return NULL;
+  }
+  
+  result_count = 0;
+  
+  /* For each element in arr1, check if it's in arr2 */
+  for (i = 0; i < arr1->size; i++) {
+    found = 0;
+    
+    /* Check if arr1[i] is in arr2 */
+    for (j = 0; j < arr2->size; j++) {
+      /* Simple equality check - integers and strings */
+      if (arr1->elements[i].type == arr2->elements[j].type) {
+        if (arr1->elements[i].type == INTEGER) {
+          if (arr1->elements[i].value.integer == arr2->elements[j].value.integer) {
+            found = 1;
+            break;
+          }
+        } else if (arr1->elements[i].type == STRING) {
+          if (arr1->elements[i].value.string && arr2->elements[j].value.string &&
+              !strcmp(arr1->elements[i].value.string, arr2->elements[j].value.string)) {
+            found = 1;
+            break;
+          }
+        }
+        /* For other types (objects, arrays), use pointer equality */
+        else if (arr1->elements[i].value.objptr == arr2->elements[j].value.objptr) {
+          found = 1;
+          break;
+        }
+      }
+    }
+    
+    /* If not found in arr2, add to result */
+    if (!found) {
+      temp_elements[result_count] = arr1->elements[i];
+      /* Increment refcount for arrays and strings */
+      if (temp_elements[result_count].type == ARRAY && temp_elements[result_count].value.array_ptr) {
+        array_addref(temp_elements[result_count].value.array_ptr);
+      } else if (temp_elements[result_count].type == STRING && temp_elements[result_count].value.string) {
+        temp_elements[result_count].value.string = copy_string(temp_elements[result_count].value.string);
+      }
+      result_count++;
+    }
+  }
+  
+  /* Create result array with exact size needed */
+  result = allocate_array(result_count, UNLIMITED_ARRAY_SIZE);
+  if (!result) {
+    logger(LOG_ERROR, "array_subtract: failed to allocate result array");
+    FREE(temp_elements);
+    return NULL;
+  }
+  
+  /* Copy temp elements to result */
+  for (i = 0; i < result_count; i++) {
+    result->elements[i] = temp_elements[i];
+  }
+  
+  FREE(temp_elements);
+  
+  sprintf(logbuf, "array_subtract: created array with %u elements (removed %u)", 
+          result_count, arr1->size - result_count);
+  logger(LOG_DEBUG, logbuf);
+  
+  return result;
+}

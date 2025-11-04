@@ -148,11 +148,149 @@ CND_OPER(great_oper, > )
 CND_OPER(greateq_oper, >= )
 BI_INT_OPER(ls_oper, << )
 BI_INT_OPER(rs_oper, >> )
-BI_INT_OPER(min_oper, - )
+
+/* Custom min_oper to support array subtraction */
+int min_oper(struct object *caller, struct object *obj,
+             struct object *player, struct var_stack **rts) {
+  struct var tmp1, tmp2;
+  
+  if (pop(&tmp2, rts, obj)) return 1;
+  if (pop(&tmp1, rts, obj)) {
+    clear_var(&tmp2);
+    return 1;
+  }
+  if (resolve_var(&tmp1, obj)) {
+    clear_var(&tmp1);
+    clear_var(&tmp2);
+    return 1;
+  }
+  if (resolve_var(&tmp2, obj)) {
+    clear_var(&tmp1);
+    clear_var(&tmp2);
+    return 1;
+  }
+  
+  /* Integer subtraction */
+  if (tmp1.type == INTEGER && tmp2.type == INTEGER) {
+    tmp1.value.integer -= tmp2.value.integer;
+    push(&tmp1, rts);
+    return 0;
+  }
+  
+  /* Array subtraction: array - array */
+  if (tmp1.type == ARRAY && tmp2.type == ARRAY) {
+    struct heap_array *result;
+    struct var result_var;
+    
+    result = array_subtract(tmp1.value.array_ptr, tmp2.value.array_ptr);
+    if (!result) {
+      clear_var(&tmp1);
+      clear_var(&tmp2);
+      return 1;
+    }
+    
+    result_var.type = ARRAY;
+    result_var.value.array_ptr = result;
+    push(&result_var, rts);
+    
+    clear_var(&tmp1);
+    clear_var(&tmp2);
+    return 0;
+  }
+  
+  clear_var(&tmp1);
+  clear_var(&tmp2);
+  return 1;
+}
+
 BI_INT_OPER(mul_oper, * )
 CZBI_OPER(div_oper, / )
 CZBI_OPER(mod_oper, % )
-EQ_INT_OPER(mieq_oper, -= )
+
+/* Custom mieq_oper to support array -= array */
+int mieq_oper(struct object *caller, struct object *obj,
+              struct object *player, struct var_stack **rts) {
+  struct var tmp1, tmp2;
+  
+  if (pop(&tmp2, rts, obj)) return 1;
+  if (pop(&tmp1, rts, obj)) {
+    clear_var(&tmp2);
+    return 1;
+  }
+  if (tmp1.type != GLOBAL_L_VALUE && tmp1.type != LOCAL_L_VALUE) {
+    clear_var(&tmp1);
+    clear_var(&tmp2);
+    return 1;
+  }
+  if (resolve_var(&tmp2, obj)) {
+    clear_var(&tmp1);
+    clear_var(&tmp2);
+    return 1;
+  }
+  
+  if (tmp1.type == GLOBAL_L_VALUE) {
+    /* Integer subtraction assignment */
+    if (tmp2.type == INTEGER && obj->globals[tmp1.value.l_value.ref].type == INTEGER) {
+      obj->globals[tmp1.value.l_value.ref].value.integer -= tmp2.value.integer;
+      obj->obj_state = DIRTY;
+      clear_var(&tmp1);
+      clear_var(&tmp2);
+      return 0;
+    }
+    /* Array subtraction assignment: array -= array */
+    if (tmp2.type == ARRAY && obj->globals[tmp1.value.l_value.ref].type == ARRAY) {
+      struct heap_array *result;
+      
+      result = array_subtract(obj->globals[tmp1.value.l_value.ref].value.array_ptr, tmp2.value.array_ptr);
+      if (!result) {
+        clear_var(&tmp1);
+        clear_var(&tmp2);
+        return 1;
+      }
+      
+      /* Release old array, assign new one */
+      array_release(obj->globals[tmp1.value.l_value.ref].value.array_ptr);
+      obj->globals[tmp1.value.l_value.ref].value.array_ptr = result;
+      obj->obj_state = DIRTY;
+      
+      clear_var(&tmp1);
+      clear_var(&tmp2);
+      return 0;
+    }
+  } else {
+    /* Integer subtraction assignment */
+    if (tmp2.type == INTEGER && locals[tmp1.value.l_value.ref].type == INTEGER) {
+      locals[tmp1.value.l_value.ref].value.integer -= tmp2.value.integer;
+      clear_var(&tmp1);
+      clear_var(&tmp2);
+      return 0;
+    }
+    /* Array subtraction assignment: array -= array */
+    if (tmp2.type == ARRAY && locals[tmp1.value.l_value.ref].type == ARRAY) {
+      struct heap_array *result;
+      
+      result = array_subtract(locals[tmp1.value.l_value.ref].value.array_ptr, tmp2.value.array_ptr);
+      if (!result) {
+        clear_var(&tmp1);
+        clear_var(&tmp2);
+        return 1;
+      }
+      
+      /* Release old array, assign new one */
+      array_release(locals[tmp1.value.l_value.ref].value.array_ptr);
+      locals[tmp1.value.l_value.ref].value.array_ptr = result;
+      
+      clear_var(&tmp1);
+      clear_var(&tmp2);
+      return 0;
+    }
+  }
+  
+  clear_var(&tmp1);
+  clear_var(&tmp2);
+  return 1;
+}
+
 EQ_INT_OPER(mueq_oper, *= )
 EQ_INT_OPER(aneq_oper, &= )
 EQ_INT_OPER(exeq_oper, ^= )

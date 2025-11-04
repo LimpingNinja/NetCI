@@ -151,3 +151,7 @@ struct heap_array* allocate_array(unsigned int size, unsigned int max_size);
 void array_addref(struct heap_array *arr);
 void array_release(struct heap_array *arr);
 int resize_heap_array(struct heap_array *arr, unsigned int new_size);
+
+/* Array arithmetic helper functions (Phase 5) */
+struct heap_array* array_concat(struct heap_array *arr1, struct heap_array *arr2);
+struct heap_array* array_subtract(struct heap_array *arr1, struct heap_array *arr2);
