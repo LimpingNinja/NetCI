@@ -36,7 +36,7 @@ int (*oper_array[NUM_OPERS+NUM_SCALLS])(struct object *caller, struct object
   s_get_address,s_set_localverbs,s_localverbs,s_next_verb,s_get_devport,
   s_get_devnet,s_redirect_input,s_get_input_func,s_get_master,s_is_master,
   s_input_to,s_sizeof,s_implode,s_explode,s_member_array,s_sort_array,
-  s_reverse,s_unique_array };
+  s_reverse,s_unique_array,s_array_literal };
 
 void interp_error(char *msg, struct object *player, struct object *obj,
                   struct fns *func, unsigned long line) {

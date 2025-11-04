@@ -51,7 +51,7 @@ char *scall_array[NUM_SCALLS]={ "add_verb","add_xverb","call_other",
   "set_localverbs","localverbs","next_verb","get_devport","get_devnet",
   "redirect_input","get_input_func","get_master","is_master","input_to",
   "sizeof","implode","explode","member_array","sort_array","reverse",
-  "unique_array"
+  "unique_array",NULL
 };
 
 /* The functions themselves */
@@ -216,7 +216,7 @@ unsigned char find_syscall(char *name)
 {
   int x;
   for (x=0;x<NUM_SCALLS;x++)
-    if (!strcmp(name,scall_array[x]))
+    if (scall_array[x] && !strcmp(name,scall_array[x]))
       return x+NUM_OPERS;
   if (!strcmp(name,"new")) return S_CLONE_OBJECT;
   return 0;
@@ -469,6 +469,40 @@ unsigned int parse_exp(filptr *file_info, fn_t *curr_fn, sym_tab_t *loc_sym,
     add_code_string(curr_fn,token.token_data.name);
     last_was_arg=1;
     get_token(file_info,&token);
+  }
+  if (token.type==LARRASGN_TOK) {
+    /* Array literal: ({ expr1, expr2, ... }) */
+    unsigned int elem_count = 0;
+    if (last_was_arg) {
+      set_c_err_msg("expected arithmetic operation");
+      return file_info->phys_line;
+    }
+    get_token(file_info,&token);
+    /* Handle empty array: ({}) */
+    if (token.type==RARRASGN_TOK) {
+      add_code_integer(curr_fn,0);  /* Push element count */
+      add_code_instr(curr_fn,S_ARRAY_LITERAL);
+      last_was_arg=1;
+      get_token(file_info,&token);
+    } else {
+      /* Parse array elements */
+      unget_token(file_info,&token);
+      do {
+        /* Parse with precedence 1 to stop at commas (precedence 0) */
+        if (parse_exp(file_info,curr_fn,loc_sym,1,0))
+          return file_info->phys_line;
+        elem_count++;
+        get_token(file_info,&token);
+      } while (token.type==COMMA_TOK);
+      if (token.type!=RARRASGN_TOK) {
+        set_c_err_msg("expected }) to close array literal");
+        return file_info->phys_line;
+      }
+      add_code_integer(curr_fn,elem_count);  /* Push element count */
+      add_code_instr(curr_fn,S_ARRAY_LITERAL);
+      last_was_arg=1;
+      get_token(file_info,&token);
+    }
   }
   if (token.type==NAME_TOK) {
     strcpy(name,token.token_data.name);

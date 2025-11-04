@@ -144,6 +144,7 @@ OPER_PROTO(s_member_array)
 OPER_PROTO(s_sort_array)
 OPER_PROTO(s_reverse)
 OPER_PROTO(s_unique_array)
+OPER_PROTO(s_array_literal)
 
 /* Heap array functions (Phase 2.5) */
 struct heap_array* allocate_array(unsigned int size, unsigned int max_size);

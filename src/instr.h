@@ -3,7 +3,7 @@
 /* contains the definitions for the object-code instructions */
 
 #define NUM_OPERS      38
-#define NUM_SCALLS     104
+#define NUM_SCALLS     105
 
 #define COMMA_OPER     0    /*  ,   */
 #define EQ_OPER        1    /*  =   */
@@ -173,3 +173,4 @@
 #define S_SORT_ARRAY    139 /* sort_array(array arr) - sort array in place */
 #define S_REVERSE       140 /* reverse(array arr) - reverse array in place */
 #define S_UNIQUE_ARRAY  141 /* unique_array(array arr) - remove duplicates */
+#define S_ARRAY_LITERAL 142 /* ({ elem1, elem2, ... }) - create array literal */

@@ -8,9 +8,10 @@ create() {
 show_menu() {
   this_player().listen("\n=== Driver Test Suite ===\n");
   this_player().listen("1. Test error tracebacks\n");
-  this_player().listen("2. Test memory management (placeholder)\n");
-  this_player().listen("3. Test call stack (placeholder)\n");
-  this_player().listen("4. Run all tests\n");
+  this_player().listen("2. Test array literals\n");
+  this_player().listen("3. Test memory management (placeholder)\n");
+  this_player().listen("4. Test call stack (placeholder)\n");
+  this_player().listen("5. Run all tests\n");
   this_player().listen("0. Exit\n");
   this_player().listen("\nSelect test: ");
   input_to(this_object(), "handle_choice");
@@ -24,10 +25,12 @@ handle_choice(string choice) {
   if (num == 1) {
     test_tracebacks();
   } else if (num == 2) {
-    test_memory();
+    test_array_literals();
   } else if (num == 3) {
-    test_call_stack();
+    test_memory();
   } else if (num == 4) {
+    test_call_stack();
+  } else if (num == 5) {
     run_all_tests();
   } else if (num == 0) {
     this_player().listen("Exiting test suite.\n");
@@ -52,6 +55,21 @@ test_tracebacks() {
   }
   
   call_other(traceback_obj, "start_menu");
+}
+
+test_array_literals() {
+  object test_obj;
+  
+  this_player().listen("\n--- Test: Array Literals ---\n");
+  this_player().listen("Launching interactive array literals test suite...\n\n");
+  
+  test_obj = find_object("/test/test_array_literals");
+  if (!test_obj) {
+    this_player().listen("ERROR: Could not find /test/test_array_literals\n");
+    return;
+  }
+  
+  call_other(test_obj, "start_menu");
 }
 
 test_memory() {

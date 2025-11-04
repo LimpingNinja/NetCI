@@ -272,3 +272,54 @@ int s_sizeof(struct object *caller, struct object *obj, struct object *player,
   clear_var(&tmp);
   return 0;
 }
+
+/* s_array_literal() - Create array from literal syntax
+ * Stack layout: [elem_n] ... [elem_1] [elem_0] [count]
+ * Usage: ({ elem1, elem2, elem3 })
+ * Creates a new heap array and populates it with the elements on the stack
+ */
+int s_array_literal(struct object *caller, struct object *obj, struct object *player,
+                    struct var_stack **rts) {
+  struct var count_var, result;
+  struct heap_array *arr;
+  unsigned int elem_count, i;
+  struct var_stack *elem_stack;
+  char logbuf[256];
+  
+  logger(LOG_DEBUG, "s_array_literal: starting");
+  
+  /* Pop the element count */
+  pop(&count_var, rts, obj);
+  if (count_var.type != INTEGER) {
+    logger(LOG_ERROR, "s_array_literal: count is not an integer");
+    clear_var(&count_var);
+    return 1;
+  }
+  
+  elem_count = count_var.value.integer;
+  sprintf(logbuf, "s_array_literal: creating array with %u elements", elem_count);
+  logger(LOG_DEBUG, logbuf);
+  
+  /* Allocate the array */
+  arr = allocate_array(elem_count, UNLIMITED_ARRAY_SIZE);
+  if (!arr) {
+    logger(LOG_ERROR, "s_array_literal: failed to allocate array");
+    return 1;
+  }
+  
+  /* Pop elements in reverse order and store them */
+  for (i = 0; i < elem_count; i++) {
+    pop(&arr->elements[elem_count - 1 - i], rts, obj);
+  }
+  
+  sprintf(logbuf, "s_array_literal: populated %u elements", elem_count);
+  logger(LOG_DEBUG, logbuf);
+  
+  /* Push the array onto the stack */
+  result.type = ARRAY;
+  result.value.array_ptr = arr;
+  push(&result, rts);
+  
+  logger(LOG_DEBUG, "s_array_literal: success");
+  return 0;
+}
