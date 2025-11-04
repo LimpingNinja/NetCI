@@ -37,6 +37,8 @@ unsigned char find_keyword(char *name)
   if ((!strcmp(name,"int")) || (!strcmp(name,"string")) ||
       (!strcmp(name,"object")) || (!strcmp(name,"var")))
     return VAR_DCL_TOK;
+  if (!strcmp(name,"mapping"))
+    return MAPPING_TOK;
   if (!strcmp(name,"static"))
     return STATIC_TOK;
   if (!strcmp(name,"else"))

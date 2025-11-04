@@ -23,13 +23,26 @@ int eq_oper(struct object *caller, struct object *obj,
              struct object *player, struct var_stack **rts) {
   struct var tmp1,tmp2;
   struct ref_list *tmpref;
+  char logbuf[256];
 
-  if (pop(&tmp2,rts,obj)) return 1;
+  if (pop(&tmp2,rts,obj)) {
+    logger(LOG_DEBUG, "eq_oper: failed to pop tmp2");
+    return 1;
+  }
+  sprintf(logbuf, "eq_oper: popped tmp2, type=%d", tmp2.type);
+  logger(LOG_DEBUG, logbuf);
+  
   if (pop(&tmp1,rts,obj)) {
+    logger(LOG_DEBUG, "eq_oper: failed to pop tmp1");
     clear_var(&tmp2);
     return 1;
   }
+  sprintf(logbuf, "eq_oper: popped tmp1, type=%d", tmp1.type);
+  logger(LOG_DEBUG, logbuf);
+  
   if (tmp1.type!=GLOBAL_L_VALUE && tmp1.type!=LOCAL_L_VALUE) {
+    sprintf(logbuf, "eq_oper: tmp1 is not an L_VALUE! type=%d", tmp1.type);
+    logger(LOG_DEBUG, logbuf);
     clear_var(&tmp1);
     clear_var(&tmp2);
     return 1;
@@ -41,9 +54,11 @@ int eq_oper(struct object *caller, struct object *obj,
   }
   if (resolve_var(&tmp2,obj)) return 1;
   
-  /* Increment refcount for arrays on assignment */
+  /* Increment refcount for arrays and mappings on assignment */
   if (tmp2.type == ARRAY) {
     array_addref(tmp2.value.array_ptr);
+  } else if (tmp2.type == MAPPING) {
+    mapping_addref(tmp2.value.mapping_ptr);
   }
   
   if (tmp1.type==GLOBAL_L_VALUE) {
@@ -59,6 +74,8 @@ int eq_oper(struct object *caller, struct object *obj,
         FREE(element_ptr->value.string);
       } else if (element_ptr->type == ARRAY) {
         array_release(element_ptr->value.array_ptr);
+      } else if (element_ptr->type == MAPPING) {
+        mapping_release(element_ptr->value.mapping_ptr);
       }
       *element_ptr = tmp2;
     } else {
@@ -87,6 +104,8 @@ int eq_oper(struct object *caller, struct object *obj,
         FREE(element_ptr->value.string);
       } else if (element_ptr->type == ARRAY) {
         array_release(element_ptr->value.array_ptr);
+      } else if (element_ptr->type == MAPPING) {
+        mapping_release(element_ptr->value.mapping_ptr);
       }
       *element_ptr = tmp2;
     } else {

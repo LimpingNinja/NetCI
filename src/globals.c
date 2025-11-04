@@ -12,7 +12,7 @@ int verbs_changed;
 char *window_title;
 long time_offset;
 int noisy;
-int log_level = LOG_INFO;  /* Default log level */
+int log_level = LOG_DEBUG;  /* Default log level - set to DEBUG for mapping testing */
 long transact_log_size;
 long soft_cycles;
 long hard_cycles;

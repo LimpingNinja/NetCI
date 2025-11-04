@@ -213,6 +213,10 @@ int resolve_var(struct var *data, struct object *obj) {
           data->value.array_ptr = element_ptr->value.array_ptr;
           array_addref(data->value.array_ptr);  /* Increment refcount */
           break;
+        case MAPPING:
+          data->value.mapping_ptr = element_ptr->value.mapping_ptr;
+          mapping_addref(data->value.mapping_ptr);  /* Increment refcount */
+          break;
         default:
           return 1;
       }
@@ -233,6 +237,10 @@ int resolve_var(struct var *data, struct object *obj) {
         case ARRAY:
           data->value.array_ptr=obj->globals[data->value.l_value.ref].value.array_ptr;
           array_addref(data->value.array_ptr);  /* Increment refcount */
+          break;
+        case MAPPING:
+          data->value.mapping_ptr=obj->globals[data->value.l_value.ref].value.mapping_ptr;
+          mapping_addref(data->value.mapping_ptr);  /* Increment refcount */
           break;
         default:
           return 1;
@@ -260,6 +268,10 @@ int resolve_var(struct var *data, struct object *obj) {
             data->value.array_ptr = element_ptr->value.array_ptr;
             array_addref(data->value.array_ptr);  /* Increment refcount */
             break;
+          case MAPPING:
+            data->value.mapping_ptr = element_ptr->value.mapping_ptr;
+            mapping_addref(data->value.mapping_ptr);  /* Increment refcount */
+            break;
           default:
             return 1;
         }
@@ -280,6 +292,10 @@ int resolve_var(struct var *data, struct object *obj) {
           case ARRAY:
             data->value.array_ptr=locals[data->value.l_value.ref].value.array_ptr;
             array_addref(data->value.array_ptr);  /* Increment refcount */
+            break;
+          case MAPPING:
+            data->value.mapping_ptr=locals[data->value.l_value.ref].value.mapping_ptr;
+            mapping_addref(data->value.mapping_ptr);  /* Increment refcount */
             break;
           default:
             return 1;
@@ -478,6 +494,8 @@ void clear_var(struct var *data) {
     FREE(data->value.string);
   else if (data->type==ARRAY)
     array_release(data->value.array_ptr);  /* Release heap array */
+  else if (data->type==MAPPING)
+    mapping_release(data->value.mapping_ptr);  /* Release heap mapping */
   data->type=INTEGER;
   data->value.integer=0;
 }

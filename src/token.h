@@ -34,6 +34,7 @@
 #define CALL_TOK          61    /* -> */
 #define LARRASGN_TOK      62    /* ({*/
 #define RARRASGN_TOK      63    /* }) */
+#define MAPPING_TOK       64    /* mapping keyword */
 
 /* Data structure declarations */
 
@@ -116,7 +117,7 @@ unsigned int parse_arglist(filptr *file_info, fn_t *curr_fn, sym_tab_t
 unsigned int parse_var(char *name,filptr *file_info, fn_t *curr_fn, sym_tab_t
                        *loc_sym);
 
-unsigned int add_var(filptr *file_info, sym_tab_t *sym);
+unsigned int add_var(filptr *file_info, sym_tab_t *sym, int is_mapping);
 
 void get_token(filptr *file_info, token_t *token);
 void unget_token(filptr *file_info, token_t *token);

@@ -245,7 +245,7 @@ struct var_tab *find_var(char *name, sym_tab_t *sym)
   return NULL;
 }
 
-unsigned int add_var(filptr *file_info, sym_tab_t *sym)
+unsigned int add_var(filptr *file_info, sym_tab_t *sym, int is_mapping)
 {
   token_t token;
   struct var_tab *curr_var;
@@ -268,6 +268,7 @@ unsigned int add_var(filptr *file_info, sym_tab_t *sym)
   curr_var->name=copy_string(token.token_data.name);
   curr_var->base=sym->num;
   curr_var->array=NULL;
+  curr_var->is_mapping=is_mapping;
   curr_var->next=sym->varlist;
   sym->varlist=curr_var;
   rest=&(curr_var->array);
@@ -305,11 +306,18 @@ unsigned int add_var(filptr *file_info, sym_tab_t *sym)
   unget_token(file_info,&token);
   
   /* If pointer syntax was used without brackets, create default array */
-  if (is_pointer && curr_var->array == NULL) {
+  if (is_pointer && curr_var->array == NULL && !is_mapping) {
     curr_var->array = (struct array_size *) MALLOC(sizeof(struct array_size));
     curr_var->array->size = 255;  /* Default size for unsized arrays */
     curr_var->array->next = NULL;
   }
+  
+  /* IMPORTANT: Mappings don't use the array field at all!
+   * - Mappings are identified by the is_mapping flag
+   * - They use hash table storage (struct heap_mapping), not contiguous memory
+   * - The array field remains NULL for mappings
+   * - This is NOT a hack - mappings and arrays are fundamentally different data structures
+   */
   
   sym->num+=calc_size(curr_var->array);
   return 0;
@@ -382,16 +390,39 @@ unsigned int parse_var(char *name,filptr *file_info,fn_t *curr_fn,sym_tab_t
     else
       add_code_llv(curr_fn,the_var->base,calc_size(the_var->array));
   } else {
-    rest=the_var->array;
-    add_code_integer(curr_fn,the_var->base);
-    if (parse_base(file_info,curr_fn,loc_sym,&rest))
-      return file_info->phys_line;
-    /* Push size of FIRST dimension for bounds checking, not remaining */
-    add_code_integer(curr_fn,the_var->array->size);
-    if (global)
-      add_code_gr(curr_fn);
-    else
-      add_code_lr(curr_fn);
+    /* Subscript syntax - check if it's an array or mapping
+     * NOTE: Mappings and arrays are DIFFERENT data structures:
+     * - Arrays: contiguous memory, integer indices only
+     * - Mappings: hash tables, arbitrary key types (string/int/object)
+     */
+    if (the_var->is_mapping) {
+      /* MAPPING: Allow subscript, push 0 as declared_size to signal mapping */
+      add_code_integer(curr_fn,the_var->base);
+      if (parse_exp(file_info,curr_fn,loc_sym,0,0))
+        return file_info->phys_line;
+      get_token(file_info,&token);
+      if (token.type!=RARRAY_TOK) {
+        set_c_err_msg("expected ]");
+        return file_info->phys_line;
+      }
+      add_code_integer(curr_fn,0);  /* 0 signals mapping to runtime */
+      if (global)
+        add_code_gr(curr_fn);
+      else
+        add_code_lr(curr_fn);
+    } else {
+      /* ARRAY: Use existing array logic */
+      rest=the_var->array;
+      add_code_integer(curr_fn,the_var->base);
+      if (parse_base(file_info,curr_fn,loc_sym,&rest))
+        return file_info->phys_line;
+      /* Push size of FIRST dimension for bounds checking, not remaining */
+      add_code_integer(curr_fn,the_var->array->size);
+      if (global)
+        add_code_gr(curr_fn);
+      else
+        add_code_lr(curr_fn);
+    }
   }
   return 0;
 }
@@ -635,9 +666,10 @@ unsigned int parse_line(filptr *file_info, fn_t *curr_fn, sym_tab_t *loc_sym)
   get_token(file_info,&token);
   switch (token.type) {
     case VAR_DCL_TOK:
+    case MAPPING_TOK:
       done=0;
       while (!done) {
-        if (add_var(file_info,loc_sym))
+        if (add_var(file_info,loc_sym,(token.type==MAPPING_TOK)))
           return file_info->phys_line;
         get_token(file_info,&token);
         if (token.type==SEMI_TOK)
@@ -869,8 +901,9 @@ unsigned int top_level_parse(filptr *file_info)
         return 0;
         break;
       case VAR_DCL_TOK:
+      case MAPPING_TOK:
         while (!done) {
-          if (add_var(file_info,file_info->glob_sym))
+          if (add_var(file_info,file_info->glob_sym,(token.type==MAPPING_TOK)))
             return file_info->phys_line;
           get_token(file_info,&token);
           if (token.type==SEMI_TOK)
@@ -908,9 +941,10 @@ unsigned int top_level_parse(filptr *file_info)
           if (token.type==RPAR_TOK)
             done=1;
           else {
-            if (token.type!=VAR_DCL_TOK)
+            int is_mapping_param = (token.type==MAPPING_TOK);
+            if (token.type!=VAR_DCL_TOK && token.type!=MAPPING_TOK)
               unget_token(file_info,&token);
-            if (add_var(file_info,&loc_sym)) {
+            if (add_var(file_info,&loc_sym,is_mapping_param)) {
               free_sym_t(&loc_sym);
               return file_info->phys_line;
             }

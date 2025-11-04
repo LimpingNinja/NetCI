@@ -448,9 +448,16 @@ int interp(struct object *caller, struct object *obj, struct object *player,
     
     /* Find this variable in the local symbol table */
     while (var_info) {
-      sprintf(logbuf, "init_locals: var_info base=%u, loop=%d, array=%p", 
-              var_info->base, loop, (void*)var_info->array);
+      sprintf(logbuf, "init_locals: var_info base=%u, loop=%d, array=%p, is_mapping=%d", 
+              var_info->base, loop, (void*)var_info->array, var_info->is_mapping);
       logger(LOG_DEBUG, logbuf);
+      
+      /* Skip mappings - they don't get pre-allocated */
+      if (var_info->base == loop && var_info->is_mapping) {
+        sprintf(logbuf, "init_locals: local %d is a mapping, skipping pre-allocation", loop);
+        logger(LOG_DEBUG, logbuf);
+        break;
+      }
       
       if (var_info->base == loop && var_info->array) {
         is_array = 1;
@@ -577,17 +584,18 @@ int interp(struct object *caller, struct object *obj, struct object *player,
       case LOCAL_REF:
       case GLOBAL_REF:
         {
-          unsigned int var_index, array_index, declared_size;
+          unsigned int var_index, declared_size;
           unsigned char is_global;
           struct var *var_slot;
-          struct heap_array *arr;
+          struct var key_var;  /* Changed: key can be any type */
+          struct var tmp2;
           char logbuf[256];
           
-          /* Stack has: [base] [index] [size] */
+          /* Stack has: [base] [key] [size] */
           
           /* Pop declared size */
           if (popint(&tmp,&rts,obj)) {
-            interp_error_with_trace("failed array reference",player,obj,func,line);
+            interp_error_with_trace("failed subscript reference",player,obj,func,line);
             free_stack(&rts);
             clear_locals();
             use_soft_cycles=old_use_soft_cycles;
@@ -598,9 +606,9 @@ int interp(struct object *caller, struct object *obj, struct object *player,
           }
           declared_size = tmp.value.integer;
           
-          /* Pop array index */
-          if (popint(&tmp,&rts,obj)) {
-            interp_error_with_trace("failed array reference",player,obj,func,line);
+          /* Pop key (was array_index) - can be any type! */
+          if (pop(&tmp,&rts,obj)) {  /* Changed from popint to pop */
+            interp_error_with_trace("failed subscript reference",player,obj,func,line);
             free_stack(&rts);
             clear_locals();
             use_soft_cycles=old_use_soft_cycles;
@@ -609,7 +617,7 @@ int interp(struct object *caller, struct object *obj, struct object *player,
             call_stack_depth--;
             return 1;
           }
-          array_index = tmp.value.integer;
+          key_var = tmp;  /* Save the key */
           
           /* Pop variable index (where array pointer is stored) */
           if (popint(&tmp,&rts,obj)) {
@@ -653,52 +661,36 @@ int interp(struct object *caller, struct object *obj, struct object *player,
             var_slot = &locals[var_index];
           }
           
-          /* Create heap array if this is first access */
+          /* Auto-create array or mapping on first access
+           * IMPORTANT: Arrays and mappings are DIFFERENT data structures:
+           * - Arrays: struct heap_array with contiguous memory
+           * - Mappings: struct heap_mapping with hash table
+           * We check the symbol table's is_mapping flag to determine which to create
+           */
           if (var_slot->type == INTEGER && var_slot->value.integer == 0) {
-            unsigned int max_size = (declared_size == 255) ? UNLIMITED_ARRAY_SIZE : declared_size;
-            sprintf(logbuf, "Creating heap array: var_index=%u, declared_size=%u, max_size=%u, global=%d",
-                    var_index, declared_size, max_size, is_global);
-            logger(LOG_DEBUG, logbuf);
+            /* Check symbol table to determine if this is a mapping */
+            struct var_tab *var_info = is_global ? obj->parent->funcs->gst : func->lst;
+            int is_mapping_var = 0;
             
-            arr = allocate_array(declared_size, max_size);
-            if (!arr) {
-              interp_error_with_trace("failed to allocate array",player,obj,func,line);
-              free_stack(&rts);
-              clear_locals();
-              use_soft_cycles=old_use_soft_cycles;
-              use_hard_cycles=old_use_hard_cycles;
-              call_stack = frame.prev;
-              call_stack_depth--;
-              return 1;
+            while (var_info) {
+              if (var_info->base == var_index) {
+                is_mapping_var = var_info->is_mapping;
+                break;
+              }
+              var_info = var_info->next;
             }
             
-            var_slot->type = ARRAY;
-            var_slot->value.array_ptr = arr;
-            if (is_global) obj->obj_state = DIRTY;
-          }
-          
-          /* Check it's an array */
-          if (var_slot->type != ARRAY) {
-            interp_error_with_trace("not an array",player,obj,func,line);
-            free_stack(&rts);
-            clear_locals();
-            use_soft_cycles=old_use_soft_cycles;
-            use_hard_cycles=old_use_hard_cycles;
-            call_stack = frame.prev;
-            call_stack_depth--;
-            return 1;
-          }
-          
-          arr = var_slot->value.array_ptr;
-          
-          /* Bounds check and resize if needed */
-          if (array_index >= arr->size) {
-            if (arr->max_size == UNLIMITED_ARRAY_SIZE || array_index < arr->max_size) {
-              sprintf(logbuf, "Resizing array from %u to %u elements", arr->size, array_index + 1);
+            if (!is_mapping_var && declared_size > 0) {
+              /* Create array */
+              struct heap_array *arr;
+              unsigned int max_size = (declared_size == 255) ? UNLIMITED_ARRAY_SIZE : declared_size;
+              sprintf(logbuf, "Creating heap array: var_index=%u, declared_size=%u, max_size=%u, global=%d",
+                      var_index, declared_size, max_size, is_global);
               logger(LOG_DEBUG, logbuf);
               
-              if (resize_heap_array(arr, array_index + 1)) {
-                interp_error_with_trace("array resize failed",player,obj,func,line);
+              arr = allocate_array(declared_size, max_size);
+              if (!arr) {
+                interp_error_with_trace("failed to allocate array",player,obj,func,line);
                 free_stack(&rts);
                 clear_locals();
                 use_soft_cycles=old_use_soft_cycles;
@@ -707,9 +699,44 @@ int interp(struct object *caller, struct object *obj, struct object *player,
                 call_stack_depth--;
                 return 1;
               }
+              
+              var_slot->type = ARRAY;
+              var_slot->value.array_ptr = arr;
               if (is_global) obj->obj_state = DIRTY;
             } else {
-              interp_error_with_trace("array index out of bounds",player,obj,func,line);
+              /* Create mapping */
+              struct heap_mapping *map;
+              sprintf(logbuf, "Creating heap mapping: var_index=%u, global=%d", var_index, is_global);
+              logger(LOG_DEBUG, logbuf);
+              
+              map = allocate_mapping(DEFAULT_MAPPING_CAPACITY);
+              if (!map) {
+                interp_error_with_trace("failed to allocate mapping",player,obj,func,line);
+                free_stack(&rts);
+                clear_locals();
+                use_soft_cycles=old_use_soft_cycles;
+                use_hard_cycles=old_use_hard_cycles;
+                call_stack = frame.prev;
+                call_stack_depth--;
+                return 1;
+              }
+              
+              var_slot->type = MAPPING;
+              var_slot->value.mapping_ptr = map;
+              if (is_global) obj->obj_state = DIRTY;
+            }
+          }
+          
+          /* Type dispatch: ARRAY or MAPPING */
+          if (var_slot->type == ARRAY) {
+            /* ARRAY HANDLING */
+            struct heap_array *arr;
+            unsigned int array_index;
+            
+            /* Key must be integer for arrays */
+            if (key_var.type != INTEGER) {
+              interp_error_with_trace("array index must be integer",player,obj,func,line);
+              clear_var(&key_var);
               free_stack(&rts);
               clear_locals();
               use_soft_cycles=old_use_soft_cycles;
@@ -718,17 +745,92 @@ int interp(struct object *caller, struct object *obj, struct object *player,
               call_stack_depth--;
               return 1;
             }
+            array_index = key_var.value.integer;
+            
+            arr = var_slot->value.array_ptr;
+            
+            /* Bounds check and resize if needed */
+            if (array_index >= arr->size) {
+              if (arr->max_size == UNLIMITED_ARRAY_SIZE || array_index < arr->max_size) {
+                sprintf(logbuf, "Resizing array from %u to %u elements", arr->size, array_index + 1);
+                logger(LOG_DEBUG, logbuf);
+                
+                if (resize_heap_array(arr, array_index + 1)) {
+                  interp_error_with_trace("array resize failed",player,obj,func,line);
+                  clear_var(&key_var);
+                  free_stack(&rts);
+                  clear_locals();
+                  use_soft_cycles=old_use_soft_cycles;
+                  use_hard_cycles=old_use_hard_cycles;
+                  call_stack = frame.prev;
+                  call_stack_depth--;
+                  return 1;
+                }
+                if (is_global) obj->obj_state = DIRTY;
+              } else {
+                interp_error_with_trace("array index out of bounds",player,obj,func,line);
+                clear_var(&key_var);
+                free_stack(&rts);
+                clear_locals();
+                use_soft_cycles=old_use_soft_cycles;
+                use_hard_cycles=old_use_hard_cycles;
+                call_stack = frame.prev;
+                call_stack_depth--;
+                return 1;
+              }
+            }
+            
+            /* Push L_VALUE reference to array element */
+            tmp2.type = (is_global) ? GLOBAL_L_VALUE : LOCAL_L_VALUE;
+            tmp2.value.l_value.ref = (unsigned long)&arr->elements[array_index];
+            tmp2.value.l_value.size = 1;
+            
+            clear_var(&key_var);
+            push(&tmp2,&rts);
+            
+          } else if (var_slot->type == MAPPING) {
+            /* MAPPING HANDLING */
+            struct heap_mapping *map;
+            struct var *value_ptr;
+            
+            map = var_slot->value.mapping_ptr;
+            
+            /* Get or create entry in mapping */
+            value_ptr = mapping_get_or_create(map, &key_var);
+            if (!value_ptr) {
+              interp_error_with_trace("mapping access failed",player,obj,func,line);
+              clear_var(&key_var);
+              free_stack(&rts);
+              clear_locals();
+              use_soft_cycles=old_use_soft_cycles;
+              use_hard_cycles=old_use_hard_cycles;
+              call_stack = frame.prev;
+              call_stack_depth--;
+              return 1;
+            }
+            
+            /* Mark as dirty if global */
+            if (is_global) obj->obj_state = DIRTY;
+            
+            /* Push L_VALUE reference to mapping value */
+            tmp2.type = (is_global) ? GLOBAL_L_VALUE : LOCAL_L_VALUE;
+            tmp2.value.l_value.ref = (unsigned long)value_ptr;
+            tmp2.value.l_value.size = 1;
+            
+            clear_var(&key_var);
+            push(&tmp2,&rts);
+            
+          } else {
+            interp_error_with_trace("not an array or mapping",player,obj,func,line);
+            clear_var(&key_var);
+            free_stack(&rts);
+            clear_locals();
+            use_soft_cycles=old_use_soft_cycles;
+            use_hard_cycles=old_use_hard_cycles;
+            call_stack = frame.prev;
+            call_stack_depth--;
+            return 1;
           }
-          
-          /* Push L_VALUE reference to array element
-           * Store the actual memory address as the ref (pointer to element)
-           * This works because resolve_var will dereference it
-           */
-          tmp2.type = (is_global) ? GLOBAL_L_VALUE : LOCAL_L_VALUE;
-          tmp2.value.l_value.ref = (unsigned long)&arr->elements[array_index];
-          tmp2.value.l_value.size = 1;
-          
-          push(&tmp2,&rts);
           loop++;
         }
         break;

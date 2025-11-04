@@ -31,17 +31,11 @@
 
 #define EXTERN_FUNC 16              /* call to external function */
 #define ARRAY 17                    /* heap-allocated array pointer */
+#define MAPPING 18                  /* heap-allocated mapping pointer */
 
-/* Heap-allocated array structure */
-#define UNLIMITED_ARRAY_SIZE 0xFFFFFFFF
-
-struct heap_array {
-  unsigned int size;        /* Current number of elements (logical size) */
-  unsigned int capacity;    /* Allocated capacity (physical size) */
-  unsigned int max_size;    /* Maximum size (or UNLIMITED_ARRAY_SIZE) */
-  unsigned int refcount;    /* Reference count for garbage collection */
-  struct var *elements;     /* Array of elements */
-};
+/* Forward declarations */
+struct heap_array;
+struct heap_mapping;
 
 /* The lval structure contains information about lvalues */
 
@@ -67,7 +61,37 @@ struct var
     struct fns *func_call;           /* pointer to a function */
     unsigned long num;               /* generic integer value */
     struct heap_array *array_ptr;   /* pointer to heap array */
+    struct heap_mapping *mapping_ptr; /* pointer to heap mapping */
   } value;
+};
+
+/* Heap-allocated array structure */
+#define UNLIMITED_ARRAY_SIZE 0xFFFFFFFF
+
+struct heap_array {
+  unsigned int size;        /* Current number of elements (logical size) */
+  unsigned int capacity;    /* Allocated capacity (physical size) */
+  unsigned int max_size;    /* Maximum size (or UNLIMITED_ARRAY_SIZE) */
+  unsigned int refcount;    /* Reference count for garbage collection */
+  struct var *elements;     /* Array of elements */
+};
+
+/* Heap-allocated mapping structure */
+#define DEFAULT_MAPPING_CAPACITY 16
+#define MAPPING_LOAD_FACTOR 0.75
+
+struct mapping_entry {
+  struct var key;           /* Key (can be string, int, or object) */
+  struct var value;         /* Value (any type) */
+  unsigned int hash;        /* Cached hash value */
+  struct mapping_entry *next; /* For collision chaining */
+};
+
+struct heap_mapping {
+  unsigned int size;        /* Current number of key-value pairs */
+  unsigned int capacity;    /* Allocated capacity (hash table size) */
+  unsigned int refcount;    /* Reference count for garbage collection */
+  struct mapping_entry **buckets; /* Array of bucket chains */
 };
 
 /* the var_stack structure is used as a stack of vars */
@@ -100,7 +124,9 @@ struct array_size {
 struct var_tab {
   char *name;
   unsigned int base;
-  struct array_size *array;
+  struct array_size *array;  /* Used ONLY for arrays, NULL for mappings */
+  int is_mapping;  /* 1 if declared with 'mapping' keyword, 0 otherwise */
+                   /* NOTE: Mappings are NOT arrays! They use hash tables, not the array field */
   struct var_tab *next;
 };
 

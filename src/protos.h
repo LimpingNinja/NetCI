@@ -155,3 +155,23 @@ int resize_heap_array(struct heap_array *arr, unsigned int new_size);
 /* Array arithmetic helper functions (Phase 5) */
 struct heap_array* array_concat(struct heap_array *arr1, struct heap_array *arr2);
 struct heap_array* array_subtract(struct heap_array *arr1, struct heap_array *arr2);
+
+/* Heap mapping functions (Mapping Redux Phase 1) */
+struct heap_mapping* allocate_mapping(unsigned int initial_capacity);
+void mapping_addref(struct heap_mapping *map);
+void mapping_release(struct heap_mapping *map);
+void mapping_rehash(struct heap_mapping *map);
+
+/* Mapping operations */
+unsigned int hash_string(const char *str);
+unsigned int hash_integer(int value);
+unsigned int hash_object(struct object *obj);
+unsigned int hash_var(struct var *key);
+int var_equals(struct var *v1, struct var *v2);
+void copy_var_to(struct var *dest, struct var *src);
+
+struct var* mapping_get_or_create(struct heap_mapping *map, struct var *key);
+int mapping_get(struct heap_mapping *map, struct var *key, struct var *result);
+int mapping_set(struct heap_mapping *map, struct var *key, struct var *value);
+int mapping_delete(struct heap_mapping *map, struct var *key);
+int mapping_exists(struct heap_mapping *map, struct var *key);
