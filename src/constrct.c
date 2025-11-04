@@ -399,7 +399,8 @@ int pop(struct var *data, struct var_stack **rts, struct object *obj) {
   struct var_stack *ptr;
 
   ptr=*rts;
-  if (ptr==NULL) return 1;
+  if (ptr==NULL)
+    return 1;
   *rts=ptr->next;
   data->type=ptr->data.type;
   switch (ptr->data.type) {
@@ -544,6 +545,16 @@ void copy_var(struct var *dest, struct var *src) {
       break;
     case OBJECT:
       dest->value.objptr=src->value.objptr;
+      break;
+    case ARRAY:
+      dest->value.array_ptr=src->value.array_ptr;
+      if (dest->value.array_ptr)
+        array_addref(dest->value.array_ptr);
+      break;
+    case MAPPING:
+      dest->value.mapping_ptr=src->value.mapping_ptr;
+      if (dest->value.mapping_ptr)
+        mapping_addref(dest->value.mapping_ptr);
       break;
     case ASM_INSTR:
       dest->value.instruction=src->value.instruction;

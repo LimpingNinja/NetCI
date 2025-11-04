@@ -35,6 +35,8 @@
 #define LARRASGN_TOK      62    /* ({*/
 #define RARRASGN_TOK      63    /* }) */
 #define MAPPING_TOK       64    /* mapping keyword */
+#define LMAPSGN_TOK       65    /* ([ - mapping literal start */
+/* Note: ]) is handled as RARRAY_TOK + RPAR_TOK in parser to avoid conflicts */
 
 /* Data structure declarations */
 

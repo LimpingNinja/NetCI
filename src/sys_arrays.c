@@ -202,73 +202,58 @@ int s_sizeof(struct object *caller, struct object *obj, struct object *player,
   struct var tmp, result;
   unsigned int array_size;
   struct heap_array *arr;
-  char logbuf[256];
-  
-  sprintf(logbuf, "s_sizeof: called");
-  logger(LOG_DEBUG, logbuf);
   
   /* Pop number of arguments */
-  if (pop(&tmp, rts, obj)) {
-    logger(LOG_ERROR, "s_sizeof: failed to pop NUM_ARGS");
-    return 1;
-  }
+  if (pop(&tmp, rts, obj)) return 1;
   
   if (tmp.type != NUM_ARGS) {
-    logger(LOG_ERROR, "s_sizeof: not NUM_ARGS");
     clear_var(&tmp);
     return 1;
   }
-  if (tmp.value.num != 1) {
-    logger(LOG_ERROR, "s_sizeof: wrong arg count");
-    return 1;
-  }
+  if (tmp.value.num != 1) return 1;
   
-  /* Pop the array variable */
-  if (pop(&tmp, rts, obj)) {
-    logger(LOG_ERROR, "s_sizeof: failed to pop argument");
-    return 1;
-  }
+  /* Pop the array/mapping variable */
+  if (pop(&tmp, rts, obj)) return 1;
   
   /* Resolve L_VALUE to get actual value */
   if (tmp.type == LOCAL_L_VALUE || tmp.type == GLOBAL_L_VALUE) {
     if (resolve_var(&tmp, obj)) {
-      logger(LOG_ERROR, "s_sizeof: failed to resolve variable");
       clear_var(&tmp);
       return 1;
     }
   }
   
-  /* Check if it's an array or uninitialized (INTEGER 0) */
+  /* Check if it's an array, mapping, or uninitialized (INTEGER 0) */
   if (tmp.type == INTEGER && tmp.value.integer == 0) {
-    /* Uninitialized array - return 0 */
-    sprintf(logbuf, "s_sizeof: uninitialized array, returning 0");
-    logger(LOG_DEBUG, logbuf);
+    /* Uninitialized array/mapping - return 0 */
     array_size = 0;
   } else if (tmp.type == ARRAY) {
     /* Get array size from heap array */
     arr = tmp.value.array_ptr;
     if (!arr) {
-      logger(LOG_ERROR, "s_sizeof: NULL array pointer");
       clear_var(&tmp);
       return 1;
     }
     array_size = arr->size;
+  } else if (tmp.type == MAPPING) {
+    /* Get mapping size (number of key-value pairs) */
+    struct heap_mapping *map = tmp.value.mapping_ptr;
+    if (!map) {
+      clear_var(&tmp);
+      return 1;
+    }
+    array_size = map->size;
   } else {
-    sprintf(logbuf, "s_sizeof: not an array (type=%d)", tmp.type);
-    logger(LOG_ERROR, logbuf);
+    /* Not an array or mapping */
     clear_var(&tmp);
     return 1;
   }
-  
-  sprintf(logbuf, "s_sizeof: array_size=%u", array_size);
-  logger(LOG_DEBUG, logbuf);
   
   /* Push result */
   result.type = INTEGER;
   result.value.integer = array_size;
   push(&result, rts);
   
-  logger(LOG_DEBUG, "s_sizeof: success");
   clear_var(&tmp);
   return 0;
 }

@@ -36,7 +36,8 @@ int (*oper_array[NUM_OPERS+NUM_SCALLS])(struct object *caller, struct object
   s_get_address,s_set_localverbs,s_localverbs,s_next_verb,s_get_devport,
   s_get_devnet,s_redirect_input,s_get_input_func,s_get_master,s_is_master,
   s_input_to,s_sizeof,s_implode,s_explode,s_member_array,s_sort_array,
-  s_reverse,s_unique_array,s_array_literal };
+  s_reverse,s_unique_array,s_array_literal,s_keys,s_values,s_map_delete,
+  s_member,s_mapping_literal };
 
 void interp_error(char *msg, struct object *player, struct object *obj,
                   struct fns *func, unsigned long line) {
@@ -421,6 +422,8 @@ int interp(struct object *caller, struct object *obj, struct object *player,
     return 0;
   }
   
+  char logbuf[512];
+  
   old_use_soft_cycles=use_soft_cycles;
   old_use_hard_cycles=use_hard_cycles;
   load_data(obj);
@@ -572,7 +575,13 @@ int interp(struct object *caller, struct object *obj, struct object *player,
 
     switch (func->code[loop].type) {
       case INTEGER:
+        push(&(func->code[loop]),&rts);
+        loop++;
+        break;
       case STRING:
+        push(&(func->code[loop]),&rts);
+        loop++;
+        break;
       case OBJECT:
       case GLOBAL_L_VALUE:
       case LOCAL_L_VALUE:
@@ -617,6 +626,22 @@ int interp(struct object *caller, struct object *obj, struct object *player,
             call_stack_depth--;
             return 1;
           }
+          
+          /* Resolve L_VALUE if needed (e.g., when key comes from array element) */
+          if (tmp.type == LOCAL_L_VALUE || tmp.type == GLOBAL_L_VALUE) {
+            if (resolve_var(&tmp, obj)) {
+              interp_error_with_trace("failed to resolve key",player,obj,func,line);
+              clear_var(&tmp);
+              free_stack(&rts);
+              clear_locals();
+              use_soft_cycles=old_use_soft_cycles;
+              use_hard_cycles=old_use_hard_cycles;
+              call_stack = frame.prev;
+              call_stack_depth--;
+              return 1;
+            }
+          }
+          
           key_var = tmp;  /* Save the key */
           
           /* Pop variable index (where array pointer is stored) */
@@ -849,26 +874,24 @@ int interp(struct object *caller, struct object *obj, struct object *player,
             return 1;
           }
         } else {
-          char logbuf[256];
-          sprintf(logbuf, "interp: syscall #%d, rts=%p, *rts=%p", 
-                  func->code[loop].value.instruction, (void*)&rts, (void*)rts);
-          logger(LOG_DEBUG, logbuf);
-          
           old_locals=locals;
           old_num_locals=num_locals;
-          if (func->code[loop].value.instruction==S_SSCANF ||
-              func->code[loop].value.instruction==S_SPRINTF ||
-              func->code[loop].value.instruction==S_FREAD ||
-              func->code[loop].value.instruction==S_SIZEOF)
-            stack1=gen_stack_noresolve(&rts,obj);
-          else
-            stack1=gen_stack(&rts,obj);
-          
-          sprintf(logbuf, "interp: after gen_stack, stack1=%p", (void*)stack1);
-          logger(LOG_DEBUG, logbuf);
-          
-          retstatus=((*oper_array[func->code[loop].value.instruction])
-                     (caller,obj,player,&stack1));
+          /* Mapping literals manage their own stack, don't use gen_stack */
+          if (func->code[loop].value.instruction==S_MAPPING_LITERAL) {
+            retstatus=((*oper_array[func->code[loop].value.instruction])
+                       (caller,obj,player,&rts));
+          } else {
+            if (func->code[loop].value.instruction==S_SSCANF ||
+                func->code[loop].value.instruction==S_SPRINTF ||
+                func->code[loop].value.instruction==S_FREAD ||
+                func->code[loop].value.instruction==S_SIZEOF)
+              stack1=gen_stack_noresolve(&rts,obj);
+            else
+              stack1=gen_stack(&rts,obj);
+            
+            retstatus=((*oper_array[func->code[loop].value.instruction])
+                       (caller,obj,player,&stack1));
+          }
           locals=old_locals;
           num_locals=old_num_locals;
           if (retstatus) {
@@ -900,20 +923,23 @@ int interp(struct object *caller, struct object *obj, struct object *player,
             call_stack_depth--;
             return 1;
           }
-          if (pop(&tmp,&stack1,obj)) {
-            interp_error_with_trace("system call returned malformed stack",player,obj,
-                         func,line);
-            free_stack(&rts);
+          /* Mapping literals push directly to rts, skip stack1 handling */
+          if (func->code[loop].value.instruction != S_MAPPING_LITERAL) {
+            if (pop(&tmp,&stack1,obj)) {
+              interp_error_with_trace("system call returned malformed stack",player,obj,
+                           func,line);
+              free_stack(&rts);
+              free_stack(&stack1);
+              clear_locals();
+              use_hard_cycles=old_use_hard_cycles;
+              use_soft_cycles=old_use_soft_cycles;
+              call_stack = frame.prev;  /* Pop frame on error exit */
+              call_stack_depth--;
+              return 1;
+            }
+            pushnocopy(&tmp,&rts);
             free_stack(&stack1);
-            clear_locals();
-            use_hard_cycles=old_use_hard_cycles;
-            use_soft_cycles=old_use_soft_cycles;
-            call_stack = frame.prev;  /* Pop frame on error exit */
-            call_stack_depth--;
-            return 1;
           }
-          pushnocopy(&tmp,&rts);
-          free_stack(&stack1);
         }
         loop++;
         break;

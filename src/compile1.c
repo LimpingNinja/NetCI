@@ -51,7 +51,7 @@ char *scall_array[NUM_SCALLS]={ "add_verb","add_xverb","call_other",
   "set_localverbs","localverbs","next_verb","get_devport","get_devnet",
   "redirect_input","get_input_func","get_master","is_master","input_to",
   "sizeof","implode","explode","member_array","sort_array","reverse",
-  "unique_array",NULL
+  "unique_array",NULL,"keys","values","map_delete","member",NULL
 };
 
 /* The functions themselves */
@@ -535,6 +535,58 @@ unsigned int parse_exp(filptr *file_info, fn_t *curr_fn, sym_tab_t *loc_sym,
       get_token(file_info,&token);
     }
   }
+  if (token.type==LMAPSGN_TOK) {
+    /* Mapping literal: ([ key: value, key2: value2, ... ]) */
+    unsigned int pair_count = 0;
+    if (last_was_arg) {
+      set_c_err_msg("expected arithmetic operation");
+      return file_info->phys_line;
+    }
+    get_token(file_info,&token);
+    /* Handle empty mapping: ([ ]) */
+    if (token.type==RARRAY_TOK) {
+      get_token(file_info,&token);
+      if (token.type!=RPAR_TOK) {
+        set_c_err_msg("expected ) after ] in empty mapping literal");
+        return file_info->phys_line;
+      }
+      add_code_integer(curr_fn,0);  /* Push pair count */
+      add_code_instr(curr_fn,S_MAPPING_LITERAL);
+      last_was_arg=1;
+      get_token(file_info,&token);
+    } else {
+      /* Parse key-value pairs - EXACTLY like array elements but with : separator */
+      unget_token(file_info,&token);
+      do {
+        /* Parse key with precedence 1 to stop at commas (precedence 0) */
+        if (parse_exp(file_info,curr_fn,loc_sym,1,0))
+          return file_info->phys_line;
+        get_token(file_info,&token);
+        if (token.type!=COLON_TOK) {
+          set_c_err_msg("expected : after mapping key");
+          return file_info->phys_line;
+        }
+        /* Parse value with precedence 1 to stop at commas (precedence 0) */
+        if (parse_exp(file_info,curr_fn,loc_sym,1,0))
+          return file_info->phys_line;
+        pair_count++;
+        get_token(file_info,&token);
+      } while (token.type==COMMA_TOK);
+      if (token.type!=RARRAY_TOK) {
+        set_c_err_msg("expected ] to close mapping literal");
+        return file_info->phys_line;
+      }
+      get_token(file_info,&token);
+      if (token.type!=RPAR_TOK) {
+        set_c_err_msg("expected ) after ] in mapping literal");
+        return file_info->phys_line;
+      }
+      add_code_integer(curr_fn,pair_count);  /* Push pair count */
+      add_code_instr(curr_fn,S_MAPPING_LITERAL);
+      last_was_arg=1;
+      get_token(file_info,&token);
+    }
+  }
   if (token.type==NAME_TOK) {
     strcpy(name,token.token_data.name);
     if (last_was_arg) {
@@ -667,18 +719,21 @@ unsigned int parse_line(filptr *file_info, fn_t *curr_fn, sym_tab_t *loc_sym)
   switch (token.type) {
     case VAR_DCL_TOK:
     case MAPPING_TOK:
-      done=0;
-      while (!done) {
-        if (add_var(file_info,loc_sym,(token.type==MAPPING_TOK)))
-          return file_info->phys_line;
-        get_token(file_info,&token);
-        if (token.type==SEMI_TOK)
-          done=1;
-        else
-          if (token.type!=COMMA_TOK) {
-            set_c_err_msg("expected ;");
+      {
+        int is_mapping_decl = (token.type == MAPPING_TOK);  /* Save for all vars in list */
+        done=0;
+        while (!done) {
+          if (add_var(file_info,loc_sym,is_mapping_decl))
             return file_info->phys_line;
-          }
+          get_token(file_info,&token);
+          if (token.type==SEMI_TOK)
+            done=1;
+          else
+            if (token.type!=COMMA_TOK) {
+              set_c_err_msg("expected ;");
+              return file_info->phys_line;
+            }
+        }
       }
       break;
     case IF_TOK:
@@ -902,17 +957,20 @@ unsigned int top_level_parse(filptr *file_info)
         break;
       case VAR_DCL_TOK:
       case MAPPING_TOK:
-        while (!done) {
-          if (add_var(file_info,file_info->glob_sym,(token.type==MAPPING_TOK)))
-            return file_info->phys_line;
-          get_token(file_info,&token);
-          if (token.type==SEMI_TOK)
-            done=1;
-          else
-            if (token.type!=COMMA_TOK) {
+        {
+          int is_mapping_decl = (token.type == MAPPING_TOK);  /* Save for all vars in list */
+          while (!done) {
+            if (add_var(file_info,file_info->glob_sym,is_mapping_decl))
+              return file_info->phys_line;
+            get_token(file_info,&token);
+            if (token.type==SEMI_TOK)
+              done=1;
+            else
+              if (token.type!=COMMA_TOK) {
               set_c_err_msg("expected ;");
               return file_info->phys_line;
             }
+          }
         }
         break;
       case NAME_TOK:

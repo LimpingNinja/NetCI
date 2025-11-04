@@ -146,6 +146,15 @@ OPER_PROTO(s_reverse)
 OPER_PROTO(s_unique_array)
 OPER_PROTO(s_array_literal)
 
+/* Mapping efuns (Phase 2) */
+OPER_PROTO(s_keys)
+OPER_PROTO(s_values)
+OPER_PROTO(s_map_delete)
+OPER_PROTO(s_member)
+
+/* Mapping literals (Phase 4) */
+OPER_PROTO(s_mapping_literal)
+
 /* Heap array functions (Phase 2.5) */
 struct heap_array* allocate_array(unsigned int size, unsigned int max_size);
 void array_addref(struct heap_array *arr);

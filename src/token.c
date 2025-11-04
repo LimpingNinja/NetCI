@@ -166,6 +166,10 @@ void get_exp_token(filptr *file_info, token_t *token)
       token->type=LARRASGN_TOK;  /* ({ for array literal start */
       return;
     }
+    if (c=='[') {
+      token->type=LMAPSGN_TOK;  /* ([ for mapping literal start */
+      return;
+    }
     ungetc(c,file_info->curr_file);
     token->type=LPAR_TOK;
     return;
@@ -544,6 +548,10 @@ void get_token(filptr *file_info, token_t *token)
       c=fgetc(file_info->curr_file);
       if (c=='{') {
         token->type=LARRASGN_TOK;  /* ({ for array literal start */
+        return;
+      }
+      if (c=='[') {
+        token->type=LMAPSGN_TOK;  /* ([ for mapping literal start */
         return;
       }
       ungetc(c,file_info->curr_file);

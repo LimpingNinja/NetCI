@@ -9,7 +9,7 @@ OFILES= cache1.o cache2.o clearq.o compile1.o compile2.o constrct.o \
         dbhandle.o edit.o file.o globals.o intrface.o interp.o main.o \
         oper1.o oper2.o preproc.o sys1.o sys2.o sys3.o sys4.o sys5.o \
         sys6a.o sys6b.o sys7.o sys8.o table.o token.o sys_arrays.o sfun_arrays.o \
-        sys_mappings.o
+        sys_mappings.o sfun_mappings.o
 
 netci: $(OFILES)
 	$(CC) $(CCFLAGS) $(DEFS) $(OFILES) -o netci $(LFLAGS)
@@ -132,3 +132,6 @@ sfun_arrays.o: sfun_arrays.c config.h object.h protos.h instr.h constrct.h file.
 
 sys_mappings.o: sys_mappings.c config.h object.h protos.h instr.h constrct.h globals.h
 	$(CC) $(CCFLAGS) $(DEFS) -c sys_mappings.c
+
+sfun_mappings.o: sfun_mappings.c config.h object.h protos.h instr.h constrct.h file.h
+	$(CC) $(CCFLAGS) $(DEFS) -c sfun_mappings.c
