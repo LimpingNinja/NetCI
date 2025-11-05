@@ -29,6 +29,7 @@
 #include "instr.h"
 #include "protos.h"
 #include "globals.h"
+#include "file.h"
 #include <string.h>
 
 /* Hash function for strings (djb2 algorithm) */
@@ -386,4 +387,103 @@ int mapping_exists(struct heap_mapping *map, struct var *key) {
   }
   
   return 0;
+}
+
+/* Merge two mappings (m1 + m2)
+ * Creates a new mapping with all keys from both
+ * If key exists in both, m2's value wins
+ * Returns new mapping or NULL on error
+ */
+struct heap_mapping* mapping_merge(struct heap_mapping *m1, struct heap_mapping *m2) {
+  struct heap_mapping *result;
+  struct mapping_entry *entry;
+  unsigned int i;
+  char logbuf[256];
+  
+  sprintf(logbuf, "mapping_merge: m1=%p (size=%u), m2=%p (size=%u)", 
+          (void*)m1, m1 ? m1->size : 0, (void*)m2, m2 ? m2->size : 0);
+  logger(LOG_INFO, logbuf);
+  
+  if (!m1 || !m2) {
+    logger(LOG_ERROR, "mapping_merge: NULL mapping pointer");
+    return NULL;
+  }
+  
+  /* Allocate result mapping with capacity for both */
+  result = allocate_mapping(m1->size + m2->size);
+  if (!result) {
+    logger(LOG_ERROR, "mapping_merge: failed to allocate result mapping");
+    return NULL;
+  }
+  
+  sprintf(logbuf, "mapping_merge: allocated result=%p, copying from m1", (void*)result);
+  logger(LOG_INFO, logbuf);
+  
+  /* Copy all entries from m1 */
+  for (i = 0; i < m1->capacity; i++) {
+    entry = m1->buckets[i];
+    while (entry) {
+      if (mapping_set(result, &entry->key, &entry->value)) {
+        logger(LOG_ERROR, "mapping_merge: failed to set entry from m1");
+        mapping_release(result);
+        return NULL;
+      }
+      entry = entry->next;
+    }
+  }
+  
+  logger(LOG_INFO, "mapping_merge: copied m1, now copying m2");
+  
+  /* Copy all entries from m2 (overwrites duplicates from m1) */
+  for (i = 0; i < m2->capacity; i++) {
+    entry = m2->buckets[i];
+    while (entry) {
+      if (mapping_set(result, &entry->key, &entry->value)) {
+        logger(LOG_ERROR, "mapping_merge: failed to set entry from m2");
+        mapping_release(result);
+        return NULL;
+      }
+      entry = entry->next;
+    }
+  }
+  
+  sprintf(logbuf, "mapping_merge: success, result size=%u", result->size);
+  logger(LOG_INFO, logbuf);
+  
+  return result;
+}
+
+/* Subtract mappings (m1 - m2)
+ * Creates a new mapping with keys from m1 that are NOT in m2
+ * Returns new mapping or NULL on error
+ */
+struct heap_mapping* mapping_subtract(struct heap_mapping *m1, struct heap_mapping *m2) {
+  struct heap_mapping *result;
+  struct mapping_entry *entry;
+  unsigned int i;
+  
+  if (!m1 || !m2)
+    return NULL;
+  
+  /* Allocate result mapping */
+  result = allocate_mapping(m1->size);
+  if (!result)
+    return NULL;
+  
+  /* Copy entries from m1 that don't exist in m2 */
+  for (i = 0; i < m1->capacity; i++) {
+    entry = m1->buckets[i];
+    while (entry) {
+      /* Only add if key doesn't exist in m2 */
+      if (!mapping_exists(m2, &entry->key)) {
+        if (mapping_set(result, &entry->key, &entry->value)) {
+          mapping_release(result);
+          return NULL;
+        }
+      }
+      entry = entry->next;
+    }
+  }
+  
+  return result;
 }

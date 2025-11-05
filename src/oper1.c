@@ -172,6 +172,26 @@ int pleq_oper(struct object *caller, struct object *obj,
       clear_var(&tmp2);
       return 0;
     }
+    /* Mapping merge assignment: mapping += mapping */
+    if (tmp2.type==MAPPING && obj->globals[tmp1.value.l_value.ref].type==MAPPING) {
+      struct heap_mapping *result;
+      
+      result = mapping_merge(obj->globals[tmp1.value.l_value.ref].value.mapping_ptr, tmp2.value.mapping_ptr);
+      if (!result) {
+        clear_var(&tmp1);
+        clear_var(&tmp2);
+        return 1;
+      }
+      
+      /* Release old mapping, assign new one */
+      mapping_release(obj->globals[tmp1.value.l_value.ref].value.mapping_ptr);
+      obj->globals[tmp1.value.l_value.ref].value.mapping_ptr = result;
+      obj->obj_state=DIRTY;
+      
+      clear_var(&tmp1);
+      clear_var(&tmp2);
+      return 0;
+    }
     if (tmp2.type==INTEGER && tmp2.value.integer==0) {
       tmp2.type=STRING;
       tmp2.value.string=copy_string("");
@@ -217,6 +237,25 @@ int pleq_oper(struct object *caller, struct object *obj,
       /* Release old array, assign new one */
       array_release(locals[tmp1.value.l_value.ref].value.array_ptr);
       locals[tmp1.value.l_value.ref].value.array_ptr = result;
+      
+      clear_var(&tmp1);
+      clear_var(&tmp2);
+      return 0;
+    }
+    /* Mapping merge assignment: mapping += mapping */
+    if (tmp2.type==MAPPING && locals[tmp1.value.l_value.ref].type==MAPPING) {
+      struct heap_mapping *result;
+      
+      result = mapping_merge(locals[tmp1.value.l_value.ref].value.mapping_ptr, tmp2.value.mapping_ptr);
+      if (!result) {
+        clear_var(&tmp1);
+        clear_var(&tmp2);
+        return 1;
+      }
+      
+      /* Release old mapping, assign new one */
+      mapping_release(locals[tmp1.value.l_value.ref].value.mapping_ptr);
+      locals[tmp1.value.l_value.ref].value.mapping_ptr = result;
       
       clear_var(&tmp1);
       clear_var(&tmp2);
@@ -416,6 +455,26 @@ int add_oper(struct object *caller, struct object *obj,
     
     result_var.type = ARRAY;
     result_var.value.array_ptr = result;
+    push(&result_var, rts);
+    
+    clear_var(&tmp1);
+    clear_var(&tmp2);
+    return 0;
+  }
+  /* Mapping merge: mapping + mapping */
+  if (tmp1.type==MAPPING && tmp2.type==MAPPING) {
+    struct heap_mapping *result;
+    struct var result_var;
+    
+    result = mapping_merge(tmp1.value.mapping_ptr, tmp2.value.mapping_ptr);
+    if (!result) {
+      clear_var(&tmp1);
+      clear_var(&tmp2);
+      return 1;
+    }
+    
+    result_var.type = MAPPING;
+    result_var.value.mapping_ptr = result;
     push(&result_var, rts);
     
     clear_var(&tmp1);

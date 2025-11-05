@@ -198,6 +198,27 @@ int min_oper(struct object *caller, struct object *obj,
     return 0;
   }
   
+  /* Mapping subtraction: mapping - mapping */
+  if (tmp1.type == MAPPING && tmp2.type == MAPPING) {
+    struct heap_mapping *result;
+    struct var result_var;
+    
+    result = mapping_subtract(tmp1.value.mapping_ptr, tmp2.value.mapping_ptr);
+    if (!result) {
+      clear_var(&tmp1);
+      clear_var(&tmp2);
+      return 1;
+    }
+    
+    result_var.type = MAPPING;
+    result_var.value.mapping_ptr = result;
+    push(&result_var, rts);
+    
+    clear_var(&tmp1);
+    clear_var(&tmp2);
+    return 0;
+  }
+  
   clear_var(&tmp1);
   clear_var(&tmp2);
   return 1;
@@ -257,6 +278,26 @@ int mieq_oper(struct object *caller, struct object *obj,
       clear_var(&tmp2);
       return 0;
     }
+    /* Mapping subtraction assignment: mapping -= mapping */
+    if (tmp2.type == MAPPING && obj->globals[tmp1.value.l_value.ref].type == MAPPING) {
+      struct heap_mapping *result;
+      
+      result = mapping_subtract(obj->globals[tmp1.value.l_value.ref].value.mapping_ptr, tmp2.value.mapping_ptr);
+      if (!result) {
+        clear_var(&tmp1);
+        clear_var(&tmp2);
+        return 1;
+      }
+      
+      /* Release old mapping, assign new one */
+      mapping_release(obj->globals[tmp1.value.l_value.ref].value.mapping_ptr);
+      obj->globals[tmp1.value.l_value.ref].value.mapping_ptr = result;
+      obj->obj_state = DIRTY;
+      
+      clear_var(&tmp1);
+      clear_var(&tmp2);
+      return 0;
+    }
   } else {
     /* Integer subtraction assignment */
     if (tmp2.type == INTEGER && locals[tmp1.value.l_value.ref].type == INTEGER) {
@@ -279,6 +320,25 @@ int mieq_oper(struct object *caller, struct object *obj,
       /* Release old array, assign new one */
       array_release(locals[tmp1.value.l_value.ref].value.array_ptr);
       locals[tmp1.value.l_value.ref].value.array_ptr = result;
+      
+      clear_var(&tmp1);
+      clear_var(&tmp2);
+      return 0;
+    }
+    /* Mapping subtraction assignment: mapping -= mapping */
+    if (tmp2.type == MAPPING && locals[tmp1.value.l_value.ref].type == MAPPING) {
+      struct heap_mapping *result;
+      
+      result = mapping_subtract(locals[tmp1.value.l_value.ref].value.mapping_ptr, tmp2.value.mapping_ptr);
+      if (!result) {
+        clear_var(&tmp1);
+        clear_var(&tmp2);
+        return 1;
+      }
+      
+      /* Release old mapping, assign new one */
+      mapping_release(locals[tmp1.value.l_value.ref].value.mapping_ptr);
+      locals[tmp1.value.l_value.ref].value.mapping_ptr = result;
       
       clear_var(&tmp1);
       clear_var(&tmp2);

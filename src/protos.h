@@ -184,3 +184,5 @@ int mapping_get(struct heap_mapping *map, struct var *key, struct var *result);
 int mapping_set(struct heap_mapping *map, struct var *key, struct var *value);
 int mapping_delete(struct heap_mapping *map, struct var *key);
 int mapping_exists(struct heap_mapping *map, struct var *key);
+struct heap_mapping* mapping_merge(struct heap_mapping *m1, struct heap_mapping *m2);
+struct heap_mapping* mapping_subtract(struct heap_mapping *m1, struct heap_mapping *m2);

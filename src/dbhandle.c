@@ -228,18 +228,127 @@ struct object *find_proto(char *path) {
   return NULL;
 }
 
+/* Helper to read source line - similar to interp.c's read_source_line */
+static char *read_compile_source_line(char *filepath, unsigned int line_num) {
+  FILE *f;
+  char *line_buf;
+  char *full_path;
+  unsigned int current_line;
+  int c, pos;
+  
+  /* Build full filesystem path */
+  full_path = MALLOC(strlen(fs_path) + strlen(filepath) + 3);
+  strcpy(full_path, fs_path);
+  strcat(full_path, filepath);
+  strcat(full_path, ".c");
+  
+  f = fopen(full_path, "r");
+  FREE(full_path);
+  
+  if (!f) return NULL;
+  
+  line_buf = MALLOC(512);
+  current_line = 1;
+  pos = 0;
+  
+  while ((c = fgetc(f)) != EOF) {
+    if (current_line == line_num) {
+      if (c == '\n' || c == '\r') {
+        line_buf[pos] = '\0';
+        fclose(f);
+        return line_buf;
+      } else if (pos < 511) {
+        line_buf[pos++] = c;
+      }
+    } else if (c == '\n') {
+      current_line++;
+      if (current_line > line_num) break;
+    }
+  }
+  
+  if (current_line == line_num && pos > 0) {
+    line_buf[pos] = '\0';
+    fclose(f);
+    return line_buf;
+  }
+  
+  FREE(line_buf);
+  fclose(f);
+  return NULL;
+}
+
 void compile_error(struct object *player, char *path, unsigned int line) {
   char *buf;
+  char *source_line;
+  char *trimmed;
+  unsigned int display_line = line;
+  unsigned int context_start, context_end;
+  unsigned int i;
+  int is_error_line;
 
   if (!c_err_msg) c_err_msg="unknown error";
+  
+  /* Log the error header */
   buf=MALLOC(21+ITOA_BUFSIZ+strlen(path)+strlen(c_err_msg));
   sprintf(buf,"compile: %s.c line #%ld: %s",path,(long) line,c_err_msg);
   logger(LOG_ERROR, buf);
+  
   if (player) {
     send_device(player,buf);
     send_device(player,"\n");
   }
   FREE(buf);
+  
+  /* Check if reported line is a comment or blank - if so, error is on next line */
+  source_line = read_compile_source_line(path, line);
+  if (source_line) {
+    trimmed = source_line;
+    while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
+    
+    if ((*trimmed == '/' && *(trimmed+1) == '/') || 
+        *trimmed == '\0' || 
+        (*trimmed == '/' && *(trimmed+1) == '*')) {
+      display_line = line + 1;
+    }
+    FREE(source_line);
+  }
+  
+  /* Show context: 2 lines before and 2 lines after the error line */
+  context_start = (display_line > 2) ? display_line - 2 : 1;
+  context_end = display_line + 2;
+  
+  for (i = context_start; i <= context_end; i++) {
+    source_line = read_compile_source_line(path, i);
+    if (!source_line) continue;  /* Skip if line doesn't exist */
+    
+    trimmed = source_line;
+    while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
+    
+    /* Skip completely blank lines in context */
+    if (*trimmed == '\0') {
+      FREE(source_line);
+      continue;
+    }
+    
+    is_error_line = (i == display_line);
+    
+    /* Format: "      Line N: code" or " >>>> Line N: code" for error line */
+    buf = MALLOC(strlen(trimmed) + ITOA_BUFSIZ + 30);
+    if (is_error_line) {
+      sprintf(buf, " >>>> Line %ld: %s", (long)i, trimmed);
+    } else {
+      sprintf(buf, "      Line %ld: %s", (long)i, trimmed);
+    }
+    
+    logger(LOG_ERROR, buf);
+    if (player) {
+      send_device(player, buf);
+      send_device(player, "\n");
+    }
+    
+    FREE(buf);
+    FREE(source_line);
+  }
 }
 
 struct object *ref_to_obj(signed long refno) {
