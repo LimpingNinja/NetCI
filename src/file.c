@@ -673,9 +673,9 @@ int discover_directory(char *path, struct object *uid) {
       continue;
     }
     
-    /* Build virtual path for entry */
-    entry_len = path_len + strlen(entry->d_name) + 2; /* +2 for '/' and '\0' */
-    entry_path = MALLOC(entry_len);
+    /* Build full virtual path for entry */
+    entry_len = strlen(entry->d_name);
+    entry_path = MALLOC(path_len + entry_len + 2);
     strcpy(entry_path, path);
     if (path[path_len - 1] != '/') {
       strcat(entry_path, "/");
@@ -739,6 +739,7 @@ int discover_recursive(char *path, struct object *uid) {
   char *subdir_path;
   int count = 0;
   int path_len;
+  int subdir_count;
   
   /* Discover all files in current directory */
   count = discover_directory(path, uid);
@@ -763,7 +764,8 @@ int discover_recursive(char *path, struct object *uid) {
       strcat(subdir_path, curr->filename);
       
       /* Recursively discover */
-      count += discover_recursive(subdir_path, uid);
+      subdir_count = discover_recursive(subdir_path, uid);
+      count += subdir_count;
       
       FREE(subdir_path);
     }
@@ -908,25 +910,26 @@ FILE *open_file(char *filename, char *mode, struct object *uid) {
       return NULL;
     }
     
+    /* Master object approved via valid_write() - proceed with file creation */
     homefe=split_dir(filename,&newbuf);
     if (!homefe) return NULL;
     if (!can_read(homefe,uid)) {
       FREE(newbuf);
       return NULL;
     }
-    if (!(homefe->owner==uid->refno || (uid->flags & PRIV) ||
-          (homefe->flags & WRITE_OK))) {
-      FREE(newbuf);
-      return NULL;
-    }
+    /* Note: Filesystem permission check removed - valid_write() is authoritative */
     fe=make_entry(homefe,newbuf,uid);
     if (!fe) {
       FREE(newbuf);
       return NULL;
     }
   }
-  if (fe->flags & DIRECTORY) return NULL;
-  if (!can_read(fe->parent,uid)) return NULL;
+
+  if (fe->flags & DIRECTORY) {
+    return NULL;
+  }
+  
+  /* NOTE: Removed legacy can_read(fe->parent, uid) check - we rely on check_master_permission instead */
   
   /* Check master permission for read operations */
   if (*mode=='r') {

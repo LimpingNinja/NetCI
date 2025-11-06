@@ -133,5 +133,5 @@ sfun_arrays.o: sfun_arrays.c config.h object.h protos.h instr.h constrct.h file.
 sys_mappings.o: sys_mappings.c config.h object.h protos.h instr.h constrct.h globals.h
 	$(CC) $(CCFLAGS) $(DEFS) -c sys_mappings.c
 
-sfun_mappings.o: sfun_mappings.c config.h object.h protos.h instr.h constrct.h file.h
+sfun_mappings.o: sfun_mappings.c config.h object.h protos.h instr.h constrct.h
 	$(CC) $(CCFLAGS) $(DEFS) -c sfun_mappings.c
