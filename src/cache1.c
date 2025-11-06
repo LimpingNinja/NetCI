@@ -544,3 +544,75 @@ void writeverb(FILE *outfile, struct verb *curr_verb) {
           (long) strlen(curr_verb->function),
           curr_verb->function);
 }
+
+/* Auto-object attachment utilities */
+
+/* Forward declaration from sys7.c */
+extern int is_attached_to(struct object *slave, struct object *master);
+
+/* Attach auto_proto to a single object
+ * Called during object creation (compile/clone) and DB load
+ * Safe to call multiple times - checks for duplicates
+ */
+void attach_auto_to(struct object *target) {
+  struct attach_list *curr_attach;
+  struct attach_list *new_attach;
+  
+  /* Skip if no auto object configured */
+  if (!auto_proto || !auto_object_path) return;
+  
+  /* Never attach auto to itself */
+  if (target == auto_proto) return;
+  
+  /* Skip if target is NULL or being destructed */
+  if (!target) return;
+  
+  /* Check if already attached (avoid duplicates) */
+  curr_attach = target->attachees;
+  while (curr_attach) {
+    if (curr_attach->attachee == auto_proto) return;
+    curr_attach = curr_attach->next;
+  }
+  
+  /* Guard against cycles (shouldn't happen, but be safe) */
+  if (is_attached_to(target, auto_proto)) return;
+  
+  /* Create new attachment entry and prepend to list */
+  new_attach = (struct attach_list *) MALLOC(sizeof(struct attach_list));
+  new_attach->attachee = auto_proto;
+  new_attach->next = target->attachees;
+  target->attachees = new_attach;
+  
+  /* NOTE: Do NOT set auto_proto->attacher here!
+   * The attacher field is for 1-to-1 relationships (like atoo()).
+   * Auto is a shared attachment for ALL objects, so setting attacher
+   * would corrupt the attachment chain and cause segfaults. */
+}
+
+/* Attach auto_proto to all loaded objects
+ * Called after DB load to ensure all existing objects have auto attached
+ */
+void attach_auto_to_all() {
+  struct obj_blk *curr_block;
+  signed long i;
+  struct object *obj;
+  
+  /* Skip if no auto object configured */
+  if (!auto_proto || !auto_object_path) return;
+  
+  /* Walk all object blocks */
+  curr_block = obj_list;
+  while (curr_block) {
+    for (i = 0; i < OBJ_ALLOC_BLKSIZ; i++) {
+      obj = &(curr_block->block[i]);
+      
+      /* Skip free objects and the auto object itself */
+      if (obj->flags & GARBAGE) continue;
+      if (obj == auto_proto) continue;
+      
+      /* Attach auto to this object */
+      attach_auto_to(obj);
+    }
+    curr_block = curr_block->next;
+  }
+}

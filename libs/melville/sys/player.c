@@ -180,7 +180,8 @@ cmd_hook(input) {
     object cmd_d;
     
     if (!input || strlen(input) == 0) {
-        send_device("> ");
+        write("SHUT IT UP!\n");
+        write("> ");
         input_to(this_object(), "cmd_hook");
         return;
     }
@@ -191,7 +192,7 @@ cmd_hook(input) {
         send_device("Error: Command daemon not found.\n");
         send_device("> ");
         input_to(this_object(), "cmd_hook");
-        return;
+        return; 
     }
     
     /* Let command daemon process the command */

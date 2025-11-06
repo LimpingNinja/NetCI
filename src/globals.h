@@ -32,6 +32,8 @@ extern struct obj_blk *obj_list;
 extern char *load_name;
 extern char *save_name;
 extern char *panic_name;
+extern char *auto_object_path;
+extern struct object *auto_proto;
 extern struct object *free_obj_list;
 extern signed long objects_allocd;
 extern signed long db_top;

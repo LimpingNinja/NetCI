@@ -74,6 +74,7 @@ int read_ini(char *filename,
   static char ini_xlog[1024];
   static char ini_tmpdb[1024];
   static char ini_title[1024];
+  static char ini_auto[1024];
 
   if (!(infile=fopen(filename,"r"))) return -1;
   last_had_nl=1;
@@ -119,6 +120,9 @@ int read_ini(char *filename,
           else if (!strcmp(key,"tmpdb")) {
             strcpy(ini_tmpdb,val);
             tmpdb_name=ini_tmpdb;
+          } else if (!strcmp(key,"auto_object")) {
+            strcpy(ini_auto,val);
+            auto_object_path=ini_auto;
           } else if (!strcmp(key,"protocol")) {
             if (!strcmp(val,"tcp")) port->protocol=CI_PROTOCOL_TCP;
             else if (!strcmp(val,"ipx")) port->protocol=CI_PROTOCOL_IPX;

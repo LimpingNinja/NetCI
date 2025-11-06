@@ -68,12 +68,9 @@ process_command(player, input) {
         verb = leftstr(input, space_pos - 1);
         args = rightstr(input, strlen(input) - space_pos);
     }
-    
-    syslog("DEBUG: cmd_d - parsed verb: '" + verb + "', args: '" + (args ? args : "NULL") + "'");
-    
+        
     /* Get search path based on player's role */
     search_path = get_search_path(player);
-    syslog("DEBUG: cmd_d - verb: '" + verb + "', search_path size: " + itoa(sizeof(search_path)));
     
     /* Find command in search path */
     cmd_path = find_command(verb, search_path);
@@ -81,17 +78,16 @@ process_command(player, input) {
     
     if (!cmd_path) {
         /* Command not found */
-        syslog("DEBUG: cmd_d - command not found, sending What?");
+
         player.listen("What?\n");
         return;
     }
     
-    /* Load command object (compile if needed, no cloning) */
-    cmd_ob = atoo(cmd_path);
-    if (!cmd_ob) {
-        compile_object(cmd_path);
-        cmd_ob = atoo(cmd_path);
-    }
+    /* Load command object using get_object() from auto.c
+     * This will compile if needed and return the prototype
+     * Tests the auto-object delegation to boot.c!
+     */
+    cmd_ob = get_object(cmd_path);
     
     if (!cmd_ob) {
         player.listen("Error loading command.\n");
@@ -99,11 +95,13 @@ process_command(player, input) {
         return;
     }
     
-    /* Execute command using execute() callback */
+    /* Execute command using execute() callback
+     * Commands now use this_player() internally, so we only pass args
+     */
     if (args) {
-        result = cmd_ob.execute(player, args);
+        result = cmd_ob.execute(args);
     } else {
-        result = cmd_ob.execute(player);
+        result = cmd_ob.execute();
     }
     
     /* Commands return 1 on success, 0 on failure */
@@ -243,22 +241,14 @@ get_dir_list(dir) {
     
     files = ({});
     
-    syslog("DEBUG: get_dir_list - scanning dir: " + dir);
-    
     for (i = 0; i < sizeof(common_verbs); i++) {
         verb = common_verbs[i];
         path = dir + "/_" + verb + ".c";
         stat_result = fstat(path);
-        
-        syslog("DEBUG: get_dir_list - fstat('" + path + "') = " + itoa(stat_result));
-        
         if (stat_result > 0) {
             files = files + ({ "_" + verb + ".c" });
         }
     }
-    
-    syslog("DEBUG: get_dir_list - found " + itoa(sizeof(files)) + " files in " + dir);
-    
     return files;
 }
 

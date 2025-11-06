@@ -37,6 +37,8 @@ struct obj_blk *obj_list;
 char *load_name;
 char *save_name;
 char *panic_name;
+char *auto_object_path;
+struct object *auto_proto;
 struct object *free_obj_list;
 signed long objects_allocd;
 signed long db_top;

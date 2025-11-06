@@ -10,14 +10,15 @@
 #include <config.h>
 
 /* Main command execution */
-execute(player, args) {
-    object env, dest;
+execute(args) {
+    object player, env, dest;
     string direction;
     
+    player = this_player();
     if (!player) return 0;
     
     if (!args || args == "") {
-        player.write("Go where?\n");
+        write("Go where?\n");
         return 0;
     }
     
@@ -26,20 +27,20 @@ execute(player, args) {
     /* Get current room */
     env = location(player);
     if (!env) {
-        player.write("You are nowhere!\n");
+        write("You are nowhere!\n");
         return 0;
     }
     
     /* Try to find exit */
     dest = env.query_exit(direction);
     if (!dest) {
-        player.write("You can't go that way.\n");
+        write("You can't go that way.\n");
         return 0;
     }
     
     /* Attempt movement */
     if (!player.move(dest)) {
-        player.write("You can't go that way.\n");
+        write("You can't go that way.\n");
         return 0;
     }
     
@@ -50,7 +51,7 @@ execute(player, args) {
     /* Show new room */
     dest = location(player);
     if (dest) {
-        player.write(dest.query_long(player.query_brief()));
+        write(dest.query_long(player.query_brief()));
         
         /* Announce arrival to new room */
         dest.room_tell(capitalize(player.query_name()) + " arrives.\n",
@@ -62,13 +63,13 @@ execute(player, args) {
 
 /* Help text */
 query_help() {
-    return "Syntax: go <direction>\n"
-           "        <direction>\n\n"
-           "Move in a direction.\n\n"
-           "Common directions: north, south, east, west, up, down, "
-           "northeast, northwest, southeast, southwest\n\n"
-           "Examples:\n"
-           "  go north\n"
-           "  north\n"
+    return "Syntax: go <direction>\n"+
+           "        <direction>\n\n"+
+           "Move in a direction.\n\n"+
+           "Common directions: north, south, east, west, up, down, "+
+           "northeast, northwest, southeast, southwest\n\n"+
+           "Examples:\n"+
+           "  go north\n"+
+           "  north\n"+
            "  n\n";
 }

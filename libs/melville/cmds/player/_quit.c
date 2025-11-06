@@ -9,9 +9,10 @@
 #include <config.h>
 
 /* Main command execution */
-execute(player, args) {
-    object env;
+execute(args) {
+    object player, env;
     
+    player = this_player();
     if (!player) return 0;
     
     /* Get current location */
@@ -27,7 +28,7 @@ execute(player, args) {
     player.save_data();
     
     /* Send goodbye message */
-    player.write("\nGoodbye! Thanks for playing.\n\n");
+    write("\nGoodbye! Thanks for playing.\n\n");
     
     /* Disconnect */
     disconnect_device();
@@ -37,6 +38,6 @@ execute(player, args) {
 
 /* Help text */
 query_help() {
-    return "Syntax: quit\n\n"
+    return "Syntax: quit\n\n"+
            "Disconnect from the game. Your progress will be saved.\n";
 }

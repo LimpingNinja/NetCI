@@ -9,11 +9,12 @@
 #include <config.h>
 
 /* Main command execution */
-execute(player, args) {
-    object curr;
+execute(args) {
+    object player, curr;
     string output, name;
     int count;
     
+    player = this_player();
     if (!player) return 0;
     
     output = "Players currently online:\n";
@@ -52,12 +53,12 @@ execute(player, args) {
     }
     output = output + " online.\n";
     
-    player.write(output);
+    write(output);
     return 1;
 }
 
 /* Help text */
 query_help() {
-    return "Syntax: who\n\n"
+    return "Syntax: who\n\n"+
            "List all players currently connected to the game.\n";
 }

@@ -11,18 +11,19 @@
 #include <config.h>
 
 /* Main command execution */
-execute(player, args) {
-    object *inv;
+execute(args) {
+    object player, *inv;
     int i;
     string output;
     
+    player = this_player();
     if (!player) return 0;
     
     /* Get inventory */
     inv = player.query_inventory();
     
     if (!inv || sizeof(inv) == 0) {
-        player.write("You aren't carrying anything.\n");
+        write("You aren't carrying anything.\n");
         return 1;
     }
     
@@ -34,14 +35,14 @@ execute(player, args) {
         }
     }
     
-    player.write(output);
+    write(output);
     return 1;
 }
 
 /* Help text */
 query_help() {
-    return "Syntax: inventory\n"
-           "        inv\n"
-           "        i\n\n"
+    return "Syntax: inventory\n"+
+           "        inv\n"+
+           "        i\n\n"+
            "List what you're carrying.\n";
 }

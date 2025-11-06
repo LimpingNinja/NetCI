@@ -186,3 +186,7 @@ int mapping_delete(struct heap_mapping *map, struct var *key);
 int mapping_exists(struct heap_mapping *map, struct var *key);
 struct heap_mapping* mapping_merge(struct heap_mapping *m1, struct heap_mapping *m2);
 struct heap_mapping* mapping_subtract(struct heap_mapping *m1, struct heap_mapping *m2);
+
+/* Auto-object attachment functions */
+void attach_auto_to(struct object *target);
+void attach_auto_to_all();

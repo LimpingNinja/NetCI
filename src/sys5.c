@@ -181,7 +181,37 @@ int s_compile_object(struct object *caller, struct object *obj, struct object
     return 1;
   }
   tmpobj=find_proto(tmp.value.string);
-  if ((caller) || (obj->parent->proto_obj==tmpobj)) {
+  /* Diagnostic logging: check early-return guard conditions */
+  {
+    char *buf;
+    const char *caller_path = caller && caller->parent ? caller->parent->pathname : "NULL";
+    const char *self_path = obj && obj->parent ? obj->parent->pathname : "NULL";
+    const char *target_path = tmp.value.string ? tmp.value.string : "(null)";
+    buf = MALLOC(256 + strlen(caller_path) + strlen(self_path) + strlen(target_path));
+    sprintf(buf,
+            " compile_object: caller=%s self=%s target=%s proto_exists=%s",
+            caller_path,
+            self_path,
+            target_path,
+            (tmpobj ? "yes" : "no"));
+    logger(LOG_DEBUG, buf);
+    FREE(buf);
+  }
+  /* Guard: block only if caller is non-NULL and not auto_proto, OR if proto is up-to-date */
+  if (((caller && caller != auto_proto)) || (obj->parent->proto_obj==tmpobj)) {
+    {
+      char *buf2;
+      const char *target_path = tmp.value.string ? tmp.value.string : "(null)";
+      const char *caller_path2 = caller && caller->parent ? caller->parent->pathname : "NULL";
+      buf2 = MALLOC(128 + strlen(target_path));
+      sprintf(buf2,
+              " compile_object: EARLY RETURN (blocked). reason=%s caller=%s target=%s",
+              (obj->parent->proto_obj==tmpobj) ? "proto-up-to-date" : "caller-not-allowed",
+              caller_path2,
+              target_path);
+      logger(LOG_DEBUG, buf2);
+      FREE(buf2);
+    }
     clear_var(&tmp);
     tmp.type=INTEGER;
     tmp.value.integer=0;
@@ -190,6 +220,16 @@ int s_compile_object(struct object *caller, struct object *obj, struct object
   }
   line=parse_code(tmp.value.string,obj,&newcode);
   if (line==((unsigned int) -1)) {
+    {
+      char *buf3;
+      const char *target_path = tmp.value.string ? tmp.value.string : "(null)";
+      buf3 = MALLOC(128 + strlen(target_path));
+      sprintf(buf3,
+              " compile_object: PARSE FAILED (-1) target=%s",
+              target_path);
+      logger(LOG_DEBUG, buf3);
+      FREE(buf3);
+    }
     clear_var(&tmp);
     tmp.type=INTEGER;
     tmp.value.integer=0;
@@ -197,6 +237,17 @@ int s_compile_object(struct object *caller, struct object *obj, struct object
     return 0;
   }
   if (line) {
+    {
+      char *buf4;
+      const char *target_path = tmp.value.string ? tmp.value.string : "(null)";
+      buf4 = MALLOC(160 + strlen(target_path));
+      sprintf(buf4,
+              " compile_object: SYNTAX ERROR line=%u target=%s",
+              line,
+              target_path);
+      logger(LOG_DEBUG, buf4);
+      FREE(buf4);
+    }
     compile_error(player,tmp.value.string,line);
     clear_var(&tmp);
     tmp.value.integer=0;
@@ -205,6 +256,16 @@ int s_compile_object(struct object *caller, struct object *obj, struct object
     return 0;
   }
   if (tmpobj) {
+    {
+      char *buf5;
+      const char *target_path = tmp.value.string ? tmp.value.string : "(null)";
+      buf5 = MALLOC(128 + strlen(target_path));
+      sprintf(buf5,
+              " compile_object: UPDATE EXISTING target=%s",
+              target_path);
+      logger(LOG_DEBUG, buf5);
+      FREE(buf5);
+    }
     proto_obj=tmpobj;
     cvt=make_cvt(tmpobj->parent->funcs,newcode);
     if (gstcmp(tmpobj->parent->funcs,newcode,cvt))
@@ -223,6 +284,16 @@ int s_compile_object(struct object *caller, struct object *obj, struct object
       FREE(cvt);
     clear_var(&tmp);
   } else {
+    {
+      char *buf6;
+      const char *target_path = tmp.value.string ? tmp.value.string : "(null)";
+      buf6 = MALLOC(128 + strlen(target_path));
+      sprintf(buf6,
+              " compile_object: CREATE NEW target=%s",
+              target_path);
+      logger(LOG_DEBUG, buf6);
+      FREE(buf6);
+    }
     proto_obj=newobj();
     tmp_proto=(struct proto *) MALLOC(sizeof(struct proto));
     tmp_proto->pathname=tmp.value.string;
@@ -259,6 +330,10 @@ int s_compile_object(struct object *caller, struct object *obj, struct object
     locals=old_locals;
     num_locals=old_num_locals;
   }
+  
+  /* Attach auto object to the newly compiled/updated prototype */
+  attach_auto_to(proto_obj);
+  
   tmp.type=OBJECT;
   tmp.value.objptr=proto_obj;
   push(&tmp,rts);

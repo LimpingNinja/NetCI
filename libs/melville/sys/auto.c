@@ -367,3 +367,117 @@ dump_object(obj) {
     
     debug(output);
 }
+
+/* ========================================================================
+ * NLPC-STYLE APIS (Delegate to boot.c privileged wrappers)
+ * These provide Melville-style convenience functions that call through
+ * to the privileged boot.c wrappers for actual implementation.
+ * ======================================================================== */
+
+/* Get or compile an object - ensures prototype exists
+ * Delegates to boot.c for privileged access
+ */
+get_object(path) {
+    object boot;
+    
+    if (!path) return 0;
+    
+    boot = atoo("/boot");
+    if (!boot) {
+        syslog("auto.get_object(): ERROR - boot object not found!");
+        return 0;
+    }
+    
+    return boot.get_object(path);
+}
+
+/* Clone an object - creates a new instance
+ * Delegates to boot.c for privileged access
+ * Can accept either a path string or an object
+ */
+clone_object(path_or_obj) {
+    object boot;
+    string path;
+    
+    if (!path_or_obj) return 0;
+    
+    boot = atoo("/boot");
+    if (!boot) {
+        syslog("auto.clone_object(): ERROR - boot object not found!");
+        return 0;
+    }
+    
+    /* If it's an object, get its path */
+    if (typeof(path_or_obj) == "object") {
+        path = otoa(path_or_obj);
+    } else {
+        path = path_or_obj;
+    }
+    
+    return boot.clone(path);
+}
+
+/* Say something to everyone in the room
+ * Sends HEAR_SAY event to location's contents
+ */
+say(msg) {
+    object env, *inv;
+    int i;
+    
+    if (!msg) return;
+    
+    env = location(this_object());
+    if (!env) return;
+    
+    /* Get all objects in the room */
+    inv = env.query_inventory();
+    if (!inv) return;
+    
+    /* Send HEAR_SAY to each object except this one */
+    for (i = 0; i < sizeof(inv); i++) {
+        if (inv[i] && inv[i] != this_object()) {
+            /* Call hear() if it exists */
+            inv[i].hear(this_object(), inv[i], HEAR_SAY, msg, 0, 0);
+        }
+    }
+    
+    /* Also send to this object for local echo */
+    this_object().listen(msg + "\n");
+}
+
+/* Write a message to an object or this_object()
+ * Simple wrapper that calls listen() on the target
+ */
+write(arg1) {
+    this_player().listen(arg1);
+}
+
+/* Set heart beat interval
+ * Uses alarm() to schedule periodic do_heart_beat() calls
+ */
+set_heart_beat(interval) {
+    if (!interval || interval <= 0) {
+        /* Cancel heart beat by not scheduling alarm */
+        return;
+    }
+    
+    /* Schedule first heart beat */
+    alarm(interval, "do_heart_beat");
+}
+
+/* Heart beat callback
+ * Called periodically by alarm() if set_heart_beat() was used
+ * Calls heart_beat() on this_object() if it exists
+ */
+do_heart_beat() {
+    object obj;
+    
+    obj = this_object();
+    if (!obj) return;
+    
+    /* Call heart_beat() if the object has one */
+    obj.heart_beat();
+    
+    /* Reschedule for next beat - would need to track interval */
+    /* For now, objects should call set_heart_beat() again in their heart_beat() */
+}

@@ -10,14 +10,15 @@
 #include <config.h>
 
 /* Main command execution */
-execute(player, args) {
-    object env;
+execute(args) {
+    object player, env;
     string name, message;
     
+    player = this_player();
     if (!player) return 0;
     
     if (!args || args == "") {
-        player.write("Say what?\n");
+        write("Say what?\n");
         return 0;
     }
     
@@ -27,12 +28,12 @@ execute(player, args) {
     /* Get current room */
     env = location(player);
     if (!env) {
-        player.write("You are nowhere!\n");
+        write("You are nowhere!\n");
         return 0;
     }
     
     /* Send message to player */
-    player.write("You say: " + message + "\n");
+    write("You say: " + message + "\n");
     
     /* Send message to room (excluding player) */
     env.room_tell(name + " says: " + message + "\n", ({ player }));
@@ -42,10 +43,10 @@ execute(player, args) {
 
 /* Help text */
 query_help() {
-    return "Syntax: say <message>\n"
-           "        '<message>\n\n"
-           "Say something to everyone in the room.\n\n"
-           "Examples:\n"
-           "  say Hello everyone!\n"
+    return "Syntax: say <message>\n"+
+           "        '<message>\n\n"+
+           "Say something to everyone in the room.\n\n"+
+           "Examples:\n"+
+           "  say Hello everyone!\n"+
            "  'Hello everyone!\n";
 }

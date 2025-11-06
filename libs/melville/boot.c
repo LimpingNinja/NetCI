@@ -112,28 +112,29 @@ static finish_init() {
     
     syslog("Compiling objects required for system operation...");
     
-    /* Initialize command daemon */
+    /* Compile (don't clone) system prototypes */
+    syslog("...object.c");
+    compile_object(OBJECT_PATH);
+    
+    syslog("...living.c");
+    compile_object(LIVING_PATH);
+    
+    syslog("...user.c");
+    compile_object(USER_OB);
+
+    syslog("...room.c");
+    compile_object(ROOM_PATH);
+
+    syslog("...player.c");
+    compile_object(PLAYER_OB);
+    
+    /* Initialize command daemon - we DO want a clone here since it's a singleton daemon */
     syslog("...cmd_d.c");
-    daemon = new(CMD_D);
+    compile_object(CMD_D);
+    daemon = atoo(CMD_D);
     if (daemon) {
         set_priv(daemon, 1);
     }
-    syslog("...auto.c");
-    new(OBJECT_PATH);
-
-    syslog("...object.c");
-    new(OBJECT_PATH);
-    
-    syslog("...living.c");
-    new(LIVING_PATH);
-    
-    syslog("...user.c");
-    new(USER_OB);
-
-    syslog("...room.c");
-    new(ROOM_PATH);
-
-    syslog("...player.c");
     
     /* Check if wizard player file exists */
     if (fstat("/sys/data/players/wizard.o") == -1) {
@@ -396,4 +397,100 @@ get_mud_name() {
 
 get_version() {
     return MUD_VERSION;
+}
+
+/* ========================================================================
+ * PRIVILEGED WRAPPERS FOR AUTO OBJECT
+ * These functions provide safe, centralized access to low-level efuns
+ * for the auto object and other system code.
+ * ======================================================================== */
+
+/* Compile an object and return its prototype
+ * Does NOT clone - just compiles and returns the prototype
+ */
+compile(path) {
+    object caller;
+    
+    if (!path) return 0;
+    
+    caller = caller_object();
+    
+    /* Only allow privileged callers or auto.c */
+    if (!priv(caller) && caller != this_object() && caller != atoo("/sys/auto")) {
+        syslog("boot.compile(): DENIED - caller not privileged: " + otoa(caller));
+        return 0;
+    }
+    
+    compile_object(path);
+    return atoo(path);
+}
+
+/* Get or compile an object - ensures prototype exists
+ * Returns the prototype object
+ */
+get_object(path) {
+    object obj, caller;
+    
+    if (!path) return 0;
+    
+    caller = caller_object();
+    
+    /* Only allow privileged callers or auto.c */
+    if (!priv(caller) && caller != this_object() && caller != atoo("/sys/auto")) {
+        syslog("boot.get_object(): DENIED - caller not privileged: " + otoa(caller));
+        return 0;
+    }
+    
+    obj = atoo(path);
+    if (!obj) {
+        compile_object(path);
+        obj = atoo(path);
+    }
+    return obj;
+}
+
+/* Clone an object - ensures prototype exists first, then clones
+ * Returns a new instance
+ */
+clone(path) {
+    object proto, caller;
+    
+    if (!path) return 0;
+    
+    caller = caller_object();
+    
+    /* Only allow privileged callers or auto.c */
+    if (!priv(caller) && caller != this_object() && caller != atoo("/sys/auto")) {
+        syslog("boot.clone(): DENIED - caller not privileged: " + otoa(caller));
+        return 0;
+    }
+    
+    /* Ensure prototype exists */
+    proto = get_object(path);
+    if (!proto) return 0;
+    
+    /* Clone it */
+    return new(path);
+}
+
+/* Send a message to an object via its listen() function
+ * Provides safe message delivery
+ */
+write(obj, msg) {
+    object caller;
+    
+    if (!obj || !msg) return;
+    
+    caller = caller_object();
+    
+    /* Only allow privileged callers or auto.c */
+    if (!priv(caller) && caller != this_object() && caller != atoo("/sys/auto")) {
+        syslog("boot.write(): DENIED - caller not privileged: " + otoa(caller));
+        return;
+    }
+    
+    /* Call listen() on the target object */
+    if (obj) {
+        obj.listen(msg);
+    }
 }

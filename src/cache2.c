@@ -6,11 +6,14 @@
 #include "dbhandle.h"
 #include "interp.h"
 #include "file.h"
-#include "compile.h"
 #include "clearq.h"
 #include "table.h"
 #include "cache.h"
 #include "protos.h"
+#include "compile.h"
+
+/* Forward declaration */
+int compile_auto_object();
 
 #ifdef USE_WINDOWS
 #include <winsock.h>
@@ -604,6 +607,169 @@ int init_db() {
   }
   FREE(buf);
   fclose(infile);
+  
+  /* Compile auto object if not already loaded */
+  if (auto_object_path && !auto_proto) {
+    if (compile_auto_object()) {
+      /* Auto compilation failed - abort startup */
+      return 1;
+    }
+  }
+  
+  /* Attach auto to all loaded objects */
+  if (auto_proto) {
+    attach_auto_to_all();
+  }
+  
+  return 0;
+}
+
+/* Compile and initialize the auto object
+ * Returns 0 on success, non-zero on failure
+ * Sets global auto_proto on success
+ */
+int compile_auto_object() {
+  struct code *the_code;
+  unsigned int result;
+  struct object *obj;
+  struct proto *proto_obj;
+  long loop;
+  struct fns *init_func;
+  struct var_stack *rts;
+  struct var tmp;
+  char *buf;
+  
+  /* Skip if no auto object configured */
+  if (!auto_object_path || !auto_object_path[0]) {
+    auto_proto = NULL;
+    return 0;
+  }
+  
+  /* Log that we're compiling auto */
+  buf = MALLOC(strlen(auto_object_path) + 50);
+  sprintf(buf, " system: compiling auto object %s", auto_object_path);
+  logger(LOG_INFO, buf);
+  FREE(buf);
+  
+  /* Add file entry for auto object */
+  buf = MALLOC(strlen(auto_object_path) + 3);
+  sprintf(buf, "%s.c", auto_object_path);
+  db_add_entry(buf, 0, 0);
+  FREE(buf);
+  
+  /* Parse and compile the auto object */
+  result = parse_code(auto_object_path, NULL, &the_code);
+  if (result == ((unsigned int) -1)) {
+    buf = MALLOC(strlen(auto_object_path) + 50);
+    sprintf(buf, " system: auto object %s not found", auto_object_path);
+    logger(LOG_ERROR, buf);
+    FREE(buf);
+    return 1;
+  }
+  if (result) {
+    compile_error(NULL, auto_object_path, result);
+    buf = MALLOC(strlen(auto_object_path) + 50);
+    sprintf(buf, " system: auto object %s failed to compile", auto_object_path);
+    logger(LOG_ERROR, buf);
+    FREE(buf);
+    return 1;
+  }
+  
+  /* Create the auto object prototype */
+  obj = newobj();
+  proto_obj = MALLOC(sizeof(struct proto));
+  proto_obj->pathname = copy_string(auto_object_path);
+  proto_obj->funcs = the_code;
+  proto_obj->proto_obj = obj;
+  proto_obj->next_proto = ref_to_obj(0)->parent->next_proto;
+  ref_to_obj(0)->parent->next_proto = proto_obj;
+  
+  obj->devnum = -1;
+  obj->input_func = NULL;
+  obj->input_func_obj = NULL;
+  obj->flags = PROTOTYPE;  /* Note: NOT PRIV - auto is not privileged */
+  obj->parent = proto_obj;
+  obj->next_child = NULL;
+  obj->location = NULL;
+  obj->contents = NULL;
+  obj->next_object = NULL;
+  obj->attachees = NULL;
+  obj->attacher = NULL;
+  
+  /* Initialize globals */
+  if (the_code->num_globals) {
+    obj->globals = MALLOC(sizeof(struct var) * (the_code->num_globals));
+    loop = 0;
+    while (loop < the_code->num_globals) {
+      struct var_tab *var_info = the_code->gst;
+      struct heap_array *arr;
+      int is_array = 0;
+      unsigned int array_size = 0;
+      unsigned int max_size = 0;
+      
+      /* Find this variable in the global symbol table */
+      while (var_info) {
+        if (var_info->base == loop && var_info->array) {
+          is_array = 1;
+          /* Calculate total array size (product of all dimensions) */
+          struct array_size *dim = var_info->array;
+          array_size = 1;
+          while (dim) {
+            if (dim->size == 255) {
+              /* Unlimited size - start with 0 elements, will grow on access */
+              array_size = 0;
+              break;
+            }
+            array_size *= dim->size;
+            dim = dim->next;
+          }
+          /* Determine max_size (255 means unlimited) */
+          max_size = (var_info->array->size == 255) ? UNLIMITED_ARRAY_SIZE : array_size;
+          break;
+        }
+        var_info = var_info->next;
+      }
+      
+      if (is_array) {
+        /* Allocate heap array */
+        arr = allocate_array(array_size, max_size);
+        obj->globals[loop].type = ARRAY;
+        obj->globals[loop].value.array_ptr = arr;
+      } else {
+        /* Regular variable - initialize to 0 */
+        obj->globals[loop].type = INTEGER;
+        obj->globals[loop].value.integer = 0;
+      }
+      loop++;
+    }
+  } else {
+    obj->globals = NULL;
+  }
+  
+  obj->refd_by = NULL;
+  obj->verb_list = NULL;
+  add_loaded(obj);
+  obj->obj_state = DIRTY;
+  
+  /* Call init() if it exists */
+  init_func = find_function("init", obj, &obj);
+  if (init_func) {
+    rts = NULL;
+    tmp.type = NUM_ARGS;
+    tmp.value.num = 0;
+    push(&tmp, &rts);
+    interp(NULL, obj, NULL, &rts, init_func);
+    free_stack(&rts);
+  }
+  
+  /* Set global auto_proto */
+  auto_proto = obj;
+  
+  buf = MALLOC(strlen(auto_object_path) + 50);
+  sprintf(buf, " system: auto object %s compiled successfully", auto_object_path);
+  logger(LOG_INFO, buf);
+  FREE(buf);
+  
   return 0;
 }
 
@@ -693,6 +859,19 @@ int create_db() {
   add_loaded(obj);
   obj->obj_state=DIRTY;
 
+  /* Compile auto object BEFORE calling boot.init()
+   * This ensures auto is available when boot compiles other objects
+   */
+  if (compile_auto_object()) {
+    /* Auto compilation failed - abort startup */
+    return 1;
+  }
+  
+  /* Attach auto to boot object */
+  if (auto_proto) {
+    attach_auto_to(ref_to_obj(0));
+  }
+
 #ifdef CYCLE_HARD_MAX
   hard_cycles=0;
 #endif /* CYCLE_HARD_MAX */
@@ -701,6 +880,7 @@ int create_db() {
   soft_cycles=0;
 #endif /* CYCLE_SOFT_MAX */
 
+  /* Now call boot.init() - all objects compiled here will have auto attached */
   init_func=find_function("init",obj,&obj);
   if (init_func) {
     rts=NULL;
@@ -711,5 +891,6 @@ int create_db() {
     free_stack(&rts);
   }
   handle_destruct();
+  
   return 0;
 }
