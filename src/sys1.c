@@ -399,6 +399,10 @@ int s_clone_object(struct object *caller, struct object *obj, struct object
     num_locals=old_num_locals;
     free_stack(&arg_stack);
   }
+  
+  /* Attach auto object to the newly cloned object */
+  attach_auto_to(tmpobj);
+  
   tmp.value.objptr=tmpobj;
   push(&tmp,rts);
   return 0;
