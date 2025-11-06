@@ -1,6 +1,9 @@
 # .kiro
 .kiro
 
+# libs/ci200fs
+libs/ci200fs/test
+
 # .gitpod
 .gitpod.Dockerfile
 azure-pipelines.yml
