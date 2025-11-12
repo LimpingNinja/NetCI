@@ -1,0 +1,7 @@
+player_name:wizard
+player_password:$SHA$EcZ9FA9CH9/atsFa$6d3caef9e60076a1f0120363b81a11f4100dad79009d9b23036d27412c1b3d5b
+player_role:16
+prop:brief_mode:int:0
+prop:working_dir:str:/
+prop:type:int:4
+prop:prevent_get:int:1

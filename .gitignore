@@ -3,6 +3,10 @@
 
 # libs/ci200fs
 libs/ci200fs/test
+libs/melville/test
+libs/melville/doc/todo
+libs/melville/doc/etc
+docs/etc
 
 # .gitpod
 .gitpod.Dockerfile
@@ -13,6 +17,8 @@ azure-pipelines.yml
 *.ini
 !netci.ini
 syslog.txt
+syswrite.txt
+sysdebug.txt
 transact.log
 
 # Executable

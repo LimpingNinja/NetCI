@@ -428,4 +428,248 @@ move_with_hooks(obj, dest) {
     move_object(obj, dest);
     return 1;
 }
-```
+
+## Serialization Efuns
+
+- save_value(value)
+  - Returns: string or 0 on error
+  - Serializes any LPC value to a string.
+  - Example:
+    ```c
+    string s = save_value(({ 1, 2, 3 }));
+    ```
+
+- restore_value(str)
+  - Returns: mixed or 0 on error
+  - Deserializes a string produced by save_value.
+  - Example:
+    ```c
+    mixed v = restore_value(s);
+    ```
+
+## String Replacement
+
+- replace_string(str, search, replace)
+  - Returns: string
+  - Replaces all occurrences of `search` with `replace` in `str`.
+  - Notes: INTEGER 0 is treated as empty string for compatibility.
+
+## Mapping Efuns
+
+- keys(mapping m)
+  - Returns: array of all keys
+
+- values(mapping m)
+  - Returns: array of all values
+
+- map_delete(mapping m, mixed key)
+  - Returns: 0 (void)
+  - Deletes key from mapping (in place)
+
+- member(mapping m, mixed key)
+  - Returns: 1 if key exists, 0 otherwise
+
+## Literals and Inheritance Syntax (not efuns)
+
+- Array literal: `({ a, b, c })` creates a heap array
+- Mapping literal: `([ key1: val1, key2: val2 ])` creates a mapping
+- Parent call: `::function()` calls next-up in MRO
+- Named parent call: `Alias::function()` calls specific inherited parent by alias
+
+## System Output
+
+- syswrite(string msg)
+  - Returns: 0
+  - Writes a formatted line to syswrite.txt including object context.
+
+---
+
+# Simulated Efuns (auto.c)
+
+These are utility functions available to all objects via the auto object (automatically attached). They are not core efuns, but behave similarly.
+
+- allow_attach()
+  - Returns: 1
+
+- find_object(name)
+  - Returns: object or 0
+  - Supports: "me", "/path", "#num", "*name" (todo), plain id, "here".
+
+- present(name, container)
+  - Returns: object or 0
+  - Searches container inventory via id().
+
+- compile_object(path)
+  - Returns: object (proto) or 0
+  - Wrapper delegating to `/boot` privileged compile.
+
+- get_object(path)
+  - Returns: object (proto) or 0
+  - Ensures prototype exists (via boot).
+
+- clone_object(path_or_obj)
+  - Returns: object (clone) or 0
+  - Accepts string path or proto object; delegates to `/boot`.
+
+- capitalize(str), lowercase(str), uppercase(str), trim(str)
+  - String utilities.
+
+- contains(array, element), remove_element(array, element)
+  - Array helpers; `remove_element` removes all occurrences.
+
+- is_player(obj), is_living(obj)
+  - Predicates based on properties and `query_living()`.
+
+- get_short(obj), get_long(obj)
+  - Safe getters with fallbacks.
+
+- has_privilege(level), is_wizard([obj]), is_admin([obj])
+  - Security helpers using `query_role()`.
+
+- tell(player, msg), tell_room(room, msg, exclude), say(msg), write(msg)
+  - Messaging helpers. `say` broadcasts to room; `write` routes to player or syswrite.
+
+- debug(msg), dump_object(obj)
+  - Debug logging to syslog and basic object dump.
+
+- set_heart_beat(interval), do_heart_beat()
+  - Simple heart-beat using alarm scheduling.
+
+---
+
+# Privileged Wrappers (boot.c)
+
+Available on `/boot` for privileged operations; called by auto.c helpers.
+
+- compile(path)
+  - Returns: object (proto) or 0
+  - Compiles and returns prototype. Privileged callers only.
+
+- get_object(path)
+  - Returns: object (proto) or 0
+  - Ensures prototype exists (compile if needed). Privileged callers only.
+
+- clone(path)
+  - Returns: object (clone) or 0
+  - Clones object after ensuring prototype. Privileged callers only.
+
+- write(obj, msg)
+  - Returns: void
+  - Calls `listen(msg)` on target object under privilege checks.
+
+---
+
+# Complete EFUN Index (from engine scall_array)
+
+- add_verb(action, func)
+- add_xverb(action, func)
+- call_other(obj, func, ...)
+- alarm(seconds, func)
+- remove_alarm([func])
+- caller_object()
+- clone_object(path|object)
+- destruct(obj)
+- contents(obj)
+- next_object(obj)
+- location(obj)
+- next_child(obj)
+- parent(obj)
+- next_proto(obj)
+- move_object(item, dest)
+- this_object()
+- this_player()
+- set_interactive(int)
+- interactive(obj)
+- set_priv(obj, int)
+- priv(obj)
+- in_editor(obj)
+- connected(obj)
+- get_devconn(obj)
+- send_device(str)
+- reconnect_device(obj)
+- disconnect_device()
+- random(max)
+- time()
+- mktime(...)
+- typeof(x)
+- command(str)
+- compile_object(path)
+- edit(path)
+- cat(path)
+- ls(path)
+- rm(path)
+- cp(src, dst)
+- mv(src, dst)
+- mkdir(path)
+- rmdir(path)
+- hide(path)
+- unhide(path, owner, flags)
+- chown(path, owner)
+- syslog(str)
+- sscanf(input, format, ...)
+- sprintf(fmt, ...)
+- midstr(s, pos, len)
+- strlen(s)
+- leftstr(s, len)
+- rightstr(s, len)
+- subst(s, pos, len, s2)
+- instr(s, start, search)
+- otoa(obj)
+- itoa(int)
+- atoi(str)
+- atoo(str)
+- upcase(s)
+- downcase(s)
+- is_legal(str)
+- otoi(obj)
+- itoo(int)
+- chmod(path, flags)
+- fread(path, pos[, lines])
+- fwrite(path, str)
+- remove_verb(action)
+- ferase(path)
+- chr(int)
+- asc(str)
+- sysctl(cmd, ...)
+- prototype(obj)
+- iterate(obj[, func, ...])
+- next_who(obj)
+- get_devidle(obj)
+- get_conntime(obj)
+- connect_device(addr, port)
+- flush_device()
+- attach(obj)
+- this_component()
+- detach(obj)
+- table_get(key)
+- table_set(key, value)
+- table_delete(key)
+- fstat(path)
+- fowner(path)
+- get_hostname(ip)
+- get_address(host)
+- set_localverbs(int)
+- localverbs(obj)
+- next_verb(obj, verb)
+- get_devport(obj)
+- get_devnet(obj)
+- redirect_input(func)
+- get_input_func()
+- get_master(obj)
+- is_master(obj)
+- input_to(obj, func)
+- sizeof(x)
+- implode(arr, sep)
+- explode(str, sep)
+- member_array(elem, arr)
+- sort_array(arr)
+- reverse(arr)
+- unique_array(arr)
+- keys(mapping)
+- values(mapping)
+- map_delete(mapping, key)
+- member(mapping, key)
+- save_value(value)
+- restore_value(str)
+- replace_string(str, search, repl)
+- syswrite(str)

@@ -4,27 +4,23 @@ This document describes the NetCI driver modifications needed to support Melvill
 
 ## Required Driver Features
 
-### 1. Auto Object Support
+### 1. Auto Object Support ✅ IMPLEMENTED
 
-The driver needs to automatically inherit `/sys/auto.c` into every compiled object.
+The NetCI driver automatically attaches `/sys/auto.c` to every compiled object.
 
-**Implementation Options**:
+**How It Works**:
+- Configure `auto_object=/sys/auto` in `netci.ini`
+- Driver compiles auto object at startup (before boot.c)
+- Auto object is automatically attached to all new objects
+- Objects have immediate access to all auto.c functions (simulated efuns)
 
-**Option A: Compile-time inheritance**
-- Modify the parser to automatically add `inherit "/sys/auto";` to every object
-- Similar to how DGD handles auto objects
-- Cleanest approach
+**Implementation Details** (in driver source):
+- `compile_auto_object()` - Compiles auto at startup (src/cache2.c:631)
+- `auto_proto` - Global holding auto object prototype (src/globals.c:41)
+- Auto-attach happens in object creation (src/cache1.c:559-565)
+- Auto object is never attached to itself (prevents recursion)
 
-**Option B: Runtime wrapping**
-- Wrap object creation to inject auto object functions
-- More complex, but doesn't require parser changes
-
-**Option C: Simulated efuns only**
-- Keep auto.c as a library, not auto-inherited
-- Objects explicitly inherit it when needed
-- Less automatic, but works with current driver
-
-**Recommendation**: Start with Option C, migrate to Option A when driver supports it.
+**No Manual Attachment Needed**: Objects do NOT need to explicitly inherit or attach auto.c - the driver handles this automatically.
 
 ### 2. Command Hook (cmd_hook)
 
@@ -122,13 +118,12 @@ create() {
 
 ## Migration Path
 
-### Phase 1: Work with Current Driver
-- Use explicit inheritance instead of auto object
-- Use wrapper functions for security
-- Implement cmd_hook with existing `input_to()`
+### Phase 1: Work with Current Driver ✅ COMPLETE
+- ✅ Auto object support (native in driver)
+- ✅ Use wrapper functions for security
+- ✅ Implement cmd_hook with existing `input_to()`
 
-### Phase 2: Driver Enhancements
-- Add auto object support
+### Phase 2: Driver Enhancements (Future)
 - Add efun override capability
 - Enhance callback system for user/player split
 
@@ -139,16 +134,16 @@ create() {
 
 ## Testing Driver Features
 
-### Test auto.c inheritance
+### Test auto.c attachment
 ```c
-// Test object
-inherit "/sys/auto";
+// Test object - no need to inherit or attach auto.c!
+// The driver automatically attaches it to all objects
 
 create() {
-    // Should have access to auto.c functions
+    // Should have immediate access to auto.c functions
     object obj = find_object("/sys/boot");
     if (obj) {
-        write(this_player(), "Auto inheritance works!\n");
+        write(this_player(), "Auto attachment works!\n");
     }
 }
 ```

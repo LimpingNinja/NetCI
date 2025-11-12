@@ -1,0 +1,228 @@
+================================================================================
+11-11 13:14 - syswrite() output from: /test/test_compile_string#17
+================================================================================
+
+===============================================
+compile_string() Test Suite
+===============================================
+
+=== Test 1: Simple function compilation ===
+  [PASS] Simple function compiled successfully
+
+=== Test 2: Function with efun call ===
+  [PASS] Function with efun compiled successfully
+
+=== Test 3: Multiple functions ===
+  [PASS] Multiple functions compiled successfully
+
+=== Test 4: Global variables ===
+  [PASS] Variables and functions compiled successfully
+
+=== Test 5: Syntax error handling ===
+  [PASS] Syntax error correctly detected and handled
+
+=== Test 6: Empty code string ===
+  [INFO] Empty code returned failure (expected behavior)
+
+=== Test 7: Arrays and mappings ===
+  [PASS] Arrays and mappings compiled successfully
+
+=== Test 8: Control flow structures ===
+  [PASS] Control flow compiled successfully
+
+===============================================
+TEST SUITE COMPLETE
+===============================================
+
+================================================================================
+11-11 13:15 - syswrite() output from: /test/test_users_d#26
+================================================================================
+
+===============================================
+users_d Daemon Test Suite
+===============================================
+
+=== Test 1: Daemon initialization ===
+  [PASS] users_d daemon loaded successfully
+
+=== Test 2: Query connected users ===
+  [INFO] Connected users: 1
+  [PASS] query_user_count() returned valid result
+
+=== Test 3: Query user names ===
+  [INFO] User names array size: 1
+  [INFO] Users: wizard
+  [PASS] query_user_names() returned valid array
+
+=== Test 4: Find user by name ===
+  [PASS] find_user('wizard') found player: /sys/player#12
+  [PASS] find_user() is case-insensitive
+  [PASS] find_user() correctly returns NULL for non-existent user
+
+=== Test 5: User statistics ===
+  [INFO] Statistics:
+    Total users: 1
+    Registered users: 2
+    Avg connection time: 52 seconds
+    Avg idle time: 0 seconds
+  [PASS] query_user_stats() returned valid mapping
+
+=== Test 6: Connection and idle time tracking ===
+  [INFO] Connection time for wizard: 52 seconds
+  [PASS] query_connection_time() returned valid result
+  [INFO] Idle time for wizard: 0 seconds
+  [PASS] query_idle_time() returned valid result
+
+=== Test 7: Context management ===
+  [PASS] set_this_player() and query_this_player() work correctly
+  [PASS] clear_this_player() correctly cleared context
+
+=== Test 8: Registry rehash ===
+  [INFO] User count after rehash: 1
+  [PASS] rehash_users() completed successfully
+
+=== Test 9: Help system integration ===
+  [PASS] query_help() returns help text
+  [INFO] Help text preview: users_d - User tracking daemon
+
+This daemon tracks...
+
+=== Test 10: Edge cases and error handling ===
+  [PASS] find_user(NULL) returns NULL
+  [PASS] find_user('') returns NULL
+  [PASS] query_connection_time(NULL) returns 0
+
+===============================================
+USERS_D TEST SUITE COMPLETE
+===============================================
+
+[INFO] Review results above for any failures
+[INFO] All core functionality has been tested
+================================================================================
+11-11 13:19 - syswrite() output from: /test/test_users_d#17
+================================================================================
+
+===============================================
+users_d Daemon Test Suite
+===============================================
+
+=== Test 1: Daemon initialization ===
+  [PASS] users_d daemon loaded successfully
+
+=== Test 2: Query connected users ===
+  [INFO] Connected users: 1
+  [PASS] query_user_count() returned valid result
+
+=== Test 3: Query user names ===
+  [INFO] User names array size: 1
+  [INFO] Users: wizard
+  [PASS] query_user_names() returned valid array
+
+=== Test 4: Find user by name ===
+  [PASS] find_user('wizard') found player: /sys/player#12
+  [PASS] find_user() is case-insensitive
+  [PASS] find_user() correctly returns NULL for non-existent user
+
+=== Test 5: User statistics ===
+  [INFO] Statistics:
+    Total users: 1
+    Registered users: 1
+    Avg connection time: 11 seconds
+    Avg idle time: 0 seconds
+  [PASS] query_user_stats() returned valid mapping
+
+=== Test 6: Connection and idle time tracking ===
+  [INFO] Connection time for wizard: 11 seconds
+  [PASS] query_connection_time() returned valid result
+  [INFO] Idle time for wizard: 0 seconds
+  [PASS] query_idle_time() returned valid result
+
+=== Test 7: Context management ===
+  [PASS] set_this_player() and query_this_player() work correctly
+  [PASS] clear_this_player() correctly cleared context
+
+=== Test 8: Registry rehash ===
+  [INFO] User count after rehash: 1
+  [PASS] rehash_users() completed successfully
+
+=== Test 9: Help system integration ===
+  [PASS] query_help() returns help text
+  [INFO] Help text preview: users_d - User tracking daemon
+
+This daemon tracks...
+
+=== Test 10: Edge cases and error handling ===
+  [PASS] find_user(NULL) returns NULL
+  [PASS] find_user('') returns NULL
+  [PASS] query_connection_time(NULL) returns 0
+
+===============================================
+USERS_D TEST SUITE COMPLETE
+===============================================
+
+[INFO] Review results above for any failures
+[INFO] All core functionality has been tested
+================================================================================
+11-11 13:21 - syswrite() output from: /test/test_users_d#17
+================================================================================
+
+===============================================
+users_d Daemon Test Suite
+===============================================
+
+=== Test 1: Daemon initialization ===
+  [PASS] users_d daemon loaded successfully
+
+=== Test 2: Query connected users ===
+  [INFO] Connected users: 1
+  [PASS] query_user_count() returned valid result
+
+=== Test 3: Query user names ===
+  [INFO] User names array size: 1
+  [INFO] Users: wizard
+  [PASS] query_user_names() returned valid array
+
+=== Test 4: Find user by name ===
+  [PASS] find_user('wizard') found player: /sys/player#12
+  [PASS] find_user() is case-insensitive
+  [PASS] find_user() correctly returns NULL for non-existent user
+
+=== Test 5: User statistics ===
+  [INFO] Statistics:
+    Total users: 1
+    Registered users: 1
+    Avg connection time: 3 seconds
+    Avg idle time: 0 seconds
+  [PASS] query_user_stats() returned valid mapping
+
+=== Test 6: Connection and idle time tracking ===
+  [INFO] Connection time for wizard: 3 seconds
+  [PASS] query_connection_time() returned valid result
+  [INFO] Idle time for wizard: 0 seconds
+  [PASS] query_idle_time() returned valid result
+
+=== Test 7: Context management ===
+  [PASS] set_this_player() and query_this_player() work correctly
+  [PASS] clear_this_player() correctly cleared context
+
+=== Test 8: Registry rehash ===
+  [INFO] User count after rehash: 1
+  [PASS] rehash_users() completed successfully
+
+=== Test 9: Help system integration ===
+  [PASS] query_help() returns help text
+  [INFO] Help text preview: users_d - User tracking daemon
+
+This daemon tracks...
+
+=== Test 10: Edge cases and error handling ===
+  [PASS] find_user(NULL) returns NULL
+  [PASS] find_user('') returns NULL
+  [PASS] query_connection_time(NULL) returns 0
+
+===============================================
+USERS_D TEST SUITE COMPLETE
+===============================================
+
+[INFO] Review results above for any failures
+[INFO] All core functionality has been tested
