@@ -50,16 +50,14 @@ void handle_destruct() {
     prev_alarm=NULL;
     while (curr_alarm) {
       if (curr_alarm->obj==curr_dest->obj) {
+        struct alarmq *tmp_alarm = curr_alarm->next;  /* Save next BEFORE freeing */
         if (prev_alarm)
           prev_alarm->next=curr_alarm->next;
         else
           alarm_list=curr_alarm->next;
         FREE(curr_alarm->funcname);
         FREE(curr_alarm);
-        if (prev_alarm)
-          curr_alarm=prev_alarm->next;
-        else
-          curr_alarm=alarm_list;
+        curr_alarm=tmp_alarm;  /* Use saved pointer, not freed memory */
       } else {
         prev_alarm=curr_alarm;
         curr_alarm=curr_alarm->next;
@@ -111,6 +109,15 @@ void handle_destruct() {
     }
     unload_object(curr_dest->obj);
     if (curr_dest->obj->flags & PROTOTYPE) {
+      /* Free inheritance chain */
+      struct inherit_list *curr_inherit, *next_inherit;
+      curr_inherit = curr_dest->obj->parent->inherits;
+      while (curr_inherit) {
+        next_inherit = curr_inherit->next;
+        if (curr_inherit->inherit_path) FREE(curr_inherit->inherit_path);
+        FREE(curr_inherit);
+        curr_inherit = next_inherit;
+      }
       free_code(curr_dest->obj->parent->funcs);
       FREE(curr_dest->obj->parent);
     }

@@ -93,11 +93,16 @@
     }                                                            \
     if (tmp1.value.l_value.size!=1) return 1;                    \
     if (tmp1.type==GLOBAL_L_VALUE) {                             \
-      if (obj->globals[tmp1.value.l_value.ref].type!=INTEGER)    \
+      extern struct call_frame *call_stack;                      \
+      int ok_ = 0;                                               \
+      unsigned int eff_idx_ = global_index_for(obj, call_stack ? call_stack->func : NULL, \
+                                               (unsigned int)tmp1.value.l_value.ref, &ok_); \
+      if (!ok_) { clear_var(&tmp1); return 1; }                  \
+      if (obj->globals[eff_idx_].type!=INTEGER)                  \
         return 1;                                                \
-      (obj->globals[tmp1.value.l_value.ref].value.integer)       \
+      (obj->globals[eff_idx_].value.integer)                     \
       OPERATOR_ (tmp2.value.integer);                            \
-      push(&(obj->globals[tmp1.value.l_value.ref]),rts);         \
+      push(&(obj->globals[eff_idx_]),rts);                       \
       obj->obj_state=DIRTY;                                      \
     } else {                                                     \
       if (locals[tmp1.value.l_value.ref].type!=INTEGER)          \
@@ -122,12 +127,17 @@
     }                                                            \
     if (tmp1.value.l_value.size!=1) return 1;                    \
     if (tmp1.type==GLOBAL_L_VALUE) {                             \
-      if (obj->globals[tmp1.value.l_value.ref].type!=INTEGER)    \
+      extern struct call_frame *call_stack;                      \
+      int ok_ = 0;                                               \
+      unsigned int eff_idx_ = global_index_for(obj, call_stack ? call_stack->func : NULL, \
+                                               (unsigned int)tmp1.value.l_value.ref, &ok_); \
+      if (!ok_) { clear_var(&tmp1); return 1; }                  \
+      if (obj->globals[eff_idx_].type!=INTEGER)                  \
         return 1;                                                \
       if (tmp2.value.integer==0) return 1;                       \
-      (obj->globals[tmp1.value.l_value.ref].value.integer)       \
+      (obj->globals[eff_idx_].value.integer)                     \
       OPERATOR_ (tmp2.value.integer);                            \
-      push(&(obj->globals[tmp1.value.l_value.ref]),rts);         \
+      push(&(obj->globals[eff_idx_]),rts);                       \
       obj->obj_state=DIRTY;                                      \
     } else {                                                     \
       if (locals[tmp1.value.l_value.ref].type!=INTEGER)          \

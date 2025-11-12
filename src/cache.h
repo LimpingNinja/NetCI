@@ -11,3 +11,8 @@ int init_db();
 int create_db();
 int save_db(char *filename);
 void init_globals(char *loadpath, char *savepath, char *panicpath);
+
+/* Proto cache functions */
+struct proto *find_cached_proto(char *pathname);
+void cache_proto(char *pathname, struct proto *proto);
+void clear_proto_cache();

@@ -10,44 +10,38 @@
  *
  * Rooms should NOT be movable (they are the environment).
  *
- * NOTE: This automatically attaches object.c and container.c
+ * NOTE: This inherits from object.c and container.c
  */
 
 #include <std.h>
 #include <config.h>
 
+/* Only inherit container - it already inherits from obj */
+inherit CONTAINER_PATH;
+
 /* Exits stored as a mapping: direction -> destination */
 mapping exits;
 
-/* Attached functionality */
-object object_ob, container_ob;
-
-/* Variables from attached objects */
-object *inventory;  /* From container.c */
-mapping properties; /* From object.c */
+/* Custom exit messages: direction -> message
+ * If set, overrides default "leaves [direction]" message
+ * Use $N for player name placeholder
+ */
+mapping exit_messages;
 
 /* ========================================================================
  * INITIALIZATION
  * ======================================================================== */
 
 static init() {
-    /* Attach base object functionality */
-    object_ob = new(OBJECT_PATH);
-    if (object_ob) {
-        attach(object_ob);
-    }
-    
-    /* Attach container functionality */
-    container_ob = new(CONTAINER_PATH);
-    if (container_ob) {
-        attach(container_ob);
-    }
+    /* Call parent init explicitly */
+    container::init();
     
     /* Set room type */
     set_property("type", TYPE_ROOM);
     
     /* Initialize exits mapping */
-    exits = ([]);
+    exits = ([ ]);
+    exit_messages = ([]);
 }
 
 /* ========================================================================
@@ -58,23 +52,22 @@ static init() {
 add_exit(direction, destination) {
     if (!direction || !destination) return;
     
-    if (!exits) exits = ([]);
-    
     exits[direction] = destination;
 }
 
 /* Remove an exit */
 remove_exit(direction) {
     if (!direction) return;
-    if (!exits) return;
     
     map_delete(exits, direction);
 }
 
-/* Query exit destination for a direction */
+/* Query exit destination for a direction
+ * Returns destination (string path or object)
+ * move() will handle compilation if it's a string
+ */
 query_exit(direction) {
     if (!direction) return NULL;
-    if (!exits) return NULL;
     
     return exits[direction];
 }
@@ -95,6 +88,47 @@ query_exit_directions() {
 query_exit_count() {
     if (!exits) return 0;
     return sizeof(exits);
+}
+
+/* Set custom exit message for a direction
+ * Use $N for player name placeholder
+ * Example: set_exit_message("down", "$N climbs down the ladder.")
+ */
+set_exit_message(direction, message) {
+    if (!direction || !message) return;
+    exit_messages[direction] = message;
+}
+
+/* Query exit message for a direction */
+query_exit_message(direction) {
+    if (!direction) return NULL;
+    return exit_messages[direction];
+}
+
+/* Get the departure message for a player leaving in a direction
+ * Returns formatted message with player name substituted
+ */
+get_departure_message(player_name, direction) {
+    string msg;
+    
+    if (!player_name || !direction) return NULL;
+    
+    /* Check for custom exit message */
+    if (exit_messages) {
+        msg = exit_messages[direction];
+        if (msg) {
+            /* Replace $N with player name */
+            msg = replace_string(msg, "$N", capitalize(player_name));
+            /* Ensure it ends with newline */
+            if (rightstr(msg, 1) != "\n") {
+                msg = msg + "\n";
+            }
+            return msg;
+        }
+    }
+    
+    /* Default message */
+    return capitalize(player_name) + " leaves " + direction + ".\n";
 }
 
 /* ========================================================================
@@ -130,7 +164,7 @@ query_long(brief) {
             desc = desc + content_desc;
         }
     }
-    
+
     return desc;
 }
 
@@ -200,21 +234,7 @@ get_content_description() {
     return desc;
 }
 
-/* Capitalize first letter of string */
-capitalize(str) {
-    string first, rest;
-    
-    if (!str || strlen(str) == 0) return str;
-    
-    if (strlen(str) == 1) {
-        return upcase(str);
-    }
-    
-    first = leftstr(str, 1);
-    rest = rightstr(str, strlen(str) - 1);
-    
-    return upcase(first) + rest;
-}
+/* NOTE: capitalize() is available from auto.c (automatically attached) */
 
 /* ========================================================================
  * ROOM MESSAGING
@@ -224,14 +244,17 @@ capitalize(str) {
  * exclude: array of objects to exclude (optional)
  */
 room_tell(msg, exclude) {
-    int i;
+    int i, count;
     object ob;
     
     if (!msg) return;
-    if (!inventory || sizeof(inventory) == 0) return;
+    if (!inventory) return;
+    
+    count = sizeof(inventory);
+    if (count == 0) return;
     
     /* Send to each object in room */
-    for (i = 0; i < sizeof(inventory); i++) {
+    for (i = 0; i < count; i++) {
         ob = inventory[i];
         if (ob) {
             /* Check if this object is excluded */
@@ -273,9 +296,6 @@ move(dest) {
 
 /* Clean up room data when destructed */
 destruct_room() {
-    /* Mappings and arrays are automatically freed */
-    exits = NULL;
-    
     /* Clean up container data */
     destruct_container();
 }

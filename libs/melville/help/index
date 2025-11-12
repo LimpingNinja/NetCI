@@ -1,0 +1,21 @@
+Welcome to NetCI!
+
+This is the help system. You can get help on various topics by typing:
+
+  help <topic>
+
+Available help topics:
+
+  commands  - List of available commands
+  getting-started - New player guide
+  movement  - How to move around
+  communication - How to talk to others
+
+For help on a specific command, type:
+
+  help <command-name>
+
+Examples:
+  help say
+  help look
+  help inventory

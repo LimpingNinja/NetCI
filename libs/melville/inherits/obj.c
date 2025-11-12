@@ -1,15 +1,14 @@
 /* object.c - Base object for Melville/NetCI
  *
- * This is the base inheritable for all physical objects in the game world.
- * It provides:
- * - Short and long descriptions
- * - ID and adjective handling
- * - Environment tracking
- * - Movement functions
+ * This inheritable provides the fundamental object functionality:
+ * - Descriptions (short, long)
+ * - IDs for identification
+ * - Movement between containers
  * - Basic object properties
  *
  * NOTE: NLPC uses composition via attach() instead of traditional inheritance.
- * For now, we use explicit inheritance until auto.c is implemented.
+ * The driver automatically attaches /sys/auto.c to all objects, providing
+ * simulated efuns and utility functions without explicit inheritance.
  */
 
 #include <std.h>
@@ -25,11 +24,9 @@ string *id_list;
 static init() {
     properties = ([]);
     id_list = ({});
-}
-
-/* Allow this object to be attached */
-allow_attach() {
-    return 1;  /* Return non-zero to allow attachment */
+    
+    /* Mark as initialized - useful for debugging inheritance */
+    set_property("_initialized", 1);
 }
 
 /* ========================================================================
@@ -38,19 +35,16 @@ allow_attach() {
 
 /* Store a property for this object */
 set_property(key, value) {
-    if (!properties) properties = ([]);
     properties[key] = value;
 }
 
 /* Retrieve a property for this object */
 get_property(key) {
-    if (!properties) return NULL;
     return properties[key];
 }
 
 /* Query a property for this object */
 query_property(key) {
-    if (!properties) return NULL;
     return properties[key];
 }
 
@@ -61,7 +55,6 @@ query_properties() {
 
 /* Delete a property for this object */
 delete_property(key) {
-    if (!properties) return;
     map_delete(properties, key);
 }
 
@@ -156,7 +149,7 @@ move(dest) {
     
     /* Convert string to object if needed */
     if (typeof(dest) == STRING_T) {
-        new_env = atoo(dest);
+        new_env = get_object(dest);
         if (!new_env) return 0;
     } else {
         new_env = dest;

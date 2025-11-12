@@ -9,10 +9,8 @@
 #include <config.h>
 
 /* Main command execution */
-execute(args) {
-    object player, env;
-    
-    player = this_player();
+do_command(player, args) {
+    object env;
     if (!player) return 0;
     
     /* Get current location */
@@ -38,6 +36,10 @@ execute(args) {
 
 /* Help text */
 query_help() {
-    return "Syntax: quit\n\n"+
-           "Disconnect from the game. Your progress will be saved.\n";
+    return "Disconnect from the game\n"+
+           "Category: general\n\n"+
+           "Usage:\n"+
+           "  quit\n\n"+
+           "Disconnects you from the game.\n"+
+           "Your character will be saved automatically.\n";
 }

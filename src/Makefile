@@ -9,7 +9,8 @@ OFILES= cache1.o cache2.o clearq.o compile1.o compile2.o constrct.o \
         dbhandle.o edit.o file.o globals.o intrface.o interp.o main.o \
         oper1.o oper2.o preproc.o sys1.o sys2.o sys3.o sys4.o sys5.o \
         sys6a.o sys6b.o sys7.o sys8.o table.o token.o sys_arrays.o sfun_arrays.o \
-        sys_mappings.o sfun_mappings.o
+        sys_mappings.o sfun_mappings.o sys_strings.o sfun_strings.o sfun_sprintf.o token_parse.o \
+        bcrypt.o sfun_files.o sfun_interactive.o sfun_objects.o
 
 netci: $(OFILES)
 	$(CC) $(CCFLAGS) $(DEFS) $(OFILES) -o netci $(LFLAGS)
@@ -135,3 +136,24 @@ sys_mappings.o: sys_mappings.c config.h object.h protos.h instr.h constrct.h glo
 
 sfun_mappings.o: sfun_mappings.c config.h object.h protos.h instr.h constrct.h
 	$(CC) $(CCFLAGS) $(DEFS) -c sfun_mappings.c
+
+sys_strings.o: sys_strings.c config.h object.h protos.h globals.h file.h
+	$(CC) $(CCFLAGS) $(DEFS) -c sys_strings.c
+
+sfun_strings.o: sfun_strings.c config.h object.h protos.h instr.h interp.h globals.h constrct.h
+	$(CC) $(CCFLAGS) $(DEFS) -c sfun_strings.c
+
+sfun_sprintf.o: sfun_sprintf.c config.h object.h protos.h instr.h interp.h globals.h constrct.h
+	$(CC) $(CCFLAGS) $(DEFS) -c sfun_sprintf.c
+
+token_parse.o: token_parse.c config.h object.h protos.h token.h instr.h file.h globals.h constrct.h
+	$(CC) $(CCFLAGS) $(DEFS) -c token_parse.c
+
+sfun_files.o: sfun_files.c config.h object.h protos.h instr.h constrct.h file.h intrface.h
+	$(CC) $(CCFLAGS) $(DEFS) -c sfun_files.c
+
+sfun_interactive.o: sfun_interactive.c config.h object.h protos.h instr.h constrct.h intrface.h file.h
+	$(CC) $(CCFLAGS) $(DEFS) -c sfun_interactive.c
+
+sfun_objects.o: sfun_objects.c config.h object.h protos.h instr.h interp.h globals.h
+	$(CC) $(CCFLAGS) $(DEFS) -c sfun_objects.c

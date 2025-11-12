@@ -7,6 +7,7 @@
 #include "constrct.h"
 #include "file.h"
 #include "intrface.h"
+#include "bcrypt.h"
 
 int s_fstat(struct object *caller, struct object *obj,
             struct object *player, struct var_stack **rts) {
@@ -418,5 +419,82 @@ int s_input_to(struct object *caller, struct object *obj,
   tmp.type=INTEGER;
   tmp.value.integer=0;
   push(&tmp,rts);
+  return 0;
+}
+
+/* crypt() - Secure password hashing
+ * 
+ * Syntax: string crypt(string password)
+ *         int crypt(string password, string hash)
+ * 
+ * With 1 argument: Generates a bcrypt hash of the password
+ * With 2 arguments: Verifies password against hash (returns 1 if match, 0 if not)
+ */
+int s_crypt(struct object *caller, struct object *obj,
+            struct object *player, struct var_stack **rts) {
+  struct var tmp, tmp2;
+  char *hash;
+  int verify_mode = 0;
+  
+  /* Pop NUM_ARGS */
+  if (pop(&tmp, rts, obj)) return 1;
+  if (tmp.type != NUM_ARGS) {
+    clear_var(&tmp);
+    return 1;
+  }
+  
+  /* Check if we're in verify mode (2 args) or hash mode (1 arg) */
+  if (tmp.value.num == 2) {
+    verify_mode = 1;
+    
+    /* Pop hash argument */
+    if (pop(&tmp2, rts, obj)) return 1;
+    if (tmp2.type != STRING) {
+      clear_var(&tmp2);
+      return 1;
+    }
+  } else if (tmp.value.num != 1) {
+    return 1;
+  }
+  
+  /* Pop password argument */
+  if (pop(&tmp, rts, obj)) {
+    if (verify_mode) clear_var(&tmp2);
+    return 1;
+  }
+  
+  if (tmp.type != STRING) {
+    clear_var(&tmp);
+    if (verify_mode) clear_var(&tmp2);
+    return 1;
+  }
+  
+  if (verify_mode) {
+    /* Verify mode: crypt(password, hash) -> returns 1 or 0 */
+    int result = bcrypt_verify(tmp.value.string, tmp2.value.string);
+    clear_var(&tmp);
+    clear_var(&tmp2);
+    
+    tmp.type = INTEGER;
+    tmp.value.integer = result;
+    push(&tmp, rts);
+  } else {
+    /* Hash mode: crypt(password) -> returns hash string */
+    hash = bcrypt_hash(tmp.value.string);
+    clear_var(&tmp);
+    
+    if (hash) {
+      tmp.type = STRING;
+      tmp.value.string = hash;
+      push(&tmp, rts);
+    } else {
+      /* Error - return empty string */
+      tmp.type = STRING;
+      tmp.value.string = (char *)MALLOC(1);
+      tmp.value.string[0] = '\0';
+      push(&tmp, rts);
+    }
+  }
+  
   return 0;
 }

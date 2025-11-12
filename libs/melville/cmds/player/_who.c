@@ -9,12 +9,10 @@
 #include <config.h>
 
 /* Main command execution */
-execute(args) {
-    object player, curr;
+do_command(player, args) {
+    object *connected_users;
     string output, name;
-    int count;
-    
-    player = this_player();
+    int count, i;
     if (!player) return 0;
     
     output = "Players currently online:\n";
@@ -22,28 +20,30 @@ execute(args) {
     
     count = 0;
     
-    /* Iterate through all connected objects using next_who() */
-    curr = next_who(NULL);  /* NULL returns first connected object */
+    /* Use new users() efun to get array of all connected players */
+    connected_users = users();
     
-    while (curr) {
-        /* Check if it's a player object */
-        if (curr.query_living && curr.query_living()) {
-            name = curr.query_name();
-            if (name) {
-                output = output + "  " + capitalize(name);
-                
-                /* Add title if they have one */
-                if (curr.query_title && curr.query_title()) {
-                    output = output + " " + curr.query_title();
+    if (connected_users && sizeof(connected_users) > 0) {
+        for (i = 0; i < sizeof(connected_users); i++) {
+            /* Check if it's a player object (call_other returns 0 on failure) */
+            if (call_other(connected_users[i], "query_living")) {
+                name = call_other(connected_users[i], "query_name");
+                if (name) {
+                    string title;
+                    
+                    output = output + "  " + capitalize(name);
+                    
+                    /* Add title if they have one */
+                    title = call_other(connected_users[i], "query_title");
+                    if (title) {
+                        output = output + " " + title;
+                    }
+                    
+                    output = output + "\n";
+                    count++;
                 }
-                
-                output = output + "\n";
-                count++;
             }
         }
-        
-        /* Get next connected object */
-        curr = next_who(curr);
     }
     
     output = output + "------------------------\n";
@@ -59,6 +59,9 @@ execute(args) {
 
 /* Help text */
 query_help() {
-    return "Syntax: who\n\n"+
-           "List all players currently connected to the game.\n";
+    return "List connected players\n"+
+           "Category: information\n\n"+
+           "Usage:\n"+
+           "  who\n\n"+
+           "Shows all players currently connected to the game.\n";
 }

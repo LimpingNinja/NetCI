@@ -223,18 +223,37 @@ int save_db(char *filename) {
   fprintf(outfile,".END\n");
   curr_cmd=cmd_head;
   while (curr_cmd) {
-    fprintf(outfile,"%ld\n%ld\n%s",(long) curr_cmd->obj->refno,
-            (long) strlen(curr_cmd->cmd),
-            curr_cmd->cmd);
+    /* Defensive check: skip commands with null or invalid objects */
+    if (curr_cmd->obj && curr_cmd->obj->refno >= 0 && 
+        !(curr_cmd->obj->flags & GARBAGE)) {
+      fprintf(outfile,"%ld\n%ld\n%s",(long) curr_cmd->obj->refno,
+              (long) strlen(curr_cmd->cmd),
+              curr_cmd->cmd);
+    } else {
+      char errbuf[256];
+      sprintf(errbuf, "  cache: save_db() skipping corrupt command entry (obj=%p)", 
+              (void*)curr_cmd->obj);
+      logger(LOG_ERROR, errbuf);
+    }
     curr_cmd=curr_cmd->next;
   }
   fprintf(outfile,".END\n");
   curr_alarm=alarm_list;
   while (curr_alarm) {
-    fprintf(outfile,"%ld\n%ld\n%ld\n%s",(long) curr_alarm->obj->refno,
-            (long) curr_alarm->delay,
-            (long) strlen(curr_alarm->funcname),
-            curr_alarm->funcname);
+    /* Defensive check: skip alarms with null or invalid objects */
+    if (curr_alarm->obj && curr_alarm->obj->refno >= 0 && 
+        !(curr_alarm->obj->flags & GARBAGE)) {
+      fprintf(outfile,"%ld\n%ld\n%ld\n%s",(long) curr_alarm->obj->refno,
+              (long) curr_alarm->delay,
+              (long) strlen(curr_alarm->funcname),
+              curr_alarm->funcname);
+    } else {
+      char errbuf[256];
+      sprintf(errbuf, "  cache: save_db() skipping corrupt alarm entry (obj=%p, func=%s)",
+              (void*)curr_alarm->obj, 
+              curr_alarm->funcname ? curr_alarm->funcname : "<null>");
+      logger(LOG_ERROR, errbuf);
+    }
     curr_alarm=curr_alarm->next;
   }
   fprintf(outfile,".END\n");
@@ -492,6 +511,8 @@ int init_db() {
     curr_proto->funcs->num_globals=num_globals;
     curr_proto->funcs->func_list=NULL;
     curr_proto->funcs->gst=NULL;
+    curr_proto->funcs->inherits=NULL;
+    curr_proto->inherits=NULL;
     c=fgetc(infile);
     curr_var=NULL;
     while (c=='*' && !feof(infile)) {
@@ -544,6 +565,10 @@ int init_db() {
       fgets(buf,MAX_STR_LEN,infile);
       curr_fns->num_instr=atol(buf);
       curr_fns->funcname=readstring(infile);
+      curr_fns->func_index=0;  /* Initialize new fields */
+      curr_fns->visibility=curr_fns->is_static ? VISIBILITY_PRIVATE : VISIBILITY_PUBLIC;
+      curr_fns->origin_proto=NULL;
+      curr_fns->lst=NULL;  /* No local symbol table when loading from DB */
       curr_fns->next=curr_proto->funcs->func_list;
       curr_proto->funcs->func_list=curr_fns;
       if (curr_fns->num_instr)
@@ -557,6 +582,27 @@ int init_db() {
       }
       fgets(buf,MAX_STR_LEN,infile);
     }
+    
+    /* Set origin_proto for all functions in this proto */
+    curr_fns = curr_proto->funcs->func_list;
+    {
+      char logbuf[256];
+      int count = 0;
+      while (curr_fns) {
+        sprintf(logbuf, "cache2.c: Setting origin_proto for func '%s' to proto '%s' (%p)",
+                curr_fns->funcname ? curr_fns->funcname : "unknown",
+                curr_proto->pathname ? curr_proto->pathname : "unknown",
+                (void*)curr_proto);
+        logger(LOG_DEBUG, logbuf);
+        curr_fns->origin_proto = curr_proto;
+        curr_fns = curr_fns->next;
+        count++;
+      }
+      sprintf(logbuf, "cache2.c: Set origin_proto for %d functions in '%s'", 
+              count, curr_proto->pathname ? curr_proto->pathname : "unknown");
+      logger(LOG_DEBUG, logbuf);
+    }
+    
     fgets(buf,MAX_STR_LEN,infile);
   }
   fgets(buf,MAX_STR_LEN,infile);
@@ -681,6 +727,7 @@ int compile_auto_object() {
   proto_obj->pathname = copy_string(auto_object_path);
   proto_obj->funcs = the_code;
   proto_obj->proto_obj = obj;
+  proto_obj->inherits = the_code->inherits;  /* Copy inherits from code */
   proto_obj->next_proto = ref_to_obj(0)->parent->next_proto;
   ref_to_obj(0)->parent->next_proto = proto_obj;
   
@@ -796,6 +843,7 @@ int create_db() {
   proto_obj->pathname=copy_string("/boot");
   proto_obj->funcs=the_code;
   proto_obj->proto_obj=obj;
+  proto_obj->inherits=the_code->inherits;  /* Copy inherits from code */
   proto_obj->next_proto=NULL;
   obj->refno=0;
   obj->devnum=-1;
@@ -893,4 +941,72 @@ int create_db() {
   handle_destruct();
   
   return 0;
+}
+
+/* ========================================================================
+ * GLOBAL PROTO CACHE
+ * ======================================================================== */
+
+/* Global proto cache for compile-time inheritance
+ * Each file is compiled once and cached here
+ * Key is the canonical absolute path
+ */
+static struct proto_cache_entry {
+    char *pathname;              /* Canonical path */
+    struct proto *proto;         /* Cached proto */
+    struct proto_cache_entry *next;
+} *proto_cache_head = NULL;
+
+/* Find a cached proto by canonical pathname
+ * Returns NULL if not found
+ */
+struct proto *find_cached_proto(char *pathname) {
+    struct proto_cache_entry *curr = proto_cache_head;
+    
+    while (curr) {
+        if (strcmp(curr->pathname, pathname) == 0) {
+            return curr->proto;
+        }
+        curr = curr->next;
+    }
+    
+    return NULL;
+}
+
+/* Add a proto to the global cache
+ * pathname should be canonical (normalized)
+ */
+void cache_proto(char *pathname, struct proto *proto) {
+    struct proto_cache_entry *entry;
+    
+    /* Check if already cached (shouldn't happen, but be safe) */
+    if (find_cached_proto(pathname)) {
+        char logbuf[512];
+        sprintf(logbuf, "cache_proto: warning - '%s' already cached", pathname);
+        logger(LOG_WARNING, logbuf);
+        return;
+    }
+    
+    entry = MALLOC(sizeof(struct proto_cache_entry));
+    entry->pathname = copy_string(pathname);
+    entry->proto = proto;
+    entry->next = proto_cache_head;
+    proto_cache_head = entry;
+}
+
+/* Clear the proto cache (for development/testing)
+ * Note: Does not free the protos themselves as they may still be in use
+ */
+void clear_proto_cache() {
+    struct proto_cache_entry *curr = proto_cache_head;
+    
+    while (curr) {
+        struct proto_cache_entry *next = curr->next;
+        FREE(curr->pathname);
+        /* Don't free proto - it might still be referenced */
+        FREE(curr);
+        curr = next;
+    }
+    
+    proto_cache_head = NULL;
 }

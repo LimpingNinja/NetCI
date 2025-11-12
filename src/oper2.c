@@ -3,6 +3,7 @@
 #include "constrct.h"
 #include "instr.h"
 #include "protos.h"
+#include "interp.h"  /* For global_index_for and struct call_frame */
 #include "operdef.h"
 #include "globals.h"
 
@@ -48,7 +49,12 @@ int postadd_oper(struct object *caller, struct object *obj,
   }
   push(&tmp2,rts);
   if (tmp1.type==GLOBAL_L_VALUE) {
-    ++(obj->globals[tmp1.value.l_value.ref].value.integer);
+    extern struct call_frame *call_stack;
+    int ok = 0;
+    unsigned int eff = global_index_for(obj, call_stack ? call_stack->func : NULL,
+                                        (unsigned int)tmp1.value.l_value.ref, &ok);
+    if (!ok) { clear_var(&tmp1); clear_var(&tmp2); return 1; }
+    ++(obj->globals[eff].value.integer);
     obj->obj_state=DIRTY;
   } else
     ++(locals[tmp1.value.l_value.ref].value.integer);
@@ -73,7 +79,12 @@ int preadd_oper(struct object *caller, struct object *obj,
   ++(tmp2.value.integer);
   push(&tmp2,rts);
   if (tmp1.type==GLOBAL_L_VALUE) {
-    ++(obj->globals[tmp1.value.l_value.ref].value.integer);
+    extern struct call_frame *call_stack;
+    int ok = 0;
+    unsigned int eff = global_index_for(obj, call_stack ? call_stack->func : NULL,
+                                        (unsigned int)tmp1.value.l_value.ref, &ok);
+    if (!ok) { clear_var(&tmp1); clear_var(&tmp2); return 1; }
+    ++(obj->globals[eff].value.integer);
     obj->obj_state=DIRTY;
   } else
     ++(locals[tmp1.value.l_value.ref].value.integer);
@@ -97,7 +108,12 @@ int postmin_oper(struct object *caller, struct object *obj,
   }
   push(&tmp2,rts);
   if (tmp1.type==GLOBAL_L_VALUE) {
-    --(obj->globals[tmp1.value.l_value.ref].value.integer);
+    extern struct call_frame *call_stack;
+    int ok = 0;
+    unsigned int eff = global_index_for(obj, call_stack ? call_stack->func : NULL,
+                                        (unsigned int)tmp1.value.l_value.ref, &ok);
+    if (!ok) { clear_var(&tmp1); clear_var(&tmp2); return 1; }
+    --(obj->globals[eff].value.integer);
     obj->obj_state=DIRTY;
   } else
     --(locals[tmp1.value.l_value.ref].value.integer);
@@ -122,7 +138,12 @@ int premin_oper(struct object *caller, struct object *obj,
   --(tmp2.value.integer);
   push(&tmp2,rts);
   if (tmp1.type==GLOBAL_L_VALUE) {
-    --(obj->globals[tmp1.value.l_value.ref].value.integer);
+    extern struct call_frame *call_stack;
+    int ok = 0;
+    unsigned int eff = global_index_for(obj, call_stack ? call_stack->func : NULL,
+                                        (unsigned int)tmp1.value.l_value.ref, &ok);
+    if (!ok) { clear_var(&tmp1); clear_var(&tmp2); return 1; }
+    --(obj->globals[eff].value.integer);
     obj->obj_state=DIRTY;
   } else
     --(locals[tmp1.value.l_value.ref].value.integer);
@@ -250,19 +271,24 @@ int mieq_oper(struct object *caller, struct object *obj,
   }
   
   if (tmp1.type == GLOBAL_L_VALUE) {
+    extern struct call_frame *call_stack;
+    int ok_eff = 0;
+    unsigned int eff_idx = global_index_for(obj, call_stack ? call_stack->func : NULL,
+                                            (unsigned int)tmp1.value.l_value.ref, &ok_eff);
+    if (!ok_eff) { clear_var(&tmp1); clear_var(&tmp2); return 1; }
     /* Integer subtraction assignment */
-    if (tmp2.type == INTEGER && obj->globals[tmp1.value.l_value.ref].type == INTEGER) {
-      obj->globals[tmp1.value.l_value.ref].value.integer -= tmp2.value.integer;
+    if (tmp2.type == INTEGER && obj->globals[eff_idx].type == INTEGER) {
+      obj->globals[eff_idx].value.integer -= tmp2.value.integer;
       obj->obj_state = DIRTY;
       clear_var(&tmp1);
       clear_var(&tmp2);
       return 0;
     }
     /* Array subtraction assignment: array -= array */
-    if (tmp2.type == ARRAY && obj->globals[tmp1.value.l_value.ref].type == ARRAY) {
+    if (tmp2.type == ARRAY && obj->globals[eff_idx].type == ARRAY) {
       struct heap_array *result;
       
-      result = array_subtract(obj->globals[tmp1.value.l_value.ref].value.array_ptr, tmp2.value.array_ptr);
+      result = array_subtract(obj->globals[eff_idx].value.array_ptr, tmp2.value.array_ptr);
       if (!result) {
         clear_var(&tmp1);
         clear_var(&tmp2);
@@ -270,8 +296,8 @@ int mieq_oper(struct object *caller, struct object *obj,
       }
       
       /* Release old array, assign new one */
-      array_release(obj->globals[tmp1.value.l_value.ref].value.array_ptr);
-      obj->globals[tmp1.value.l_value.ref].value.array_ptr = result;
+      array_release(obj->globals[eff_idx].value.array_ptr);
+      obj->globals[eff_idx].value.array_ptr = result;
       obj->obj_state = DIRTY;
       
       clear_var(&tmp1);
@@ -279,10 +305,10 @@ int mieq_oper(struct object *caller, struct object *obj,
       return 0;
     }
     /* Mapping subtraction assignment: mapping -= mapping */
-    if (tmp2.type == MAPPING && obj->globals[tmp1.value.l_value.ref].type == MAPPING) {
+    if (tmp2.type == MAPPING && obj->globals[eff_idx].type == MAPPING) {
       struct heap_mapping *result;
       
-      result = mapping_subtract(obj->globals[tmp1.value.l_value.ref].value.mapping_ptr, tmp2.value.mapping_ptr);
+      result = mapping_subtract(obj->globals[eff_idx].value.mapping_ptr, tmp2.value.mapping_ptr);
       if (!result) {
         clear_var(&tmp1);
         clear_var(&tmp2);
@@ -290,8 +316,8 @@ int mieq_oper(struct object *caller, struct object *obj,
       }
       
       /* Release old mapping, assign new one */
-      mapping_release(obj->globals[tmp1.value.l_value.ref].value.mapping_ptr);
-      obj->globals[tmp1.value.l_value.ref].value.mapping_ptr = result;
+      mapping_release(obj->globals[eff_idx].value.mapping_ptr);
+      obj->globals[eff_idx].value.mapping_ptr = result;
       obj->obj_state = DIRTY;
       
       clear_var(&tmp1);

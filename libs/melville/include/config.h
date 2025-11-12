@@ -9,7 +9,7 @@
 #define LOGIN_OB        "/sys/login"
 
 /* Inheritable Paths */
-#define OBJECT_PATH     "/inherits/object"
+#define OBJECT_PATH     "/inherits/obj"
 #define CONTAINER_PATH  "/inherits/container"
 #define ROOM_PATH       "/inherits/room"
 #define LIVING_PATH     "/inherits/living"
@@ -17,6 +17,7 @@
 /* Daemon Paths */
 #define CMD_D           "/sys/daemons/cmd_d"
 #define USER_D          "/sys/daemons/user_d"
+#define USERS_D         "/sys/daemons/users_d"
 #define LOG_D           "/sys/daemons/log_d"
 
 /* Directory Paths */
@@ -31,6 +32,7 @@
 #define SYS_DIR         "/sys"
 #define DATA_DIR        "/sys/data"
 #define PLAYER_SAVE_DIR "/sys/data/players/"
+#define HELP_DIR        "/help/"
 
 /* Starting Locations */
 #define START_ROOM      "/world/start/void"

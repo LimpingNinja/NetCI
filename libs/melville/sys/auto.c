@@ -30,53 +30,25 @@ allow_attach() {
  * PASSWORD HASHING
  * ======================================================================== */
 
-/* Simple password hashing function
- * TODO: Replace with proper cryptographic hash (bcrypt, scrypt, argon2)
- * For now, uses a simple XOR-based hash with salt
- * 
- * SECURITY WARNING: This is NOT secure for production!
- * It's a placeholder until we implement proper hashing.
+/* Hash a password using bcrypt (via crypt() efun)
+ * Returns: secure hash string (includes salt)
  */
 hash_password(password) {
-    string salt, hash;
-    int i, len, hash_val, char_val;
-    
     if (!password) return "";
     
-    /* Use a fixed salt for now (INSECURE!) */
-    /* TODO: Generate random salt per password and store it */
-    salt = "MelvilleNetCI2025";
-    
-    len = strlen(password);
-    hash = "";
-    hash_val = 5381; /* DJB2 hash initial value */
-    
-    /* Simple DJB2 hash algorithm */
-    for (i = 0; i < len; i++) {
-        /* Get character value (NetCI doesn't have direct char access) */
-        char_val = i; /* Placeholder - need proper char-to-int conversion */
-        hash_val = ((hash_val * 33) + char_val) % 2147483647;
-    }
-    
-    /* Convert hash to string */
-    hash = "HASH_" + itoa(hash_val);
-    
-    return hash;
+    /* Use crypt() efun with single argument to generate hash with random salt */
+    return crypt(password);
 }
 
-/* TODO: Implement proper password hashing when crypt() efun is available
- * Proper implementation would be:
- * 
- * hash_password(password) {
- *     string salt;
- *     
- *     // Generate random salt
- *     salt = generate_salt();
- *     
- *     // Use crypt with bcrypt or similar
- *     return crypt(password, "$2b$10$" + salt);
- * }
+/* Verify a password against a stored hash
+ * Returns: 1 if password matches, 0 if not
  */
+verify_password(password, hash) {
+    if (!password || !hash) return 0;
+    
+    /* Use crypt() efun with two arguments to verify */
+    return crypt(password, hash);
+}
 
 /* ========================================================================
  * OBJECT FINDING (Simulated Efun)
@@ -168,21 +140,9 @@ present(name, container) {
  * This is a wrapper around the compile_object efun
  * Adds error handling and logging
  */
-compile_object(path) {
-    object result;
-    
-    if (!path) return NULL;
-    
-    /* Try to compile */
-    result = compile_object(path);
-    
-    if (!result) {
-        /* Log compilation failure */
-        syslog("Failed to compile: " + path);
-    }
-    
-    return result;
-}
+/* compile_object wrapper removed - call the efun directly
+ * No privilege needed anymore, so no delegation required
+ */
 
 /* ========================================================================
  * STRING UTILITIES
@@ -241,29 +201,13 @@ contains(arr, element) {
     return (member_array(element, arr) != -1);
 }
 
-/* Remove element from array */
+/* Remove ALL occurrences of element from array
+ * Note: Array subtraction removes all matching elements, not just the first
+ */
 remove_element(arr, element) {
-    int pos, i;
-    
     if (!arr) return ({});
     
-    pos = member_array(element, arr);
-    if (pos == -1) return arr;
-    
-    /* Build new array without the element by concatenating parts */
-    /* We can't use untyped variables, so we'll use a different approach */
-    /* Just rebuild the array by filtering out the element */
-    if (pos == 0 && sizeof(arr) == 1) {
-        return ({});
-    }
-    
-    /* Use array arithmetic to build result */
-    if (pos == 0) {
-        /* Remove first element - can't slice, so rebuild manually */
-        return arr - ({ element });
-    }
-    
-    /* For other positions, use array subtraction */
+    /* Array subtraction removes all occurrences */
     return arr - ({ element });
 }
 
@@ -375,20 +319,20 @@ dump_object(obj) {
  * ======================================================================== */
 
 /* Get or compile an object - ensures prototype exists
- * Delegates to boot.c for privileged access
+ * No privilege needed - compilation is safe, security is file-based
  */
 get_object(path) {
-    object boot;
+    object obj;
     
     if (!path) return 0;
     
-    boot = atoo("/boot");
-    if (!boot) {
-        syslog("auto.get_object(): ERROR - boot object not found!");
-        return 0;
+    obj = atoo(path);
+    if (!obj) {
+        compile_object(path);
+        obj = atoo(path);
     }
     
-    return boot.get_object(path);
+    return obj;
 }
 
 /* Clone an object - creates a new instance
@@ -447,9 +391,18 @@ say(msg) {
 
 /* Write a message to an object or this_object()
  * Simple wrapper that calls listen() on the target
+ * Falls back to syslog if no player context
  */
 write(arg1) {
-    this_player().listen(arg1);
+    object player;
+    
+    player = this_player();
+    if (player) {
+        player.listen(arg1);
+    } else {
+        /* No player context - use syswrite for formatted output */
+        syswrite(arg1);
+    }
 }
 
 /* Set heart beat interval

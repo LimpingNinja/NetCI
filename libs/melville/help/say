@@ -1,0 +1,17 @@
+SAY Command
+
+Usage: say <message>
+
+The say command allows you to speak to everyone in the same room as you.
+
+Examples:
+  say Hello everyone!
+  say How is everyone doing today?
+
+Your message will be displayed to everyone in the room as:
+  You say: Hello everyone!
+
+Others will see:
+  <Your Name> says: Hello everyone!
+
+See also: tell, emote, shout

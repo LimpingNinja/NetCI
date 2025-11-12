@@ -36,6 +36,8 @@
 #define RARRASGN_TOK      63    /* }) */
 #define MAPPING_TOK       64    /* mapping keyword */
 #define LMAPSGN_TOK       65    /* ([ - mapping literal start */
+#define RANGE_TOK         66    /* .. - range operator (for array slicing) */
+#define INHERIT_TOK       67    /* inherit keyword */
 /* Note: ]) is handled as RARRAY_TOK + RPAR_TOK in parser to avoid conflicts */
 
 /* Data structure declarations */
@@ -90,6 +92,7 @@ typedef struct
   sym_tab_t *glob_sym;                /* global symbol table */
   struct define *defs;                /* #defines */
   int depth;
+  int layout_locked;                  /* True after variable layout is built, prevents late inherits */
 } filptr;
 
 typedef struct
@@ -128,3 +131,10 @@ void expand_def(struct define *def, char *buf);
 void expand(struct define *def, filptr *file_info);
 void expand_exp(struct define *def, filptr *file_info);
 void set_c_err_msg(char *msg);
+
+/* Token parser helpers for value deserialization (token_parse.c) */
+filptr *create_string_filptr(char *str);
+void free_string_filptr(filptr *fp);
+int parse_value(filptr *file_info, struct var *result);
+int parse_array_value(filptr *file_info, struct var *result);
+int parse_mapping_value(filptr *file_info, struct var *result);

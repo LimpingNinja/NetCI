@@ -1,0 +1,20 @@
+Available Commands:
+
+Basic Commands:
+  help      - Display help topics
+  look      - Look at your surroundings
+  say       - Say something to others
+  quit      - Exit the game
+  who       - See who is online
+
+Communication:
+  say <message>    - Say something aloud
+  tell <user> <msg> - Send a private message
+
+Information:
+  look             - Look around
+  inventory        - Check your inventory
+  score            - View your character stats
+
+For detailed help on any command, type:
+  help <command>

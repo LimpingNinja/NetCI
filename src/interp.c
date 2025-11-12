@@ -37,7 +37,159 @@ int (*oper_array[NUM_OPERS+NUM_SCALLS])(struct object *caller, struct object
   s_get_devnet,s_redirect_input,s_get_input_func,s_get_master,s_is_master,
   s_input_to,s_sizeof,s_implode,s_explode,s_member_array,s_sort_array,
   s_reverse,s_unique_array,s_array_literal,s_keys,s_values,s_map_delete,
-  s_member,s_mapping_literal };
+  s_member,s_mapping_literal,s_save_value,s_restore_value,s_replace_string,
+  NULL,NULL,s_syswrite,s_compile_string,s_crypt,s_read_file,s_write_file,
+  s_remove,s_rename,s_get_dir,s_file_size,s_users,s_objects,s_children,
+  s_all_inventory };
+
+/* Helper function to compute var_base for a function call.
+ * Given an object and a function, determine the variable base offset
+ * where that function's global variables are stored in the object's
+ * flattened globals array.
+ * 
+ * Returns 0 if the function is defined in the object's own program,
+ * or the var_offset of the inherit entry if defined in a parent.
+ */
+static unsigned short compute_var_base(struct object *obj, struct fns *func) {
+  struct proto *defining_proto;
+  struct code *child_code;
+  char logbuf[512];
+  
+  if (!func) {
+    logger(LOG_DEBUG, "compute_var_base: func is NULL, returning 0");
+    return 0;
+  }
+  
+  child_code = (obj && obj->parent) ? obj->parent->funcs : NULL;
+  
+  sprintf(logbuf, "compute_var_base: func='%s', func->origin_proto=%p, obj->parent=%p (%s)",
+          func->funcname ? func->funcname : "unknown",
+          (void*)func->origin_proto,
+          (void*)obj->parent,
+          obj->parent && obj->parent->pathname ? obj->parent->pathname : "unknown");
+  logger(LOG_DEBUG, logbuf);
+  
+  /* Resolve defining proto */
+  defining_proto = func->origin_proto;
+  if (!defining_proto) {
+    /* Treat missing origin as local to child */
+    logger(LOG_DEBUG, "compute_var_base: origin_proto is NULL, assuming local and returning self_var_offset");
+    return child_code ? child_code->self_var_offset : 0;
+  }
+  
+  sprintf(logbuf, "compute_var_base: defining_proto=%p (%s)",
+          (void*)defining_proto,
+          defining_proto->pathname ? defining_proto->pathname : "unknown");
+  logger(LOG_DEBUG, logbuf);
+  
+  /* Local function: base is child's self_var_offset */
+  if (obj && obj->parent && defining_proto == obj->parent) {
+    unsigned short base = child_code ? child_code->self_var_offset : 0;
+    sprintf(logbuf, "compute_var_base: local to child, returning self_var_offset=%u", base);
+    logger(LOG_DEBUG, logbuf);
+    return base;
+  }
+  
+  /* Inherited function: look up in flattened ancestor map */
+  if (child_code && child_code->ancestor_map && child_code->ancestor_count) {
+    for (unsigned short i = 0; i < child_code->ancestor_count; i++) {
+      if (child_code->ancestor_map[i].proto == defining_proto) {
+        unsigned short base = child_code->ancestor_map[i].var_offset;
+        sprintf(logbuf, "compute_var_base: found in ancestor_map[%u], returning var_offset=%u", i, base);
+        logger(LOG_DEBUG, logbuf);
+        return base;
+      }
+    }
+  }
+  
+  /* Not found - fail loudly but return 0 to avoid crash */
+  logger(LOG_DEBUG, "compute_var_base: ERROR - defining proto not in ancestor_map, returning 0");
+  return 0;
+}
+
+/* Centralized helper: map definer's gst[ref] to child's absolute global index.
+ * definer_fn identifies the program whose bytecode produced the ref.
+ * Returns the absolute index and sets *ok=1 on success; on failure returns 0 and *ok=0.
+ */
+unsigned int global_index_for(struct object *obj, struct fns *definer_fn,
+                              unsigned int ref, int *ok) {
+  struct proto *definer_proto;
+  struct code *def_code;
+  struct code *child_code;
+  unsigned int base = 0;
+  unsigned int effective = 0;
+  char logbuf[256];
+
+  if (ok) *ok = 0;
+  if (!obj || !obj->parent || !obj->parent->funcs) {
+    return 0;
+  }
+  child_code = obj->parent->funcs;
+
+  /* Determine definer program */
+  if (definer_fn && definer_fn->origin_proto) {
+    definer_proto = definer_fn->origin_proto;
+  } else {
+    /* Local function: ref is relative to child's own gst */
+    definer_proto = obj->parent;
+  }
+
+  if (!definer_proto || !definer_proto->funcs) {
+    return 0;
+  }
+  def_code = definer_proto->funcs;
+
+  /* Validate gst_map and ref */
+  if (!def_code->gst_map || ref >= def_code->gst_count) {
+    sprintf(logbuf, "global_index_for: invalid ref=%u (gst_count=%u) for definer=%s", 
+            ref, def_code->gst_count, definer_proto->pathname ? definer_proto->pathname : "unknown");
+    logger(LOG_ERROR, logbuf);
+    return 0;
+  }
+
+  /* Map to owner proto and owner's local index */
+  {
+    struct proto *owner = def_code->gst_map[ref].owner ? def_code->gst_map[ref].owner : definer_proto;
+    unsigned int owner_local_index = def_code->gst_map[ref].local_index;
+
+    /* Find base for owner in child */
+    if (owner == obj->parent) {
+      base = child_code->self_var_offset;
+    } else {
+      int found = 0;
+      if (child_code->ancestor_map && child_code->ancestor_count) {
+        for (unsigned short i = 0; i < child_code->ancestor_count; i++) {
+          if (child_code->ancestor_map[i].proto == owner) {
+            base = child_code->ancestor_map[i].var_offset;
+            found = 1;
+            break;
+          }
+        }
+      }
+      if (!found) {
+        sprintf(logbuf, "global_index_for: owner proto not found in child's ancestor_map (owner=%s, child=%s)",
+                owner && owner->pathname ? owner->pathname : "unknown",
+                obj->parent && obj->parent->pathname ? obj->parent->pathname : "unknown");
+        logger(LOG_ERROR, logbuf);
+        return 0;
+      }
+    }
+
+    effective = base + owner_local_index;
+  }
+
+  /* Bounds check against child's globals */
+  if (effective >= obj->parent->funcs->num_globals) {
+    sprintf(logbuf, "global_index_for: OOB effective_index=%u (num_globals=%u) child=%s",
+            effective, obj->parent->funcs->num_globals,
+            obj->parent->pathname ? obj->parent->pathname : "unknown");
+    logger(LOG_ERROR, logbuf);
+    return 0;
+  }
+
+  if (ok) *ok = 1;
+  return effective;
+}
 
 void interp_error(char *msg, struct object *player, struct object *obj,
                   struct fns *func, unsigned long line) {
@@ -336,16 +488,288 @@ struct fns *find_fns(char *name, struct object *obj) {
   return NULL;
 }
 
+/* Find function in a specific proto (local functions only) */
+struct fns *find_fns_in_proto(char *name, struct proto *proto) {
+  struct fns *next;
+  
+  if (!proto || !proto->funcs) return NULL;
+  
+  next = proto->funcs->func_list;
+  while (next) {
+    if (!strcmp(next->funcname, name))
+      return next;
+    next = next->next;
+  }
+  return NULL;
+}
+
+/* Find function in proto's inheritance chain */
+struct fns *find_function_in_inherits(char *name, struct proto *proto,
+                                      struct object **real_obj) {
+  struct inherit_list *curr_inherit;
+  struct fns *tmpfns;
+  
+  if (!proto || !proto->funcs) return NULL;
+  
+  /* Walk inheritance chain */
+  curr_inherit = proto->funcs->inherits;
+  while (curr_inherit) {
+    /* Check parent proto's local functions */
+    tmpfns = find_fns_in_proto(name, curr_inherit->parent_proto);
+    if (tmpfns) {
+      /* Found in parent - DON'T change real_obj, keep it as the derived object */
+      /* Inherited functions execute in the context of the derived object */
+      return tmpfns;
+    }
+    
+    /* Recursively check parent's parents */
+    tmpfns = find_function_in_inherits(name, curr_inherit->parent_proto, real_obj);
+    if (tmpfns) return tmpfns;
+    
+    curr_inherit = curr_inherit->next;
+  }
+  
+  return NULL;
+}
+
+/* Find function in parent classes only (skip local) - for :: operator 
+ * 
+ * This implements the :: operator for calling parent functions in LPC inheritance.
+ * The key insight is that :: must search from the CURRENT FUNCTION'S proto, not
+ * the object's proto. This is critical for multiple inheritance to work correctly.
+ * 
+ * Example: If player.c inherits from both living.c and container.c, and both of
+ * those inherit from obj.c, when living.c::init() calls ::init(), it should find
+ * obj.c::init(), NOT living.c::init() again (which would cause infinite recursion).
+ * 
+ * Algorithm:
+ * 1. Find which proto the current_func belongs to by walking the inheritance chain
+ * 2. Search for the named function in THAT proto's parents (not the object's parents)
+ * 3. This ensures :: always searches "up" from where the current function is defined
+ * 
+ * Parameters:
+ *   name - Function name to search for
+ *   obj - The object instance (provides context for execution)
+ *   current_func - The function currently being executed (determines search starting point)
+ *   real_obj - Output parameter for the object context where function should execute
+ * 
+ * Returns: Function pointer if found, NULL otherwise
+ */
+struct fns *find_parent_function(char *name, struct object *obj, struct fns *current_func,
+                                 struct object **real_obj) {
+  struct fns *result;
+  struct proto *search_proto;
+  
+  if (!obj || !obj->parent) {
+    return NULL;
+  }
+  
+  /* Default: search from the object's main proto */
+  search_proto = obj->parent;
+  
+  /* Find which proto the current function belongs to by walking the inheritance chain
+   * This is necessary because in multiple inheritance, we need to know which parent
+   * the currently executing function came from, so we can search from ITS parents.
+   */
+  if (current_func) {
+    struct proto *curr_proto = obj->parent;
+    struct inherit_list *curr_inherit;
+    
+    /* First check if current_func is in the main proto's function list */
+    struct fns *check_fn = curr_proto->funcs->func_list;
+    int found_in_main = 0;
+    while (check_fn) {
+      if (check_fn == current_func) {
+        found_in_main = 1;
+        break;
+      }
+      check_fn = check_fn->next;
+    }
+    
+    /* If not in main proto, search through inherited protos to find where it's defined */
+    if (!found_in_main) {
+      curr_inherit = curr_proto->funcs->inherits;
+      while (curr_inherit) {
+        check_fn = curr_inherit->parent_proto->funcs->func_list;
+        while (check_fn) {
+          if (check_fn == current_func) {
+            /* Found it! Search from THIS proto's parents, not the main proto's parents */
+            search_proto = curr_inherit->parent_proto;
+            goto found_proto;
+          }
+          check_fn = check_fn->next;
+        }
+        curr_inherit = curr_inherit->next;
+      }
+    }
+  }
+  
+found_proto:
+  /* Search ONLY in the inheritance chain of the proto where current function is defined
+   * This ensures we never find the current function itself, preventing infinite recursion
+   */
+  result = find_function_in_inherits(name, search_proto, real_obj);
+  
+  return result;
+}
+
+/* Find function in a specific named parent - for name::function() syntax
+ * 
+ * This implements the parent_name::function() syntax for calling specific parent
+ * functions in multiple inheritance scenarios. This is essential for resolving
+ * the diamond problem where a class inherits from two parents that share a common
+ * ancestor.
+ * 
+ * Example: player.c inherits from both living.c and container.c. To call both
+ * parent init functions, player.c can use:
+ *   living::init();
+ *   container::init();
+ * 
+ * The parent name is matched against the basename of the inherit path:
+ *   inherit "/inherits/living" -> matches parent name "living"
+ *   inherit "/inherits/container" -> matches parent name "container"
+ * 
+ * Like find_parent_function, this must search from the CURRENT FUNCTION'S proto,
+ * not the object's proto, to work correctly with nested inheritance.
+ * 
+ * Parameters:
+ *   parent_name - Basename of the parent to search in (e.g., "living", "container")
+ *   func_name - Function name to search for
+ *   obj - The object instance (provides context for execution)
+ *   current_func - The function currently being executed (determines search starting point)
+ *   real_obj - Output parameter for the object context where function should execute
+ * 
+ * Returns: Function pointer if found in the named parent, NULL otherwise
+ */
+struct fns *find_named_parent_function(char *parent_name, char *func_name,
+                                       struct object *obj, struct fns *current_func,
+                                       struct object **real_obj) {
+  struct proto *search_proto;
+  struct inherit_list *curr_inherit;
+  struct fns *result;
+  char *basename, *last_slash;
+  
+  if (!obj || !obj->parent) return NULL;
+  
+  /* Default: search from the object's main proto */
+  search_proto = obj->parent;
+  
+  /* Find which proto the current function belongs to (same logic as find_parent_function) */
+  if (current_func) {
+    struct proto *curr_proto = obj->parent;
+    struct inherit_list *temp_inherit;
+    char logbuf[256];
+    
+    sprintf(logbuf, "find_named_parent: looking for %s::%s, obj proto=%s", 
+            parent_name, func_name, curr_proto->pathname ? curr_proto->pathname : "NULL");
+    logger(LOG_INFO, logbuf);
+    
+    /* Check if current_func is in the main proto */
+    struct fns *check_fn = curr_proto->funcs->func_list;
+    int found_in_main = 0;
+    while (check_fn) {
+      if (check_fn == current_func) {
+        found_in_main = 1;
+        sprintf(logbuf, "find_named_parent: current_func found in main proto %s", 
+                curr_proto->pathname ? curr_proto->pathname : "NULL");
+        logger(LOG_INFO, logbuf);
+        break;
+      }
+      check_fn = check_fn->next;
+    }
+    
+    /* If not in main proto, search inherited protos */
+    if (!found_in_main) {
+      temp_inherit = curr_proto->funcs->inherits;
+      while (temp_inherit) {
+        check_fn = temp_inherit->parent_proto->funcs->func_list;
+        while (check_fn) {
+          if (check_fn == current_func) {
+            /* Found it! Search from THIS proto's parents */
+            search_proto = temp_inherit->parent_proto;
+            sprintf(logbuf, "find_named_parent: current_func found in inherited proto %s", 
+                    search_proto->pathname ? search_proto->pathname : "NULL");
+            logger(LOG_INFO, logbuf);
+            goto found_proto;
+          }
+          check_fn = check_fn->next;
+        }
+        temp_inherit = temp_inherit->next;
+      }
+    }
+  }
+  
+found_proto:
+  if (!search_proto || !search_proto->funcs) return NULL;
+  
+  /* Walk through inheritance list of the proto where current function is defined */
+  curr_inherit = search_proto->funcs->inherits;
+  while (curr_inherit) {
+    if (curr_inherit->inherit_path) {
+      /* Extract basename from path (e.g., "/inherits/living" -> "living") */
+      last_slash = strrchr(curr_inherit->inherit_path, '/');
+      basename = last_slash ? last_slash + 1 : curr_inherit->inherit_path;
+      
+      /* Check if basename matches the requested parent name */
+      if (strcmp(basename, parent_name) == 0) {
+        /* Found the named parent - look for function in it */
+        char logbuf2[256];
+        sprintf(logbuf2, "find_named_parent: found parent '%s' at proto %s, searching for function '%s'",
+                basename, curr_inherit->parent_proto->pathname ? curr_inherit->parent_proto->pathname : "NULL",
+                func_name);
+        logger(LOG_INFO, logbuf2);
+        
+        result = find_fns_in_proto(func_name, curr_inherit->parent_proto);
+        if (result) {
+          sprintf(logbuf2, "find_named_parent: found function '%s', funcname='%s', code=%p",
+                  func_name, result->funcname ? result->funcname : "NULL", (void*)result->code);
+          logger(LOG_INFO, logbuf2);
+          
+          /* Check if this is the same function we're calling from */
+          if (result == current_func) {
+            sprintf(logbuf2, "find_named_parent: ERROR - found same function as current_func!");
+            logger(LOG_ERROR, logbuf2);
+            return NULL;  /* Prevent recursion */
+          }
+          
+          *real_obj = obj;  /* Execute in context of derived object */
+          return result;
+        }
+        /* If function not found in this parent, continue searching
+         * (there might be multiple parents with the same basename)
+         */
+      }
+    }
+    curr_inherit = curr_inherit->next;
+  }
+  
+  /* Parent not found or function not found in any matching parent */
+  return NULL;
+}
+
 struct fns *find_function(char *name, struct object *obj,
                           struct object **real_obj) {
   struct fns *tmpfns;
   struct attach_list *curr_attach;
 
+  /* 1. Check local functions first */
   tmpfns=find_fns(name,obj);
   if (tmpfns) {
     if (real_obj) (*real_obj)=obj;
     return tmpfns;
   }
+  
+  /* 2. Check inheritance chain (NEW!) */
+  if (obj->parent && obj->parent->funcs && obj->parent->funcs->inherits) {
+    tmpfns = find_function_in_inherits(name, obj->parent, real_obj);
+    if (tmpfns) {
+      /* Found in inheritance chain - execute in context of current object */
+      if (real_obj) (*real_obj) = obj;
+      return tmpfns;
+    }
+  }
+  
+  /* 3. Fall back to attach system for backward compatibility */
   curr_attach=obj->attachees;
   while (curr_attach) {
     if ((tmpfns=find_function(name,curr_attach->attachee,real_obj)))
@@ -373,9 +797,11 @@ int interp(struct object *caller, struct object *obj, struct object *player,
            struct var_stack **arg_stack, struct fns *func) {
   struct var_stack *rts,*stack1;
   struct var tmp,tmp2;
+  struct var *arg_stack_local;  /* For PARENT_CALL */
   struct fns *temp_fns;
   unsigned long loop,line;
   unsigned int old_num_locals;
+  unsigned int num_args, i;  /* For PARENT_CALL */
   struct var *old_locals;
   int retstatus;
   int old_use_soft_cycles,old_use_hard_cycles;
@@ -394,12 +820,21 @@ int interp(struct object *caller, struct object *obj, struct object *player,
    * - obj: the object whose code is executing
    * - func: the function being executed
    * - line: current line number (starts at 0, updated by NEW_LINE instructions)
+   * - var_offset: variable base offset for this function's globals
    * - prev: pointer to caller's frame (forms linked list for traceback)
    */
   frame.obj = obj;
   frame.func = func;
   frame.line = 0;
+  frame.var_offset = compute_var_base(obj, func);
   frame.prev = call_stack;
+  
+  {
+    char logbuf[256];
+    sprintf(logbuf, "Frame push: func=%s, var_offset=%d", 
+            func->funcname ? func->funcname : "unknown", frame.var_offset);
+    logger(LOG_DEBUG, logbuf);
+  }
   
   /* Push frame onto global call stack by updating the head pointer.
    * The stack grows downward in memory (newer frames point to older ones).
@@ -444,21 +879,21 @@ int interp(struct object *caller, struct object *obj, struct object *player,
     int is_array = 0;
     unsigned int array_size = 0;
     unsigned int max_size = 0;
-    char logbuf[256];
+    // char logbuf[256];
     
-    sprintf(logbuf, "init_locals: checking local %d, lst=%p", loop, (void*)func->lst);
-    logger(LOG_DEBUG, logbuf);
+    // sprintf(logbuf, "init_locals: checking local %d, lst=%p", loop, (void*)func->lst);
+    // logger(LOG_DEBUG, logbuf);
     
     /* Find this variable in the local symbol table */
     while (var_info) {
-      sprintf(logbuf, "init_locals: var_info base=%u, loop=%d, array=%p, is_mapping=%d", 
-              var_info->base, loop, (void*)var_info->array, var_info->is_mapping);
-      logger(LOG_DEBUG, logbuf);
+      // sprintf(logbuf, "init_locals: var_info base=%u, loop=%d, array=%p, is_mapping=%d", 
+      //         var_info->base, loop, (void*)var_info->array, var_info->is_mapping);
+      // logger(LOG_DEBUG, logbuf);
       
       /* Skip mappings - they don't get pre-allocated */
       if (var_info->base == loop && var_info->is_mapping) {
-        sprintf(logbuf, "init_locals: local %d is a mapping, skipping pre-allocation", loop);
-        logger(LOG_DEBUG, logbuf);
+        // sprintf(logbuf, "init_locals: local %d is a mapping, skipping pre-allocation", loop);
+        // logger(LOG_DEBUG, logbuf);
         break;
       }
       
@@ -479,9 +914,9 @@ int interp(struct object *caller, struct object *obj, struct object *player,
         /* Determine max_size (255 means unlimited) */
         max_size = (var_info->array->size == 255) ? UNLIMITED_ARRAY_SIZE : array_size;
         
-        sprintf(logbuf, "init_locals: found array at local %d, size=%u, max=%u", 
-                loop, array_size, max_size);
-        logger(LOG_DEBUG, logbuf);
+        // sprintf(logbuf, "init_locals: found array at local %d, size=%u, max=%u", 
+        //         loop, array_size, max_size);
+        // logger(LOG_DEBUG, logbuf);
         break;
       }
       var_info = var_info->next;
@@ -493,8 +928,8 @@ int interp(struct object *caller, struct object *obj, struct object *player,
       if (arr) {
         locals[loop].type = ARRAY;
         locals[loop].value.array_ptr = arr;
-        sprintf(logbuf, "init_locals: allocated array for local %d", loop);
-        logger(LOG_DEBUG, logbuf);
+        // sprintf(logbuf, "init_locals: allocated array for local %d", loop);
+        // logger(LOG_DEBUG, logbuf);
       } else {
         /* Allocation failed - initialize as INTEGER 0 */
         locals[loop].type = INTEGER;
@@ -1042,6 +1477,268 @@ int interp(struct object *caller, struct object *obj, struct object *player,
         } else {
           func->code[loop].type=EXTERN_FUNC;
         }
+        break;
+      case CALL_SUPER:
+        /* ::function() - call next-up in MRO using indexed lookup */
+        {
+          unsigned short i_idx = func->code[loop].value.parent_call.inherit_idx;
+          unsigned short f_idx = func->code[loop].value.parent_call.func_idx;
+          
+          char logbuf[256];
+          sprintf(logbuf, "Runtime>> CALL_SUPER: inherit_idx=%d, func_idx=%d", i_idx, f_idx);
+          logger(LOG_DEBUG, logbuf);
+          
+          /* Get the inherit entry */
+          struct inherit_list *inh = obj->parent->funcs->inherits;
+          int idx = 0;
+          while (inh && idx < i_idx) {
+            inh = inh->next;
+            idx++;
+          }
+          
+          if (!inh || !inh->entry || !inh->entry->proto) {
+            interp_error_with_trace("invalid inherit index in CALL_SUPER", player, obj, func, line);
+            free_stack(&rts);
+            clear_locals();
+            use_soft_cycles = old_use_soft_cycles;
+            use_hard_cycles = old_use_hard_cycles;
+            call_stack = frame.prev;
+            call_stack_depth--;
+            return 1;
+          }
+          
+          /* Get the target function by index */
+          struct proto *target_proto = inh->entry->proto;
+          struct fns *target_func = target_proto->funcs->func_list;
+          idx = 0;
+          while (target_func && idx < f_idx) {
+            target_func = target_func->next;
+            idx++;
+          }
+          
+          if (!target_func) {
+            interp_error_with_trace("invalid function index in CALL_SUPER", player, obj, func, line);
+            free_stack(&rts);
+            clear_locals();
+            use_soft_cycles = old_use_soft_cycles;
+            use_hard_cycles = old_use_hard_cycles;
+            call_stack = frame.prev;
+            call_stack_depth--;
+            return 1;
+          }
+          
+          sprintf(logbuf, "Runtime>> CALL_SUPER found function '%s' in proto '%s', var_offset=%d", 
+                  target_func->funcname, target_proto->pathname ? target_proto->pathname : "unknown",
+                  inh->entry->var_offset);
+          logger(LOG_DEBUG, logbuf);
+          
+          temp_fns = target_func;
+          tmpobj = obj;  /* Execute in context of current object */
+        }
+        
+        /* Safety check - ensure function has valid code */
+        if (!temp_fns->code || temp_fns->num_instr == 0) {
+          interp_error_with_trace("parent function has no code", player, obj, func, line);
+          free_stack(&rts);
+          clear_locals();
+          use_soft_cycles = old_use_soft_cycles;
+          use_hard_cycles = old_use_hard_cycles;
+          call_stack = frame.prev;
+          call_stack_depth--;
+          return 1;
+        }
+        
+        /* Pop NUM_ARGS */
+        if (pop(&tmp, &rts, obj)) {
+          free_stack(&rts);
+          clear_locals();
+          use_soft_cycles = old_use_soft_cycles;
+          use_hard_cycles = old_use_hard_cycles;
+          call_stack = frame.prev;
+          call_stack_depth--;
+          return 1;
+        }
+        if (tmp.type != NUM_ARGS) {
+          clear_var(&tmp);
+          free_stack(&rts);
+          clear_locals();
+          use_soft_cycles = old_use_soft_cycles;
+          use_hard_cycles = old_use_hard_cycles;
+          call_stack = frame.prev;
+          call_stack_depth--;
+          return 1;
+        }
+        num_args = tmp.value.num;
+        
+        /* Push NUM_ARGS back onto stack */
+        push(&tmp, &rts);
+        
+        /* Use gen_stack to build proper argument stack (like FUNC_CALL does) */
+        stack1 = gen_stack(&rts, obj);
+        
+        /* Call parent function - execute in context of current object (obj) 
+         * The callee's frame will automatically compute its var_offset from
+         * temp_fns->origin_proto via compute_var_base()
+         */
+        old_locals = locals;
+        old_num_locals = num_locals;
+        
+        if (interp(obj, obj, player, &stack1, temp_fns)) {
+          locals = old_locals;
+          num_locals = old_num_locals;
+          free_stack(&stack1);
+          free_stack(&rts);
+          clear_locals();
+          use_soft_cycles = old_use_soft_cycles;
+          use_hard_cycles = old_use_hard_cycles;
+          call_stack = frame.prev;
+          call_stack_depth--;
+          return 1;
+        }
+        
+        locals = old_locals;
+        num_locals = old_num_locals;
+        
+        /* Get return value from stack1 and push onto rts */
+        if (pop(&tmp, &stack1, obj)) {
+          interp_error_with_trace("parent function returned malformed stack", player, obj, func, line);
+          free_stack(&rts);
+          free_stack(&stack1);
+          clear_locals();
+          use_soft_cycles = old_use_soft_cycles;
+          use_hard_cycles = old_use_hard_cycles;
+          call_stack = frame.prev;
+          call_stack_depth--;
+          return 1;
+        }
+        push(&tmp, &rts);
+        free_stack(&stack1);
+        
+        loop++;
+        break;
+      case CALL_PARENT_NAMED:
+        /* Alias::function() - call specific named parent using indexed lookup */
+        {
+          unsigned short i_idx = func->code[loop].value.parent_call.inherit_idx;
+          unsigned short f_idx = func->code[loop].value.parent_call.func_idx;
+          
+          /* Get the inherit entry */
+          struct inherit_list *inh = obj->parent->funcs->inherits;
+          int idx = 0;
+          while (inh && idx < i_idx) {
+            inh = inh->next;
+            idx++;
+          }
+          
+          if (!inh || !inh->entry || !inh->entry->proto) {
+            interp_error_with_trace("invalid inherit index in CALL_PARENT_NAMED", player, obj, func, line);
+            free_stack(&rts);
+            clear_locals();
+            use_soft_cycles = old_use_soft_cycles;
+            use_hard_cycles = old_use_hard_cycles;
+            call_stack = frame.prev;
+            call_stack_depth--;
+            return 1;
+          }
+          
+          /* Get the target function by index */
+          struct proto *target_proto = inh->entry->proto;
+          struct fns *target_func = target_proto->funcs->func_list;
+          idx = 0;
+          while (target_func && idx < f_idx) {
+            target_func = target_func->next;
+            idx++;
+          }
+          
+          if (!target_func) {
+            interp_error_with_trace("invalid function index in CALL_PARENT_NAMED", player, obj, func, line);
+            free_stack(&rts);
+            clear_locals();
+            use_soft_cycles = old_use_soft_cycles;
+            use_hard_cycles = old_use_hard_cycles;
+            call_stack = frame.prev;
+            call_stack_depth--;
+            return 1;
+          }
+          
+          temp_fns = target_func;
+          tmpobj = obj;  /* Execute in context of current object */
+        }
+        
+        /* Safety check */
+        if (!temp_fns->code || temp_fns->num_instr == 0) {
+          interp_error_with_trace("named parent function has no code", player, obj, func, line);
+          free_stack(&rts);
+          clear_locals();
+          use_soft_cycles = old_use_soft_cycles;
+          use_hard_cycles = old_use_hard_cycles;
+          call_stack = frame.prev;
+          call_stack_depth--;
+          return 1;
+        }
+        
+        /* Pop NUM_ARGS */
+        if (pop(&tmp, &rts, obj)) {
+          free_stack(&rts);
+          clear_locals();
+          use_soft_cycles = old_use_soft_cycles;
+          use_hard_cycles = old_use_hard_cycles;
+          call_stack = frame.prev;
+          call_stack_depth--;
+          return 1;
+        }
+        if (tmp.type != NUM_ARGS) {
+          clear_var(&tmp);
+          free_stack(&rts);
+          clear_locals();
+          use_soft_cycles = old_use_soft_cycles;
+          use_hard_cycles = old_use_hard_cycles;
+          call_stack = frame.prev;
+          call_stack_depth--;
+          return 1;
+        }
+        num_args = tmp.value.num;
+        
+        /* Push NUM_ARGS back onto stack */
+        push(&tmp, &rts);
+        
+        /* Use gen_stack to build proper argument stack */
+        stack1 = gen_stack(&rts, obj);
+        
+        /* Call named parent function */
+        old_locals = locals;
+        old_num_locals = num_locals;
+        if (interp(obj, obj, player, &stack1, temp_fns)) {
+          locals = old_locals;
+          num_locals = old_num_locals;
+          free_stack(&stack1);
+          free_stack(&rts);
+          clear_locals();
+          use_soft_cycles = old_use_soft_cycles;
+          use_hard_cycles = old_use_hard_cycles;
+          call_stack = frame.prev;
+          call_stack_depth--;
+          return 1;
+        }
+        locals = old_locals;
+        num_locals = old_num_locals;
+        
+        /* Get return value */
+        if (pop(&tmp, &stack1, obj)) {
+          interp_error_with_trace("named parent function returned malformed stack", player, obj, func, line);
+          free_stack(&rts);
+          free_stack(&stack1);
+          clear_locals();
+          use_soft_cycles = old_use_soft_cycles;
+          use_hard_cycles = old_use_hard_cycles;
+          call_stack = frame.prev;
+          call_stack_depth--;
+          return 1;
+        }
+        push(&tmp, &rts);
+        free_stack(&stack1);
+        
+        loop++;
         break;
       case JUMP:
         loop=func->code[loop].value.num;

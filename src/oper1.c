@@ -3,6 +3,7 @@
 #include "constrct.h"
 #include "instr.h"
 #include "protos.h"
+#include "interp.h"  /* For global_index_for and call_frame */
 #include "operdef.h"
 #include "globals.h"
 #include "cache.h"
@@ -79,18 +80,26 @@ int eq_oper(struct object *caller, struct object *obj,
       }
       *element_ptr = tmp2;
     } else {
-      /* Regular global variable */
+      /* Regular global variable - compute absolute index via GST mapping */
+      extern struct call_frame *call_stack;  /* Defined in interp.c */
+      int ok = 0;
+      unsigned int effective_index = global_index_for(obj, call_stack ? call_stack->func : NULL,
+                                                     (unsigned int)tmp1.value.l_value.ref, &ok);
+      sprintf(logbuf, "eq_oper: GLOBAL ref=%lu => effective_index=%u (ok=%d)", 
+              tmp1.value.l_value.ref, effective_index, ok);
+      logger(LOG_DEBUG, logbuf);
+      if (!ok) { clear_var(&tmp1); clear_var(&tmp2); return 1; }
       if (tmp2.type==OBJECT) {
         load_data(tmp2.value.objptr);
         tmp2.value.objptr->obj_state=DIRTY;
         tmpref=MALLOC(sizeof(struct ref_list));
         tmpref->ref_obj=obj;
-        tmpref->ref_num=tmp1.value.l_value.ref;
+        tmpref->ref_num=effective_index;
         tmpref->next=tmp2.value.objptr->refd_by;
         tmp2.value.objptr->refd_by=tmpref;
       }
-      clear_global_var(obj,tmp1.value.l_value.ref);
-      obj->globals[tmp1.value.l_value.ref]=tmp2;
+      clear_global_var(obj,effective_index);
+      obj->globals[effective_index]=tmp2;
     }
   } else {
     /* LOCAL_L_VALUE */
@@ -146,17 +155,23 @@ int pleq_oper(struct object *caller, struct object *obj,
     return 1;
   }
   if (tmp1.type==GLOBAL_L_VALUE) {
-    if (tmp2.type==INTEGER && obj->globals[tmp1.value.l_value.ref].type==
+    /* Compute effective global index for all accesses */
+    extern struct call_frame *call_stack;
+    int ok_eff = 0;
+    unsigned int eff_idx = global_index_for(obj, call_stack ? call_stack->func : NULL,
+                                           (unsigned int)tmp1.value.l_value.ref, &ok_eff);
+    if (!ok_eff) { clear_var(&tmp1); clear_var(&tmp2); return 1; }
+    if (tmp2.type==INTEGER && obj->globals[eff_idx].type==
         INTEGER) {
       push(&tmp1,rts);
       push(&tmp2,rts);
       return intaddeq(caller,obj,player,rts);
     }
     /* Array concatenation assignment: array += array */
-    if (tmp2.type==ARRAY && obj->globals[tmp1.value.l_value.ref].type==ARRAY) {
+    if (tmp2.type==ARRAY && obj->globals[eff_idx].type==ARRAY) {
       struct heap_array *result;
       
-      result = array_concat(obj->globals[tmp1.value.l_value.ref].value.array_ptr, tmp2.value.array_ptr);
+      result = array_concat(obj->globals[eff_idx].value.array_ptr, tmp2.value.array_ptr);
       if (!result) {
         clear_var(&tmp1);
         clear_var(&tmp2);
@@ -164,8 +179,8 @@ int pleq_oper(struct object *caller, struct object *obj,
       }
       
       /* Release old array, assign new one */
-      array_release(obj->globals[tmp1.value.l_value.ref].value.array_ptr);
-      obj->globals[tmp1.value.l_value.ref].value.array_ptr = result;
+      array_release(obj->globals[eff_idx].value.array_ptr);
+      obj->globals[eff_idx].value.array_ptr = result;
       obj->obj_state=DIRTY;
       
       clear_var(&tmp1);
@@ -173,10 +188,10 @@ int pleq_oper(struct object *caller, struct object *obj,
       return 0;
     }
     /* Mapping merge assignment: mapping += mapping */
-    if (tmp2.type==MAPPING && obj->globals[tmp1.value.l_value.ref].type==MAPPING) {
+    if (tmp2.type==MAPPING && obj->globals[eff_idx].type==MAPPING) {
       struct heap_mapping *result;
       
-      result = mapping_merge(obj->globals[tmp1.value.l_value.ref].value.mapping_ptr, tmp2.value.mapping_ptr);
+      result = mapping_merge(obj->globals[eff_idx].value.mapping_ptr, tmp2.value.mapping_ptr);
       if (!result) {
         clear_var(&tmp1);
         clear_var(&tmp2);
@@ -184,8 +199,8 @@ int pleq_oper(struct object *caller, struct object *obj,
       }
       
       /* Release old mapping, assign new one */
-      mapping_release(obj->globals[tmp1.value.l_value.ref].value.mapping_ptr);
-      obj->globals[tmp1.value.l_value.ref].value.mapping_ptr = result;
+      mapping_release(obj->globals[eff_idx].value.mapping_ptr);
+      obj->globals[eff_idx].value.mapping_ptr = result;
       obj->obj_state=DIRTY;
       
       clear_var(&tmp1);
@@ -197,25 +212,25 @@ int pleq_oper(struct object *caller, struct object *obj,
       tmp2.value.string=copy_string("");
     }
     if (tmp2.type==STRING) {
-      if (obj->globals[tmp1.value.l_value.ref].type==INTEGER && obj->globals
-          [tmp1.value.l_value.ref].value.integer==0) {
-        obj->globals[tmp1.value.l_value.ref].type=STRING;
-        obj->globals[tmp1.value.l_value.ref].value.string=copy_string("");
+      if (obj->globals[eff_idx].type==INTEGER && obj->globals
+          [eff_idx].value.integer==0) {
+        obj->globals[eff_idx].type=STRING;
+        obj->globals[eff_idx].value.string=copy_string("");
       }
     }
-    if (tmp2.type!=STRING || obj->globals[tmp1.value.l_value.ref].type!=
+    if (tmp2.type!=STRING || obj->globals[eff_idx].type!=
         STRING) {
       clear_var(&tmp1);
       clear_var(&tmp2);
       return 1;
     }
-    tmpstr=MALLOC(strlen(obj->globals[tmp1.value.l_value.ref].value.string)+
+    tmpstr=MALLOC(strlen(obj->globals[eff_idx].value.string)+
                   strlen(tmp2.value.string)+1);
-    strcat(strcpy(tmpstr,obj->globals[tmp1.value.l_value.ref].value.string),
+    strcat(strcpy(tmpstr,obj->globals[eff_idx].value.string),
            tmp2.value.string);
-    clear_global_var(obj,tmp1.value.l_value.ref);
-    obj->globals[tmp1.value.l_value.ref].type=STRING;
-    obj->globals[tmp1.value.l_value.ref].value.string=tmpstr;
+    clear_global_var(obj,eff_idx);
+    obj->globals[eff_idx].type=STRING;
+    obj->globals[eff_idx].value.string=tmpstr;
     obj->obj_state=DIRTY;
   } else {
     if (tmp2.type==INTEGER && locals[tmp1.value.l_value.ref].type==INTEGER) {

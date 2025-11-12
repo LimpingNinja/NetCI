@@ -11,12 +11,10 @@
 #include <config.h>
 
 /* Main command execution */
-execute(args) {
-    object player, *inv;
+do_command(player, args) {
+    object *inv;
     int i;
     string output;
-    
-    player = this_player();
     if (!player) return 0;
     
     /* Get inventory */
@@ -41,8 +39,10 @@ execute(args) {
 
 /* Help text */
 query_help() {
-    return "Syntax: inventory\n"+
-           "        inv\n"+
-           "        i\n\n"+
-           "List what you're carrying.\n";
+    return "List your items\n"+
+           "Category: inventory\n\n"+
+           "Usage:\n"+
+           "  inventory\n"+
+           "  i\n\n"+
+           "Shows all items you are currently carrying.\n";
 }

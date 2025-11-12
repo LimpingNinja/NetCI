@@ -9,6 +9,7 @@
 #include "cache.h"
 #include "file.h"
 #include "cache.h"
+#include "interp.h"  /* For struct call_frame definition */
 
 /**
  * Validates filename for virtual filesystem
@@ -103,6 +104,10 @@ void free_code(struct code *the_code) {
     FREE(curr);
   }
   free_gst(the_code->gst);
+  if (the_code->ancestor_map)
+    FREE(the_code->ancestor_map);
+  if (the_code->gst_map)
+    FREE(the_code->gst_map);
   FREE(the_code);
 }
 
@@ -185,6 +190,7 @@ void pushnocopy(struct var *data, struct var_stack **rts) {
 int resolve_var(struct var *data, struct object *obj) {
   struct var *element_ptr;
   char logbuf[256];
+  extern struct call_frame *call_stack;  /* For definer context */
   
   sprintf(logbuf, "resolve_var: type=%d", data->type);
   logger(LOG_DEBUG, logbuf);
@@ -221,25 +227,32 @@ int resolve_var(struct var *data, struct object *obj) {
           return 1;
       }
     } else {
-      /* Regular global variable */
-      data->type=obj->globals[data->value.l_value.ref].type;
+      /* Regular global variable - compute absolute index via GST mapping */
+      int ok = 0;
+      unsigned int effective_index = global_index_for(obj, call_stack ? call_stack->func : NULL,
+                                                     (unsigned int)data->value.l_value.ref, &ok);
+      sprintf(logbuf, "resolve_var: GLOBAL ref=%lu => effective_index=%u (ok=%d)", 
+              data->value.l_value.ref, effective_index, ok);
+      logger(LOG_DEBUG, logbuf);
+      if (!ok) return 1;
+      data->type=obj->globals[effective_index].type;
       switch (data->type) {
         case INTEGER:
-          data->value.integer=obj->globals[data->value.l_value.ref].value.integer;
+          data->value.integer=obj->globals[effective_index].value.integer;
           break;
         case STRING:
-          data->value.string=copy_string(obj->globals[data->value.l_value.ref].
+          data->value.string=copy_string(obj->globals[effective_index].
                                          value.string);
           break;
         case OBJECT:
-          data->value.objptr=obj->globals[data->value.l_value.ref].value.objptr;
+          data->value.objptr=obj->globals[effective_index].value.objptr;
           break;
         case ARRAY:
-          data->value.array_ptr=obj->globals[data->value.l_value.ref].value.array_ptr;
+          data->value.array_ptr=obj->globals[effective_index].value.array_ptr;
           array_addref(data->value.array_ptr);  /* Increment refcount */
           break;
         case MAPPING:
-          data->value.mapping_ptr=obj->globals[data->value.l_value.ref].value.mapping_ptr;
+          data->value.mapping_ptr=obj->globals[effective_index].value.mapping_ptr;
           mapping_addref(data->value.mapping_ptr);  /* Increment refcount */
           break;
         default:

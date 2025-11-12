@@ -3,7 +3,7 @@
 /* contains the definitions for the object-code instructions */
 
 #define NUM_OPERS      38
-#define NUM_SCALLS     110  /* Updated for mapping literals: s_mapping_literal added */
+#define NUM_SCALLS     128  /* Updated for users, objects, children, all_inventory */
 
 #define COMMA_OPER     0    /*  ,   */
 #define EQ_OPER        1    /*  =   */
@@ -183,3 +183,20 @@
 
 /* Mapping literals (Phase 4) */
 #define S_MAPPING_LITERAL 147 /* ([ key: value, ... ]) - create mapping literal */
+
+/* Serialization efuns */
+#define S_SAVE_VALUE    148 /* save_value(mixed value) - serialize to string */
+#define S_RESTORE_VALUE 149 /* restore_value(string str) - deserialize from string */
+
+/* String manipulation efuns */
+#define S_REPLACE_STRING 150 /* replace_string(string str, string search, string replace) */
+
+/* Inheritance support - indexed parent calls */
+#define CALL_SUPER         151 /* ::function() - call next-up in MRO */
+#define CALL_PARENT_NAMED  152 /* Alias::function() - call specific parent by alias */
+
+/* Formatted output */
+#define S_SYSWRITE         153 /* syswrite(string msg) - write to syswrite.txt with object formatting */
+
+/* Dynamic compilation */
+#define S_COMPILE_STRING   154 /* compile_string(string code) - compile LPC code from string (admin only) */

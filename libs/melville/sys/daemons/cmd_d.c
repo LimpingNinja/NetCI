@@ -23,6 +23,9 @@
 /* Command table: mapping of directory paths to arrays of command names */
 mapping cmd_table;
 
+/* Command aliases: mapping of short forms to full commands */
+mapping aliases;
+
 /* ========================================================================
  * INITIALIZATION
  * ======================================================================== */
@@ -30,6 +33,22 @@ mapping cmd_table;
 static init() {
     /* Initialize command table */
     cmd_table = ([]);
+    
+    /* Initialize command aliases */
+    aliases = ([
+        "i": "inventory",
+        "l": "look",
+        "n": "go north",
+        "s": "go south",
+        "e": "go east",
+        "w": "go west",
+        "u": "go up",
+        "d": "go down",
+        "ne": "go northeast",
+        "nw": "go northwest",
+        "se": "go southeast",
+        "sw": "go southwest"
+    ]);
     
     /* Load all command directories */
     rehash(PLAYER_CMD_DIR);
@@ -48,7 +67,14 @@ static init() {
 process_command(player, input) {
     string verb, args, cmd_path, *search_path;
     object cmd_ob;
-    int result, space_pos;
+    int result;
+    
+    if (!player || !input) return;
+    
+    /* Check for command aliases and expand if found */
+    if (aliases[input]) {
+        input = aliases[input];
+    }
     
     syslog("DEBUG: cmd_d.process_command called - player: " + otoa(player) + ", input: '" + input + "'");
     
@@ -57,16 +83,16 @@ process_command(player, input) {
         return;
     }
     
-    /* Parse verb and arguments - simple split on first space */
-    space_pos = instr(input, 1, " ");  /* NetCI uses 1-based indexing */
-    if (space_pos == 0) {
-        /* No space found, entire input is the verb */
-        verb = input;
+    /* Parse verb and arguments using sscanf */
+    if (sscanf(input, "%s %s", verb, args) == 2) {
+        /* Got both verb and args */
+    } else if (sscanf(input, "%s", verb) == 1) {
+        /* Got only verb, no args */
         args = NULL;
     } else {
-        /* Split: verb is before space, args is after */
-        verb = leftstr(input, space_pos - 1);
-        args = rightstr(input, strlen(input) - space_pos);
+        /* Empty input */
+        verb = NULL;
+        args = NULL;
     }
         
     /* Get search path based on player's role */
@@ -95,14 +121,15 @@ process_command(player, input) {
         return;
     }
     
-    /* Execute command using execute() callback
-     * Commands now use this_player() internally, so we only pass args
-     */
-    if (args) {
-        result = cmd_ob.execute(args);
-    } else {
-        result = cmd_ob.execute();
+    /* Grant privilege to admin commands */
+    if (leftstr(cmd_path, 12) == "/cmds/admin/") {
+        set_priv(cmd_ob, 1);
     }
+    
+    /* Execute command using do_command(player, args) callback
+     * Pass player explicitly rather than relying on this_player()
+     */
+    result = cmd_ob.do_command(player, args);
     
     /* Commands return 1 on success, 0 on failure */
     if (!result) {
@@ -113,6 +140,126 @@ process_command(player, input) {
 /* ========================================================================
  * COMMAND DISCOVERY
  * ======================================================================== */
+
+/* Get a command based on player and verb */
+get_command(object player, string verb) {
+    string *search_path;
+    
+    search_path = get_search_path(player);
+    return find_command(verb, search_path);
+}
+
+/* Get all commands organized by role directory
+ * Returns mapping: ([ "admin": ({ "eval", "exec" }), "player": ({ "say", "look" }) ])
+ */
+get_commands(object player) {
+    string *search_path, dir, role;
+    mapping result;
+    int i, pos;
+    
+    search_path = get_search_path(player);
+    result = ([]);
+    
+    for (i = 0; i < sizeof(search_path); i++) {
+        dir = search_path[i];
+        
+        /* Ensure directory is in command table */
+        if (!cmd_table[dir]) {
+            rehash(dir);
+        }
+        
+        /* Add commands from this directory using just the role name */
+        if (cmd_table[dir]) {
+            /* Extract role from path: "/cmds/admin" -> "admin" */
+            pos = strlen(dir) - 1;
+            while (pos >= 0 && midstr(dir, pos, pos) != "/") {
+                pos = pos - 1;
+            }
+            role = midstr(dir, pos + 1, strlen(dir) - 1);
+            result[role] = cmd_table[dir];
+        }
+    }
+    
+    return result;
+}
+
+/* Get flat array of all commands available to player
+ * Returns array: ({ "eval", "exec", "rehash", "say", "look", "who", ... })
+ */
+get_player_commands(object player) {
+    string *search_path, dir, *cmds;
+    string *result;
+    int i;
+    
+    search_path = get_search_path(player);
+    result = ({});
+    
+    for (i = 0; i < sizeof(search_path); i++) {
+        dir = search_path[i];
+        
+        /* Ensure directory is in command table */
+        if (!cmd_table[dir]) {
+            rehash(dir);
+        }
+        
+        /* Append commands from this directory */
+        if (cmd_table[dir]) {
+            cmds = cmd_table[dir];
+            if (cmds) {
+                result = result + cmds;
+            }
+        }
+    }
+    
+    return result;
+}
+
+/* Get all commands within a specific role
+ * Returns array: ({ "eval", "exec", "rehash" })
+ */
+get_role_commands(string role) {
+    string dir;
+    
+    if (!role) return ({});
+    
+    /* Build directory path */
+    dir = "/cmds/" + role;
+    
+    /* Ensure directory is in command table */
+    if (!cmd_table[dir]) {
+        rehash(dir);
+    }
+    
+    /* Return commands for this role */
+    if (cmd_table[dir]) {
+        return cmd_table[dir];
+    }
+    
+    return ({});
+}
+
+/* Get all commands from all roles
+ * Returns array: ({ "eval", "exec", "rehash", "say", "look", "who", ... })
+ */
+get_all_commands() {
+    string *dirs, *cmds;
+    string *result;
+    int i;
+    
+    dirs = keys(cmd_table);
+    result = ({});
+    
+    for (i = 0; i < sizeof(dirs); i++) {
+        if (cmd_table[dirs[i]]) {
+            cmds = cmd_table[dirs[i]];
+            if (cmds) {
+                result = result + cmds;
+            }
+        }
+    }
+    
+    return result;
+}
 
 /* Find a command in the given search path
  * Returns full path to command file (without .c extension)
@@ -208,14 +355,9 @@ rehash(dir) {
     for (i = 0; i < sizeof(files); i++) {
         file = files[i];
         
-        /* Check if file starts with _ and ends with .c */
-        if (strlen(file) > 3 && leftstr(file, 1) == "_") {
-            /* Remove leading _ and trailing .c */
-            if (rightstr(file, 2) == ".c") {
-                /* midstr is 1-indexed! pos=2 to skip the _, len=strlen-3 to remove _.c */
-                verb = midstr(file, 2, strlen(file) - 3);
-                cmds = cmds + ({ verb });
-            }
+        /* Extract command name from _verb.c pattern using sscanf */
+        if (sscanf(file, "_%s.c", verb) == 1) {
+            cmds = cmds + ({ verb });
         }
     }
     
@@ -225,30 +367,20 @@ rehash(dir) {
     return 1;
 }
 
-/* Get directory listing
- * NOTE: ls() calls listen() on each file, we need a different approach
- * For now, we'll use a simple file existence check pattern
+/* Get directory listing using get_dir() efun
+ * Returns array of filenames in the directory
  */
 get_dir_list(dir) {
-    string *common_verbs, *files, verb, path;
-    int i, stat_result;
+    string *files;
     
-    /* TODO: This is a workaround until we implement proper directory scanning
-     * For now, check for common command verbs
-     */
-    common_verbs = ({ "look", "go", "get", "drop", "inventory", "quit", 
-                      "say", "emote", "who", "help", "save" });
+    /* Use get_dir() to get actual directory contents */
+    files = get_dir(dir);
     
-    files = ({});
-    
-    for (i = 0; i < sizeof(common_verbs); i++) {
-        verb = common_verbs[i];
-        path = dir + "/_" + verb + ".c";
-        stat_result = fstat(path);
-        if (stat_result > 0) {
-            files = files + ({ "_" + verb + ".c" });
-        }
+    if (!files) {
+        syslog("WARNING: cmd_d.get_dir_list() - could not read directory: " + dir);
+        return ({});
     }
+    
     return files;
 }
 

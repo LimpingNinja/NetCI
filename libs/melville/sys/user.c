@@ -259,6 +259,8 @@ create_player(name, password) {
 
 /* Transfer connection from user to player */
 transfer_to_player(player) {
+    object users_d;
+    
     if (!player) {
         send_device("Error: Invalid player object.\n");
         disconnect_device();
@@ -279,6 +281,12 @@ transfer_to_player(player) {
     /* Let player handle connection now */
     player.connect();
     
+    /* Notify users daemon of new login */
+    users_d = atoo(USERS_D);
+    if (users_d) {
+        call_other(users_d, "user_logged_in", player);
+    }
+    
     /* We're done - destruct user object */
     destruct(this_object());
 }
@@ -287,21 +295,7 @@ transfer_to_player(player) {
  * UTILITY FUNCTIONS
  * ======================================================================== */
 
-/* Capitalize first letter of string */
-capitalize(str) {
-    string first, rest;
-    
-    if (!str || strlen(str) == 0) return str;
-    
-    if (strlen(str) == 1) {
-        return upcase(str);
-    }
-    
-    first = leftstr(str, 1);
-    rest = rightstr(str, strlen(str) - 1);
-    
-    return upcase(first) + rest;
-}
+/* NOTE: capitalize() is available from auto.c (automatically attached) */
 
 /* ========================================================================
  * DISCONNECTION

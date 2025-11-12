@@ -1,0 +1,27 @@
+Getting Started with NetCI
+
+Welcome to NetCI! Here are some basic tips to get you started:
+
+1. Looking Around
+   Type 'look' to see your surroundings and what's in the room.
+
+2. Getting Help
+   Type 'help' to see this help system.
+   Type 'help commands' to see available commands.
+   Type 'help <command>' to get help on a specific command.
+
+3. Talking to Others
+   Type 'say <message>' to talk to people in the same room.
+   Type 'who' to see who else is online.
+
+4. Moving Around
+   Use direction commands like: north, south, east, west, up, down
+   (Or their abbreviations: n, s, e, w, u, d)
+
+5. Your Inventory
+   Type 'inventory' to see what you're carrying.
+
+6. Exiting
+   Type 'quit' when you want to leave.
+
+Have fun exploring!

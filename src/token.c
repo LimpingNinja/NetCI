@@ -39,6 +39,8 @@ unsigned char find_keyword(char *name)
     return VAR_DCL_TOK;
   if (!strcmp(name,"mapping"))
     return MAPPING_TOK;
+  if (!strcmp(name,"inherit"))
+    return INHERIT_TOK;
   if (!strcmp(name,"static"))
     return STATIC_TOK;
   if (!strcmp(name,"else"))

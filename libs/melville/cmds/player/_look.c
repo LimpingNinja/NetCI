@@ -9,11 +9,9 @@
 #include <config.h>
 
 /* Main command execution */
-execute(args) {
-    object player, env, target;
+do_command(player, args) {
+    object env, target;
     string desc;
-    
-    player = this_player();
     if (!player) return 0;
     
     /* No arguments - look at room */
@@ -30,10 +28,10 @@ execute(args) {
         return 1;
     }
     
-    /* Remove "at" if present */
-    if (leftstr(args, 3) == "at ") {
-        args = rightstr(args, strlen(args) - 3);
-        args = trim(args);
+    /* Remove "at" if present using sscanf */
+    string target_name;
+    if (sscanf(args, "at %s", target_name) == 1) {
+        args = target_name;
     }
     
     /* Look at specific object */
@@ -54,7 +52,10 @@ execute(args) {
 
 /* Help text */
 query_help() {
-    return "Syntax: look [at <object>]\n\n"+
+    return "Examine surroundings or objects\n"+
+           "Category: information\n\n"+
+           "Usage:\n"+
+           "  look [at <object>]\n\n"+
            "Look at your surroundings or a specific object.\n\n"+
            "Examples:\n"+
            "  look          - Look at the room\n"+

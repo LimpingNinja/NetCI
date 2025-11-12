@@ -108,7 +108,7 @@ static init() {
 
 /* Called by alarm() to initialize daemons */
 static finish_init() {
-    object daemon, wizobj, room;
+    object daemon, wizobj, room, test_obj;
     
     syslog("Compiling objects required for system operation...");
     
@@ -136,8 +136,16 @@ static finish_init() {
         set_priv(daemon, 1);
     }
     
-    /* Check if wizard player file exists */
-    if (fstat("/sys/data/players/wizard.o") == -1) {
+    /* Initialize users tracking daemon */
+    syslog("...users_d.c");
+    compile_object(USERS_D);
+    daemon = atoo(USERS_D);
+    if (daemon) {
+        set_priv(daemon, 1);
+    }
+    
+    /* Create initial wizard if needed */
+    if (file_size("/sys/data/players/wizard.o") < 0) {
         wizobj = new(PLAYER_PATH);
         if (wizobj) {
             wizobj.set_name("wizard");
@@ -148,9 +156,19 @@ static finish_init() {
         } else {
             syslog("ERROR: Failed to create wizard character");
         }
+    } else {
+        syslog("Wizard character already exists");
     }
     
-    /* Note: log_d and user_d don't exist yet - we'll add them later */
+    /* Boot sequence complete */
+    syslog("Boot sequence complete - all systems initialized");
+    
+    /* Note: Test suites can be run manually via eval command:
+     *   eval new("/test/test_compile_string").run_tests();
+     *   eval new("/test/test_eval_lifecycle").run_tests();
+     *   eval new("/test/test_crypt").run_tests();
+     *   eval new("/test/test_users_d").run_tests();
+     */
 }
 
 /* ========================================================================
@@ -336,22 +354,21 @@ static path_starts_with(path, prefix) {
 
 /* Check if path is in user's home directory */
 static is_in_home_dir(path, username) {
-    int next_slash;
-    string path_user;
+    string path_user, rest;
     
     if (!path || !username) return 0;
     
     /* Check if path starts with /world/wiz/ */
     if (!path_starts_with(path, "/world/wiz/")) return 0;
     
-    /* Extract username from path */
-    next_slash = instr(path, 12, "/");  /* 12 = length of "/world/wiz/" */
-    if (!next_slash) {
+    /* Extract username from path using sscanf */
+    if (sscanf(path, "/world/wiz/%s/%s", path_user, rest) == 2) {
+        /* Path has subdirectories: /world/wiz/username/... */
+    } else if (sscanf(path, "/world/wiz/%s", path_user) == 1) {
         /* Path is exactly /world/wiz/username */
-        path_user = rightstr(path, strlen(path) - 11);
     } else {
-        /* Path is /world/wiz/username/... */
-        path_user = midstr(path, 12, next_slash - 12);
+        /* Invalid path format */
+        return 0;
     }
     
     return (downcase(path_user) == downcase(username));
@@ -387,7 +404,7 @@ save_db() {
 
 /* For debugging - allow boot.c to receive messages */
 listen(arg) {
-    send_device(arg);
+    syswrite(arg);
 }
 
 /* Query functions for system information */
@@ -423,30 +440,6 @@ compile(path) {
     
     compile_object(path);
     return atoo(path);
-}
-
-/* Get or compile an object - ensures prototype exists
- * Returns the prototype object
- */
-get_object(path) {
-    object obj, caller;
-    
-    if (!path) return 0;
-    
-    caller = caller_object();
-    
-    /* Only allow privileged callers or auto.c */
-    if (!priv(caller) && caller != this_object() && caller != atoo("/sys/auto")) {
-        syslog("boot.get_object(): DENIED - caller not privileged: " + otoa(caller));
-        return 0;
-    }
-    
-    obj = atoo(path);
-    if (!obj) {
-        compile_object(path);
-        obj = atoo(path);
-    }
-    return obj;
 }
 
 /* Clone an object - ensures prototype exists first, then clones

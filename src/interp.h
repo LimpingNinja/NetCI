@@ -5,6 +5,7 @@ struct call_frame {
   struct object *obj;           /* Object being executed */
   struct fns *func;             /* Function being executed */
   unsigned long line;           /* Current line number */
+  unsigned short var_offset;    /* Variable base offset for inherited functions */
   struct call_frame *prev;      /* Previous frame (caller) */
 };
 
@@ -19,3 +20,7 @@ void interp_error_compact(char *msg, struct object *player, struct object *obj,
                           struct fns *func, unsigned long line);
 int interp(struct object *caller, struct object *obj, struct object *player,
            struct var_stack **arg_stack, struct fns *func);
+
+/* Centralized helper to compute absolute global index using GST mapping */
+unsigned int global_index_for(struct object *obj, struct fns *definer_fn,
+                              unsigned int ref, int *ok);

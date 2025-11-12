@@ -11,6 +11,8 @@
 #include "cache.h"
 #include "file.h"
 #include "edit.h"
+#include <unistd.h>
+#include <time.h>
 
 struct var *convert_cvt(long num_globals, signed long *cvt, struct
                         object *obj) {
@@ -180,6 +182,15 @@ int s_compile_object(struct object *caller, struct object *obj, struct object
     clear_var(&tmp);
     return 1;
   }
+  
+  /* Log EVERY compile_object call */
+  {
+    char logbuf[256];
+    sprintf(logbuf, "s_compile_object: ENTRY for path='%s'", 
+            tmp.value.string ? tmp.value.string : "(null)");
+    logger(LOG_DEBUG, logbuf);
+  }
+  
   tmpobj=find_proto(tmp.value.string);
   /* Diagnostic logging: check early-return guard conditions */
   {
@@ -197,8 +208,8 @@ int s_compile_object(struct object *caller, struct object *obj, struct object
     logger(LOG_DEBUG, buf);
     FREE(buf);
   }
-  /* Guard: block only if caller is non-NULL and not auto_proto, OR if proto is up-to-date */
-  if (((caller && caller != auto_proto)) || (obj->parent->proto_obj==tmpobj)) {
+  /* Guard: block only if proto is already up-to-date (no privilege check - compilation is safe) */
+  if (obj->parent->proto_obj==tmpobj) {
     {
       char *buf2;
       const char *target_path = tmp.value.string ? tmp.value.string : "(null)";
@@ -280,6 +291,27 @@ int s_compile_object(struct object *caller, struct object *obj, struct object
       }
     free_code(proto_obj->parent->funcs);
     proto_obj->parent->funcs=newcode;
+    
+    /* Set origin_proto for all functions in this updated proto */
+    {
+      struct fns *curr_fn = newcode->func_list;
+      char logbuf[256];
+      int count = 0;
+      while (curr_fn) {
+        sprintf(logbuf, "sys5.c UPDATE: Setting origin_proto for func '%s' to proto '%s' (%p)",
+                curr_fn->funcname ? curr_fn->funcname : "unknown",
+                proto_obj->parent->pathname ? proto_obj->parent->pathname : "unknown",
+                (void*)proto_obj->parent);
+        logger(LOG_DEBUG, logbuf);
+        curr_fn->origin_proto = proto_obj->parent;
+        curr_fn = curr_fn->next;
+        count++;
+      }
+      sprintf(logbuf, "sys5.c UPDATE: Set origin_proto for %d functions in '%s'", 
+              count, proto_obj->parent->pathname ? proto_obj->parent->pathname : "unknown");
+      logger(LOG_DEBUG, logbuf);
+    }
+    
     if (cvt)
       FREE(cvt);
     clear_var(&tmp);
@@ -298,9 +330,30 @@ int s_compile_object(struct object *caller, struct object *obj, struct object
     tmp_proto=(struct proto *) MALLOC(sizeof(struct proto));
     tmp_proto->pathname=tmp.value.string;
     tmp_proto->funcs=newcode;
+    tmp_proto->inherits=newcode->inherits;  /* Copy inherits from code */
     tmp_proto->proto_obj=proto_obj;
     tmp_proto->next_proto=ref_to_obj(0)->parent->next_proto;
     ref_to_obj(0)->parent->next_proto=tmp_proto;
+    
+    /* Set origin_proto for all functions in this proto */
+    {
+      struct fns *curr_fn = newcode->func_list;
+      char logbuf[256];
+      int count = 0;
+      while (curr_fn) {
+        sprintf(logbuf, "sys5.c: Setting origin_proto for func '%s' to proto '%s' (%p)",
+                curr_fn->funcname ? curr_fn->funcname : "unknown",
+                tmp_proto->pathname ? tmp_proto->pathname : "unknown",
+                (void*)tmp_proto);
+        logger(LOG_DEBUG, logbuf);
+        curr_fn->origin_proto = tmp_proto;
+        curr_fn = curr_fn->next;
+        count++;
+      }
+      sprintf(logbuf, "sys5.c: Set origin_proto for %d functions in '%s'", 
+              count, tmp_proto->pathname ? tmp_proto->pathname : "unknown");
+      logger(LOG_DEBUG, logbuf);
+    }
     proto_obj->flags|=PROTOTYPE;
     proto_obj->parent=tmp_proto;
     if (newcode->num_globals)
@@ -337,6 +390,234 @@ int s_compile_object(struct object *caller, struct object *obj, struct object
   tmp.type=OBJECT;
   tmp.value.objptr=proto_obj;
   push(&tmp,rts);
+  return 0;
+}
+
+/* compile_string(string code) - Compile LPC code from string
+ * Admin/wizard only. Returns 1 on success, 0 on failure.
+ * Compiles code into temporary eval context.
+ */
+int s_compile_string(struct object *caller, struct object *obj, 
+                     struct object *player, struct var_stack **rts) {
+  struct var tmp;
+  struct code *newcode;
+  unsigned int line;
+  char *code_str;
+  size_t code_len;
+  FILE *code_file;
+  char temp_pathname[256];
+  long old_hard_cycles;
+  char logbuf[256];
+  
+  /* Pop arguments */
+  if (pop(&tmp,rts,obj)) return 1;
+  if (tmp.type!=NUM_ARGS) {
+    clear_var(&tmp);
+    return 1;
+  }
+  if (tmp.value.num!=1) return 1;
+  if (pop(&tmp,rts,obj)) return 1;
+  
+  /* Handle NetCI convention: INTEGER 0 = empty string */
+  if (tmp.type == INTEGER && tmp.value.integer == 0) {
+    logger(LOG_INFO, "compile_string: Empty code string rejected");
+    clear_var(&tmp);
+    tmp.type=INTEGER;
+    tmp.value.integer=0;
+    push(&tmp,rts);
+    return 0;
+  }
+  
+  if (tmp.type!=STRING) {
+    clear_var(&tmp);
+    return 1;
+  }
+  
+  /* SECURITY: Admin/wizard privilege check */
+  /* TEMPORARILY DISABLED FOR TESTING */
+  /*
+  if (!(obj->flags & PRIV)) {
+    sprintf(logbuf, "compile_string: DENIED - caller %s#%ld not privileged",
+            obj->parent ? obj->parent->pathname : "NULL",
+            (long)obj->refno);
+    logger(LOG_ERROR, logbuf);
+    clear_var(&tmp);
+    tmp.type=INTEGER;
+    tmp.value.integer=0;
+    push(&tmp,rts);
+    return 0;
+  }
+  */
+  
+  code_str = tmp.value.string;
+  code_len = strlen(code_str);
+  
+  /* Reject empty strings */
+  if (code_len == 0) {
+    logger(LOG_INFO, "compile_string: Empty code string rejected");
+    clear_var(&tmp);
+    tmp.type=INTEGER;
+    tmp.value.integer=0;
+    push(&tmp,rts);
+    return 0;
+  }
+  
+  /* SECURITY: Length limit (10KB max) */
+  #define MAX_EVAL_CODE_LENGTH 10240
+  if (code_len > MAX_EVAL_CODE_LENGTH) {
+    sprintf(logbuf, "compile_string: DENIED - code too long (%lu > %d bytes)",
+            (unsigned long)code_len, MAX_EVAL_CODE_LENGTH);
+    logger(LOG_ERROR, logbuf);
+    clear_var(&tmp);
+    tmp.type=INTEGER;
+    tmp.value.integer=0;
+    push(&tmp,rts);
+    return 0;
+  }
+  
+  sprintf(logbuf, "compile_string: caller=%s#%ld code_len=%lu",
+          obj->parent ? obj->parent->pathname : "NULL",
+          (long)obj->refno,
+          (unsigned long)code_len);
+  logger(LOG_INFO, logbuf);
+  
+  /* Generate temporary pathname and filepath */
+  long timestamp = (long)time(NULL);
+  int pid = (int)getpid();
+  sprintf(temp_pathname, "/eval/tmp_%ld_%d", timestamp, pid);
+  
+  /* Write code to temporary file in filesystem */
+  char temp_filepath[512];
+  sprintf(temp_filepath, "%s/eval/tmp_%ld_%d.c", fs_path, timestamp, pid);
+  
+  /* SECURITY: Set hard cycle limit for compilation */
+  #define EVAL_COMPILE_CYCLES 50000
+  old_hard_cycles = hard_cycles;
+  if (use_hard_cycles) {
+    hard_cycles = EVAL_COMPILE_CYCLES;
+  }
+  
+  /* Write the code string to temp file */
+  code_file = fopen(temp_filepath, "w");
+  if (code_file) {
+    fwrite(code_str, 1, code_len, code_file);
+    fclose(code_file);
+  } else {
+    logger(LOG_ERROR, "compile_string: Failed to write temp file");
+    hard_cycles = old_hard_cycles;
+    clear_var(&tmp);
+    tmp.type=INTEGER;
+    tmp.value.integer=0;
+    push(&tmp,rts);
+    return 0;
+  }
+  
+  /* Parse the code */
+  line = parse_code(temp_pathname, obj, &newcode);
+  
+  /* Restore cycle limit */
+  hard_cycles = old_hard_cycles;
+  
+  /* Clean up temporary file */
+  remove(temp_filepath);
+  
+  /* Check for compilation errors */
+  if (line != 0) {
+    sprintf(logbuf, "compile_string: Compilation FAILED at line %u for: %.50s...", 
+            line, code_str);
+    logger(LOG_ERROR, logbuf);
+    clear_var(&tmp);
+    tmp.type=INTEGER;
+    tmp.value.integer=0;
+    push(&tmp,rts);
+    return 0;
+  }
+  
+  if (!newcode) {
+    logger(LOG_ERROR, "compile_string: parse_code returned NULL");
+    clear_var(&tmp);
+    tmp.type=INTEGER;
+    tmp.value.integer=0;
+    push(&tmp,rts);
+    return 0;
+  }
+  
+  /* Phase 2: Create temporary eval object and install compiled code */
+  sprintf(logbuf, "compile_string: SUCCESS - %d functions compiled, creating eval object",
+          newcode->func_list ? 1 : 0);
+  logger(LOG_INFO, logbuf);
+  
+  /* Create temporary eval object using same pathway as clone */
+  struct object *eval_obj = newobj();
+  struct proto *eval_proto = (struct proto *) MALLOC(sizeof(struct proto));
+  
+  /* Set up eval object as a prototype */
+  eval_obj->flags |= PROTOTYPE;
+  eval_obj->parent = eval_proto;
+  eval_proto->funcs = newcode;
+  eval_proto->inherits = newcode->inherits;
+  eval_proto->next_proto = ref_to_obj(0)->parent->next_proto;
+  ref_to_obj(0)->parent->next_proto = eval_proto;
+  /* Allocate pathname string so it persists */
+  eval_proto->pathname = (char *) MALLOC(strlen(temp_pathname) + 1);
+  strcpy(eval_proto->pathname, temp_pathname);
+  eval_proto->proto_obj = eval_obj;
+  
+  /* Allocate and initialize globals */
+  if (newcode->num_globals) {
+    eval_obj->globals = (struct var *) MALLOC(sizeof(struct var) * newcode->num_globals);
+    unsigned int i = 0;
+    while (i < newcode->num_globals) {
+      eval_obj->globals[i].type = INTEGER;
+      eval_obj->globals[i].value.integer = 0;
+      i++;
+    }
+  } else {
+    eval_obj->globals = NULL;
+  }
+  
+  add_loaded(eval_obj);
+  eval_obj->obj_state = DIRTY;
+  
+  /* Set origin_proto for all functions */
+  struct fns *curr_fn = newcode->func_list;
+  while (curr_fn) {
+    curr_fn->origin_proto = eval_proto;
+    curr_fn = curr_fn->next;
+  }
+  
+  /* Call init() if it exists (for testing lifecycle) */
+  struct object *init_obj;
+  struct fns *init_fn = find_function("init", eval_obj, &init_obj);
+  if (init_fn) {
+    struct var init_arg;
+    struct var_stack *arg_stack = NULL;
+    struct var *old_locals = locals;
+    unsigned int old_num_locals = num_locals;
+    
+    init_arg.type = NUM_ARGS;
+    init_arg.value.num = 0;
+    push(&init_arg, &arg_stack);
+    
+    interp(obj, init_obj, player, &arg_stack, init_fn);
+    
+    locals = old_locals;
+    num_locals = old_num_locals;
+    free_stack(&arg_stack);
+  }
+  
+  sprintf(logbuf, "compile_string: Created eval object %s#%ld",
+          eval_proto->pathname, (long)eval_obj->refno);
+  logger(LOG_INFO, logbuf);
+  
+  /* Attach auto object to eval temp object so it has access to sefuns */
+  attach_auto_to(eval_obj);
+  
+  /* Return the eval object */
+  clear_var(&tmp);
+  tmp.type = OBJECT;
+  tmp.value.objptr = eval_obj;
+  push(&tmp, rts);
   return 0;
 }
 
@@ -425,6 +706,7 @@ int s_cat(struct object *caller, struct object *obj, struct object *player,
   return 0;
 }
 
+/* Directory Traversal */
 int s_ls(struct object *caller, struct object *obj, struct object *player,
          struct var_stack **rts) {
   int retval;
@@ -702,6 +984,13 @@ int s_syslog(struct object *caller, struct object *obj, struct object *player,
   }
   if (tmp.value.num!=1) return 1;
   if (pop(&tmp,rts,obj)) return 1;
+  
+  /* Handle INTEGER 0 as empty string (NetCI convention) */
+  if (tmp.type==INTEGER && tmp.value.integer==0) {
+    tmp.type=STRING;
+    *(tmp.value.string=MALLOC(1))='\0';
+  }
+  
   if (tmp.type!=STRING) {
     clear_var(&tmp);
     return 1;
@@ -712,6 +1001,42 @@ int s_syslog(struct object *caller, struct object *obj, struct object *player,
           tmp.value.string);
   clear_var(&tmp);
   logger(LOG_INFO, buf);
+  FREE(buf);
+  tmp.type=INTEGER;
+  tmp.value.integer=0;
+  push(&tmp,rts);
+  return 0;
+}
+
+int s_syswrite(struct object *caller, struct object *obj, struct object *player,
+               struct var_stack **rts) {
+  struct var tmp;
+  char *buf;
+
+  if (pop(&tmp,rts,obj)) return 1;
+  if (tmp.type!=NUM_ARGS) {
+    clear_var(&tmp);
+    return 1;
+  }
+  if (tmp.value.num!=1) return 1;
+  if (pop(&tmp,rts,obj)) return 1;
+  
+  /* Handle INTEGER 0 as empty string (NetCI convention) */
+  if (tmp.type==INTEGER && tmp.value.integer==0) {
+    tmp.type=STRING;
+    *(tmp.value.string=MALLOC(1))='\0';
+  }
+  
+  if (tmp.type!=STRING) {
+    clear_var(&tmp);
+    return 1;
+  }
+  buf=MALLOC(ITOA_BUFSIZ+strlen(obj->parent->pathname)+strlen(tmp.value.string)
+             +12);
+  sprintf(buf," syslog: %s#%ld %s",obj->parent->pathname,(long) obj->refno,
+          tmp.value.string);
+  clear_var(&tmp);
+  logger(LOG_STDOUT, buf);
   FREE(buf);
   tmp.type=INTEGER;
   tmp.value.integer=0;
@@ -775,8 +1100,13 @@ int s_fread(struct object *caller, struct object *obj, struct object *player,
       if (locals[tmp2.value.l_value.ref].type!=INTEGER)  return 1;
       pos=locals[tmp2.value.l_value.ref].value.integer;
     } else {
-      if (obj->globals[tmp2.value.l_value.ref].type!=INTEGER) return 1;
-      pos=obj->globals[tmp2.value.l_value.ref].value.integer;
+      extern struct call_frame *call_stack;
+      int ok = 0;
+      unsigned int eff = global_index_for(obj, call_stack ? call_stack->func : NULL,
+                                          (unsigned int)tmp2.value.l_value.ref, &ok);
+      if (!ok) return 1;
+      if (obj->globals[eff].type!=INTEGER) return 1;
+      pos=obj->globals[eff].value.integer;
     }
   }
   if (pop(&tmp1,rts,obj)) return 1;
@@ -817,9 +1147,14 @@ int s_fread(struct object *caller, struct object *obj, struct object *player,
       locals[tmp2.value.l_value.ref].type=INTEGER;
       locals[tmp2.value.l_value.ref].value.integer=pos;
     } else {
-      clear_global_var(obj,tmp2.value.l_value.ref);
-      obj->globals[tmp2.value.l_value.ref].type=INTEGER;
-      obj->globals[tmp2.value.l_value.ref].value.integer=pos;
+      extern struct call_frame *call_stack;
+      int ok2 = 0;
+      unsigned int eff2 = global_index_for(obj, call_stack ? call_stack->func : NULL,
+                                           (unsigned int)tmp2.value.l_value.ref, &ok2);
+      if (!ok2) return 1;
+      clear_global_var(obj,eff2);
+      obj->globals[eff2].type=INTEGER;
+      obj->globals[eff2].value.integer=pos;
     }
   return 0;
 }

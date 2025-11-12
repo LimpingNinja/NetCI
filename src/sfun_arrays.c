@@ -117,12 +117,18 @@ int s_explode(struct object *caller, struct object *obj, struct object *player,
   
   /* Pop separator */
   if (pop(&sep_var, rts, obj)) return 1;
-  if (sep_var.type != STRING) {
+  
+  /* Handle NetCI convention: INTEGER 0 = empty string */
+  if (sep_var.type == INTEGER && sep_var.value.integer == 0) {
+    sep = "";
+    sep_len = 0;
+  } else if (sep_var.type == STRING) {
+    sep = sep_var.value.string;
+    sep_len = strlen(sep);
+  } else {
     clear_var(&sep_var);
     return 1;
   }
-  sep = sep_var.value.string;
-  sep_len = strlen(sep);
   
   /* Pop string */
   if (pop(&str_var, rts, obj)) {
@@ -135,6 +141,37 @@ int s_explode(struct object *caller, struct object *obj, struct object *player,
     return 1;
   }
   str = str_var.value.string;
+  
+  /* Special case: empty separator means explode into individual characters */
+  if (sep_len == 0) {
+    unsigned int str_len = strlen(str);
+    
+    /* Allocate array with one element per character */
+    arr = allocate_array(str_len, str_len);
+    if (!arr) {
+      clear_var(&str_var);
+      clear_var(&sep_var);
+      return 1;
+    }
+    
+    /* Populate array with individual characters */
+    for (i = 0; i < str_len; i++) {
+      char *char_str = (char *) MALLOC(2);
+      char_str[0] = str[i];
+      char_str[1] = '\0';
+      arr->elements[i].type = STRING;
+      arr->elements[i].value.string = char_str;
+    }
+    
+    clear_var(&str_var);
+    clear_var(&sep_var);
+    
+    /* Return heap array */
+    result.type = ARRAY;
+    result.value.array_ptr = arr;
+    push(&result, rts);
+    return 0;
+  }
   
   /* Count occurrences to determine array size */
   str_copy = copy_string(str);

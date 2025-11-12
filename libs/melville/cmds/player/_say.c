@@ -10,11 +10,9 @@
 #include <config.h>
 
 /* Main command execution */
-execute(args) {
-    object player, env;
+do_command(player, args) {
+    object env;
     string name, message;
-    
-    player = this_player();
     if (!player) return 0;
     
     if (!args || args == "") {
@@ -43,8 +41,11 @@ execute(args) {
 
 /* Help text */
 query_help() {
-    return "Syntax: say <message>\n"+
-           "        '<message>\n\n"+
+    return "Speak to everyone in the room\n"+
+           "Category: communication\n\n"+
+           "Usage:\n"+
+           "  say <message>\n"+
+           "  '<message>\n\n"+
            "Say something to everyone in the room.\n\n"+
            "Examples:\n"+
            "  say Hello everyone!\n"+

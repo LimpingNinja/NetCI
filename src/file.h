@@ -35,6 +35,7 @@ int chown_file(char *filename, struct object *uid, struct object *new_owner);
 int chmod_file(char *filename, struct object *uid, int flags);
 
 /* Logging levels - higher number = more verbose */
+#define LOG_STDOUT  -1 /* Special: writes to syswrite.txt with object-based formatting */
 #define LOG_ERROR   0  /* Only errors */
 #define LOG_WARNING 1  /* Errors + warnings */
 #define LOG_INFO    2  /* Errors + warnings + info (default) */

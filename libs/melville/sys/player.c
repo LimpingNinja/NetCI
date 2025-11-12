@@ -11,14 +11,18 @@
  * - Brief mode, working directory, etc.
  *
  * Architecture:
- * - Inherits from /inherits/container.c for inventory
+ * - Inherits from living.c (which inherits from object.c)
+ * - Inherits from container.c (which inherits from object.c)
  * - Uses cmd_hook to route commands to command daemon
  * - Stores player data in /sys/data/players/
  */
 
-#include <std.h>
+#include   <std.h>
 #include <config.h>
 #include <roles.h>
+
+inherit "/inherits/living";
+inherit CONTAINER_PATH;
 
 /* Player data (saved) - core fields only */
 string player_name;
@@ -27,48 +31,26 @@ int player_role;
 
 /* Runtime data (not saved) */
 object user_ob;  /* Associated user connection object */
-object auto_ob;   /* Auto functionality (utilities) */
-object object_ob; /* Base object functionality */
-object living_ob; /* Living functionality */
-object *inventory; /* Inventory array for container functionality */
-mapping properties; /* Property storage (from object.c pattern) */
+
+/* NOTE: inventory and properties are inherited from container.c and object.c */
 
 /* ========================================================================
  * INITIALIZATION
  * ======================================================================== */
 
 static init() {
-    /* Initialize container and properties */
-    if (!inventory) inventory = ({});
-    if (!properties) properties = ([]);
+    /* Call each parent's init explicitly to avoid diamond problem
+     * With multiple inheritance (living + container both inherit object),
+     * we need to call each parent separately
+     */
     
-    /* Attach auto functionality (for hash_password, etc.) */
-    auto_ob = new(AUTO_OB);
-    if (auto_ob) {
-        if (attach(auto_ob)) {
-            syslog("player.c: ERROR - attach(auto.c) failed");
-        }
-    } else {
-        syslog("player.c: ERROR - failed to create auto.c");
-    }
+    /* Call living init (which calls object init) */
+    living::init();
     
-    /* Attach base object functionality (for properties, etc.) */
-    object_ob = new(OBJECT_PATH);
-    if (object_ob) {
-        attach(object_ob);
-    } else {
-        syslog("player.c: ERROR - failed to create object.c");
-    }
+    /* Call container init (which also inherits from object, but won't double-init) */
+    container::init();
     
-    /* Attach living functionality */
-    living_ob = new(LIVING_PATH);
-    if (living_ob) {
-        attach(living_ob);
-    } else {
-        syslog("player.c: ERROR - failed to create living.c");
-    }
-    
-    /* Set default values via properties */
+    /* Set default player values */
     player_role = ROLE_PLAYER;
     set_property("type", TYPE_PLAYER);
     set_property("prevent_get", 1);
@@ -124,19 +106,7 @@ connect() {
     }
     
     if (start_room) {
-        string desc;
-        
         move(start_room);
-        
-        /* Show room to player */
-        brief = query_property("brief_mode");
-        desc = call_other(start_room, "query_long", brief);
-        if (desc && typeof(desc) == STRING_T) {
-            send_device(desc);
-            send_device("\n");
-        } else {
-            send_device("You are in the void.\n");
-        }
     } else {
         send_device("Error: Unable to find starting location!\n");
         send_device("The void room at " + START_ROOM + " does not exist.\n");
@@ -151,6 +121,13 @@ connect() {
 /* Called when connection is lost */
 disconnect() {
     object env;
+    object users_d;
+    
+    /* Notify users daemon of logout */
+    users_d = atoo(USERS_D);
+    if (users_d) {
+        call_other(users_d, "user_logged_out", this_object());
+    }
     
     /* Save current location */
     env = location(this_object());
@@ -178,6 +155,7 @@ disconnect() {
  */
 cmd_hook(input) {
     object cmd_d;
+    object users_d;
     
     if (!input || strlen(input) == 0) {
         write("SHUT IT UP!\n");
@@ -195,8 +173,19 @@ cmd_hook(input) {
         return; 
     }
     
+    /* Set current player context in users daemon */
+    users_d = atoo(USERS_D);
+    if (users_d) {
+        call_other(users_d, "set_this_player", this_object());
+    }
+    
     /* Let command daemon process the command */
     cmd_d.process_command(this_object(), input);
+    
+    /* Clear current player context */
+    if (users_d) {
+        call_other(users_d, "clear_this_player");
+    }
     
     /* Send prompt and wait for next command (unless we're quitting) */
     /* Use input_to() here because this_player() is now correctly the player object */
@@ -237,8 +226,8 @@ set_password(password) {
 
 /* Check password */
 check_password(password) {
-    /* Compare hashed passwords */
-    return (hash_password(password) == player_password);
+    /* Verify password using bcrypt (from auto.c) */
+    return verify_password(password, player_password);
 }
 
 /* Set role */
@@ -304,10 +293,15 @@ query_cwd() {
 
 /* Save player data to file */
 save_data() {
-    string path, data, *prop_keys, key;
+    string path;
+    string data;
+    string *prop_keys;
     object env;
-    int i, value_int, result;
+    int i;
+    int value_int;
+    int result;
     string value_str;
+    string key;
     
     syslog("player.c: save_data() called for " + player_name);
     
@@ -331,22 +325,25 @@ save_data() {
         set_property("quit_location", otoa(env));
     }
     
-    /* Iterate through all properties and save them */
+    /* Iterate through all properties and save them
+     * NOTE: Using get_property() instead of properties[key] to avoid
+     * NetCI bug with inherited mapping access across object boundaries
+     */
     if (properties) {
         prop_keys = keys(properties);
+        
         if (prop_keys && sizeof(prop_keys) > 0) {
             for (i = 0; i < sizeof(prop_keys); i++) {
                 key = prop_keys[i];
                 
-                /* Get property value - could be int or string */
-                if (typeof(properties[key]) == INT_T) {
-                    value_int = properties[key];
+                /* Use get_property() to avoid direct mapping access bug */
+                if (typeof(get_property(key)) == INT_T) {
+                    value_int = get_property(key);
                     data = data + "prop:" + key + ":int:" + itoa(value_int) + "\n";
-                } else if (typeof(properties[key]) == STRING_T) {
-                    value_str = properties[key];
+                } else if (typeof(get_property(key)) == STRING_T) {
+                    value_str = get_property(key);
                     data = data + "prop:" + key + ":str:" + value_str + "\n";
                 }
-                /* Add more types as needed (object, array, etc.) */
             }
         }
     }
@@ -365,8 +362,17 @@ save_data() {
 
 /* Load player data from file */
 load_data(name) {
-    string path, data, *lines, line, *parts, key, type, value;
-    int i, pos, colon_pos;
+    string path;
+    string data;
+    string line;
+    string key;
+    string type;
+    string value;
+    string *lines;
+    string *parts;
+    int i;
+    int pos;
+    int colon_pos;
     
     if (!name) {
         syslog("player.c: load_data() - no name provided");
@@ -425,6 +431,7 @@ load_data(name) {
         }
     }
     
+    syslog("player.c: load_data() completed for " + player_name);
     return 1;
 }
 
@@ -441,7 +448,7 @@ move(dest) {
     
     /* Convert string to object if needed */
     if (typeof(dest) == STRING_T) {
-        new_env = atoo(dest);
+        new_env = get_object(dest);
         if (!new_env) return 0;
     } else {
         new_env = dest;
@@ -467,21 +474,7 @@ move(dest) {
  * UTILITY FUNCTIONS
  * ======================================================================== */
 
-/* Capitalize first letter */
-capitalize(str) {
-    string first, rest;
-    
-    if (!str || strlen(str) == 0) return str;
-    
-    if (strlen(str) == 1) {
-        return upcase(str);
-    }
-    
-    first = leftstr(str, 1);
-    rest = rightstr(str, strlen(str) - 1);
-    
-    return upcase(first) + rest;
-}
+/* NOTE: capitalize() is available from auto.c (automatically attached) */
 
 /* Note: listen(), catch_tell(), write(), query_living() provided by living.c */
 

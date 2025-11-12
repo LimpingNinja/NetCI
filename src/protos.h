@@ -73,6 +73,18 @@ OPER_PROTO(s_mktime)
 OPER_PROTO(s_typeof)
 OPER_PROTO(s_command)
 OPER_PROTO(s_compile_object)
+OPER_PROTO(s_compile_string)
+OPER_PROTO(s_crypt)
+OPER_PROTO(s_read_file)
+OPER_PROTO(s_write_file)
+OPER_PROTO(s_remove)
+OPER_PROTO(s_rename)
+OPER_PROTO(s_get_dir)
+OPER_PROTO(s_file_size)
+OPER_PROTO(s_users)
+OPER_PROTO(s_objects)
+OPER_PROTO(s_children)
+OPER_PROTO(s_all_inventory)
 OPER_PROTO(s_edit)
 OPER_PROTO(s_cat)
 OPER_PROTO(s_ls)
@@ -85,6 +97,7 @@ OPER_PROTO(s_hide)
 OPER_PROTO(s_unhide)
 OPER_PROTO(s_chown)
 OPER_PROTO(s_syslog)
+OPER_PROTO(s_syswrite)
 OPER_PROTO(s_sscanf)
 OPER_PROTO(s_sprintf)
 OPER_PROTO(s_midstr)
@@ -145,6 +158,19 @@ OPER_PROTO(s_sort_array)
 OPER_PROTO(s_reverse)
 OPER_PROTO(s_unique_array)
 OPER_PROTO(s_array_literal)
+
+/* Serialization efuns */
+OPER_PROTO(s_save_value)
+OPER_PROTO(s_restore_value)
+
+/* String manipulation efuns */
+OPER_PROTO(s_replace_string)
+
+/* String helper functions (sys_strings.c) */
+char *escape_string(char *str);
+char *save_value_internal(struct var *value, int depth);
+
+/* Token parser helpers (token_parse.c) - see token.h for prototypes */
 
 /* Mapping efuns (Phase 2) */
 OPER_PROTO(s_keys)

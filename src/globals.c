@@ -12,7 +12,7 @@ int verbs_changed;
 char *window_title;
 long time_offset;
 int noisy;
-int log_level = LOG_INFO;  /* Default log level - INFO shows errors, warnings, and important messages */
+int log_level = LOG_INFO;  /* Default log level - INFO shows errors, warnings, and info messages */
 long transact_log_size;
 long soft_cycles;
 long hard_cycles;

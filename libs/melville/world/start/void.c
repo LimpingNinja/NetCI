@@ -4,17 +4,14 @@
  * A simple, safe room to begin their adventure.
  */
 
+
 #include <std.h>
 #include <config.h>
+inherit "/inherits/room";
 
-object room_ob;
-
-static init() {
-    /* Attach room functionality (which auto-attaches object and container) */
-    room_ob = new(ROOM_PATH);
-    if (room_ob) {
-        attach(room_ob);
-    }
+init() {
+    /* Call parent init (room, which calls object and container) */
+    ::init();
     
     /* Set room descriptions */
     set_short("The Void");

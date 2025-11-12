@@ -48,6 +48,13 @@ struct lval
 /* The var structure contains information about variables and
    object code instructions that may be placed on the stack */
 
+/* Parent call indices for ::function() and Alias::function() */
+struct parent_call_indices
+{
+  unsigned short inherit_idx;  /* Index into program's inherit table */
+  unsigned short func_idx;     /* Index into that program's function table */
+};
+
 struct var
 {
   unsigned char type;
@@ -62,6 +69,7 @@ struct var
     unsigned long num;               /* generic integer value */
     struct heap_array *array_ptr;   /* pointer to heap array */
     struct heap_mapping *mapping_ptr; /* pointer to heap mapping */
+    struct parent_call_indices parent_call; /* For CALL_SUPER and CALL_PARENT_NAMED */
   } value;
 };
 
@@ -102,6 +110,11 @@ struct var_stack
   struct var_stack *next;
 };
 
+/* Visibility flags for functions */
+#define VISIBILITY_PUBLIC    0
+#define VISIBILITY_PROTECTED 1
+#define VISIBILITY_PRIVATE   2
+
 /* The fns structure contains information about functions */
 
 struct fns
@@ -114,6 +127,9 @@ struct fns
   char *funcname;
   struct var_tab *lst;        /* Local symbol table (for array initialization) */
   struct fns *next;
+  unsigned short func_index;  /* Position in function table (for indexed calls) */
+  unsigned char visibility;   /* VISIBILITY_PUBLIC/PROTECTED/PRIVATE */
+  struct proto *origin_proto; /* Which proto defined this function */
 };
 
 struct array_size {
@@ -127,6 +143,8 @@ struct var_tab {
   struct array_size *array;  /* Used ONLY for arrays, NULL for mappings */
   int is_mapping;  /* 1 if declared with 'mapping' keyword, 0 otherwise */
                    /* NOTE: Mappings are NOT arrays! They use hash tables, not the array field */
+  struct proto *origin_prog;  /* Which program defined this variable (NULL = current program) */
+  unsigned short owner_local_index; /* Index within the owner program's own var set (for GST mapping) */
   struct var_tab *next;
 };
 
@@ -139,7 +157,17 @@ struct code
   unsigned long num_refs;
   unsigned int num_globals;
   struct fns *func_list;
-  struct var_tab *gst;
+  struct var_tab *gst;              /* all_vars: flattened view for this program's codegen (ancestors + own) */
+  struct var_tab *own_vars;         /* own_vars: only variables declared in THIS source file */
+  struct inherit_list *inherits;    /* Inheritance chain */
+  /* Flattened ancestor offsets shared by all instances using this code */
+  struct ancestor_var_offset *ancestor_map;
+  unsigned short ancestor_count;
+  unsigned short ancestor_capacity;
+  unsigned short self_var_offset;
+  /* Per-program GST ref mapping: maps definer's gst[ref] -> {owner_proto, owner_local_index} */
+  struct gst_ref_entry *gst_map;
+  unsigned short gst_count;
 };
 
 /* the verb struct is a simple linked list of verbs */
@@ -211,6 +239,40 @@ struct proto
   struct code *funcs;
   struct object *proto_obj;
   struct proto *next_proto;
+  struct inherit_list *inherits;  /* Inheritance chain */
+};
+
+/* Inherit entry - detailed information about a single inherited parent */
+struct inherit_entry
+{
+  char *alias;                      /* Explicit alias (e.g., "Container") or default basename */
+  char *canon_path;                 /* Canonical absolute path (normalized) */
+  struct proto *proto;              /* Compiled/cached program */
+  unsigned short func_offset;       /* Optional: offset in flat function table */
+  unsigned short var_offset;        /* Optional: offset in flat variable table */
+};
+
+/* Inheritance chain - compile-time determined parent classes */
+struct inherit_list
+{
+  struct inherit_entry *entry;      /* Detailed inherit information */
+  char *inherit_path;               /* Original path for debugging (kept for compatibility) */
+  struct proto *parent_proto;       /* Direct proto pointer (kept for compatibility) */
+  struct inherit_list *next;        /* Linked list of parents */
+};
+
+/* Flattened ancestor map entry for quick var_offset lookup at runtime */
+struct ancestor_var_offset
+{
+  struct proto *proto;              /* Ancestor program */
+  unsigned short var_offset;        /* Absolute offset within object's globals */
+};
+
+/* GST ref mapping entry for runtime resolution */
+struct gst_ref_entry
+{
+  struct proto *owner;              /* Owner program (NULL = self/current) */
+  unsigned short local_index;       /* Index within owner's own variable set */
 };
 
 struct file_entry {

@@ -10,11 +10,9 @@
 #include <config.h>
 
 /* Main command execution */
-execute(args) {
-    object player, env, dest;
+do_command(player, args) {
+    object env, dest;
     string direction;
-    
-    player = this_player();
     if (!player) return 0;
     
     if (!args || args == "") {
@@ -44,16 +42,13 @@ execute(args) {
         return 0;
     }
     
-    /* Announce departure to old room */
-    env.room_tell(capitalize(player.query_name()) + " leaves " + direction + ".\n",
+    /* Announce departure to old room (use custom message if set) */
+    env.room_tell(env.get_departure_message(player.query_name(), direction),
                   ({ player }));
     
-    /* Show new room */
+    /* Announce arrival to new room */
     dest = location(player);
     if (dest) {
-        write(dest.query_long(player.query_brief()));
-        
-        /* Announce arrival to new room */
         dest.room_tell(capitalize(player.query_name()) + " arrives.\n",
                       ({ player }));
     }
@@ -63,13 +58,16 @@ execute(args) {
 
 /* Help text */
 query_help() {
-    return "Syntax: go <direction>\n"+
-           "        <direction>\n\n"+
-           "Move in a direction.\n\n"+
-           "Common directions: north, south, east, west, up, down, "+
-           "northeast, northwest, southeast, southwest\n\n"+
+    return "Move in a direction\n"+
+           "Category: movement\n\n"+
+           "Usage:\n"+
+           "  go <direction>\n"+
+           "  <direction>\n\n"+
+           "Move in a specified direction.\n\n"+
+           "Valid directions:\n"+
+           "  north, south, east, west, up, down\n"+
+           "  n, s, e, w, u, d\n\n"+
            "Examples:\n"+
            "  go north\n"+
-           "  north\n"+
            "  n\n";
 }

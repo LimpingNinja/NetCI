@@ -1335,6 +1335,65 @@ void logger(int level, char *msg) {
   FILE *logfile;
   struct tm *time_s;
   
+  /* Handle LOG_STDOUT specially - always write to syswrite.txt with object-based formatting */
+  if (level == LOG_STDOUT) {
+    static char last_objname[256] = "";
+    char separator[82];
+    char *objname_start, *objname_end, *content;
+    char objname[256];
+    int i;
+    int same_object;
+    
+    /* Build 80-char separator line */
+    for (i = 0; i < 80; i++) separator[i] = '=';
+    separator[80] = '\n';
+    separator[81] = '\0';
+    
+    /* Extract object name from message (format: "syslog: /path/object#refno message") */
+    objname_start = strstr(msg, "syslog: ");
+    if (objname_start) {
+      objname_start += 8; /* Skip "syslog: " */
+      objname_end = strchr(objname_start, ' ');
+      if (objname_end) {
+        int name_len = objname_end - objname_start;
+        if (name_len > 255) name_len = 255;
+        strncpy(objname, objname_start, name_len);
+        objname[name_len] = '\0';
+        content = objname_end + 1; /* Skip space */
+      } else {
+        strcpy(objname, "unknown");
+        content = msg;
+      }
+    } else {
+      strcpy(objname, "system");
+      content = msg;
+    }
+    
+    /* Check if same object as last call */
+    same_object = (strcmp(objname, last_objname) == 0);
+    
+    logfile = fopen("syswrite.txt", "a");
+    if (logfile) {
+      if (!same_object) {
+        /* Different object - print header with timestamp */
+        char timebuf[20];
+        time_t now = time(NULL);
+        struct tm *tm_info = localtime(&now);
+        sprintf(timebuf, "%02d-%02d %02d:%02d", 
+                (int)(tm_info->tm_mon + 1), (int)tm_info->tm_mday,
+                (int)tm_info->tm_hour, (int)tm_info->tm_min);
+        
+        fprintf(logfile, "%s", separator);
+        fprintf(logfile, "%s - syswrite() output from: %s\n", timebuf, objname);
+        fprintf(logfile, "%s", separator);
+        strcpy(last_objname, objname);
+      }
+      fprintf(logfile, "%s\n", content);
+      fclose(logfile);
+    }
+    return;
+  }
+  
   /* Filter based on log level */
   /* Higher log_level = more verbose output */
   /* ERROR(0) < WARNING(1) < LOG(2) < DEBUG(3) */
@@ -1380,4 +1439,13 @@ void logger(int level, char *msg) {
 #endif /* USE_WINDOWS */
   fprintf(logfile,"%s %s%s\n",timebuf,levelbuf,msg);
   fclose(logfile);
+  
+  /* DEBUG messages also go to sysdebug.txt for easier filtering */
+  if (level == LOG_DEBUG) {
+    FILE *debugfile = fopen("sysdebug.txt", "a");
+    if (debugfile) {
+      fprintf(debugfile, "%s %s%s\n", timebuf, levelbuf, msg);
+      fclose(debugfile);
+    }
+  }
 }

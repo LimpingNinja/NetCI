@@ -6,15 +6,8 @@
 #include "instr.h"
 #include "constrct.h"
 
-int s_sscanf(struct object *caller, struct object *obj, struct object *player,
-             struct var_stack **rts) {
-  return 1;
-}
-
-int s_sprintf(struct object *caller, struct object *obj, struct object *player,
-              struct var_stack **rts) {
-  return 1;
-}
+/* s_sscanf() moved to sfun_strings.c */
+/* s_sprintf() moved to sfun_sprintf.c */
 
 int s_midstr(struct object *caller, struct object *obj, struct object *player,
              struct var_stack **rts) {

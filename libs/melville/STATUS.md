@@ -89,15 +89,14 @@ None currently.
 - ✅ input_to() for command routing
 - ✅ Object creation and management
 - ✅ File system operations
+- ✅ Auto object support (auto-attach /sys/auto.c to all objects)
 
 ### Needs Implementation
-- ⏳ Auto object support (auto-inherit /sys/auto.c)
 - ⏳ Efun overrides in auto object
 - ⏳ Enhanced callback system for user/player split
 
 ### Workarounds
 - Boot.c at root level (will move to /sys when driver updated)
-- Explicit inheritance instead of auto object (for now)
 - Wrapper functions for security instead of efun overrides
 
 ## Next Steps

@@ -336,6 +336,7 @@ int s_clone_object(struct object *caller, struct object *obj, struct object
       tmpobj->flags|=PROTOTYPE;
       tmpobj->parent=tmp_proto;
       tmpobj->parent->funcs=newcode;
+      tmpobj->parent->inherits=newcode->inherits;  /* Copy inherits from code */
       tmpobj->parent->next_proto=ref_to_obj(0)->parent->next_proto;
       ref_to_obj(0)->parent->next_proto=tmpobj->parent;
       tmpobj->parent->pathname=tmp.value.string;

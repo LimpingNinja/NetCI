@@ -32,9 +32,27 @@
  */
 
 #include <std.h>
+#include <config.h>
+
+inherit OBJECT_PATH;
 
 /* Inventory stored as dynamic array for fast access */
 object *inventory;
+
+/* ========================================================================
+ * INITIALIZATION
+ * ======================================================================== */
+
+static init() {
+    /* Call parent init */
+    ::init();
+    
+    /* Initialize inventory */
+    inventory = ({});
+    
+    /* Set container type */
+    set_property("container", 1);
+}
 
 /* ========================================================================
  * INVENTORY MANAGEMENT
