@@ -36,8 +36,10 @@ void delete_line(struct edit_s *buf, unsigned long line) {
       curr->buf[index]=curr->next->buf[0];
       index=0;
       curr=curr->next;
-    } else
-      curr->buf[index]=curr->buf[++index];
+    } else {
+      index++;
+      curr->buf[index-1]=curr->buf[index];
+    }
     (*old_buffer)=curr->buf[index];
   }
 }
@@ -265,7 +267,7 @@ void split_arg(struct edit_s *buf, unsigned long *arg1, unsigned long *arg2,
 
 void do_edit_command(struct object *obj, char *s) {
   char *cmd,*arg;
-  long line1,line2;
+  unsigned long line1,line2;
   int loop,len,index,num_bufs,count;
   struct edit_s *buf;
   struct edit_buf *curr;

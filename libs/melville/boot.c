@@ -92,8 +92,7 @@ static init() {
     /* Only run initialization on the prototype, not clones */
     if (prototype(this_object())) {
         syslog("boot.c: prototype check passed, scheduling finish_init");
-        /* Start autosave timer */
-        alarm(SAVE_INTERVAL, "save_db");
+        /* Autosave removed - use save_object() in mudlib for persistence */
         
         /* Make boot.c readable (but not writable) */
         chmod("/boot.c", PERM_READ);
@@ -375,28 +374,10 @@ static is_in_home_dir(path, username) {
 }
 
 /* ========================================================================
- * AUTOSAVE
+ * DATABASE PERSISTENCE REMOVED - November 12, 2025
+ * Use save_object()/restore_object() for selective persistence
+ * See database-investigation.md for details
  * ======================================================================== */
-
-/* Called periodically by alarm() to save the database */
-save_db() {
-    object curr;
-    
-    /* Notify all connected players */
-    curr = NULL;
-    while (curr = next_who(curr)) {
-        call_other(curr, "listen", "\n*** Autosaving Database ***\n");
-    }
-    
-    /* Flush output buffers */
-    flush_device();
-    
-    /* Trigger database save */
-    sysctl(0);
-    
-    /* Schedule next save */
-    alarm(SAVE_INTERVAL, "save_db");
-}
 
 /* ========================================================================
  * UTILITY FUNCTIONS

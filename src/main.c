@@ -483,39 +483,13 @@ int main(int argc, char *argv[]) {
       }
     } else fclose(testfile);
 #endif /* USE_WINDOWS */
-  if (do_create) {
-    if (create_db()) {
-      logger(LOG_ERROR, " system: database creation failed");
+  /* Always fresh boot - no database loading */
+  if (boot_system()) {
+    logger(LOG_ERROR, " system: boot failed");
 #ifdef USE_WINDOWS
-      MessageBox(hwnd,"Database creation failed","Error",MB_OK |
-                 MB_ICONSTOP);
+    MessageBox(hwnd,"Boot failed","Error",MB_OK | MB_ICONSTOP);
 #endif /* USE_WINDOWS */
-      exit(0);
-    } else {
-      logger(LOG_INFO, " system: database creation complete");
-      if (save_db(save_name)) {
-        logger(LOG_ERROR, " system: save failed");
-#ifdef USE_WINDOWS
-        MessageBox(hwnd,"Save failed","Error",MB_OK | MB_ICONSTOP);
-#endif /* USE_WINDOWS */
-        exit(0);
-      } else {
-#ifndef USE_WINDOWS
-        logger(LOG_INFO, " system: shutting down");
-        exit(0);
-#endif /* !USE_WINDOWS */
-      }
-    }
-  } else {
-    if (init_db()) {
-      logger(LOG_ERROR, " system: database initialization failed");
-      shutdown_interface();
-#ifdef USE_WINDOWS
-      MessageBox(hwnd,"Database initialization failed","Error",
-	             MB_OK | MB_ICONSTOP);
-#endif /* USE_WINDOWS */
-      exit(0);
-    }
+    exit(0);
   }
   logger(LOG_INFO, " system: startup complete");
   loop=0;

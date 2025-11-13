@@ -10,7 +10,7 @@ OFILES= cache1.o cache2.o clearq.o compile1.o compile2.o constrct.o \
         oper1.o oper2.o preproc.o sys1.o sys2.o sys3.o sys4.o sys5.o \
         sys6a.o sys6b.o sys7.o sys8.o table.o token.o sys_arrays.o sfun_arrays.o \
         sys_mappings.o sfun_mappings.o sys_strings.o sfun_strings.o sfun_sprintf.o token_parse.o \
-        bcrypt.o sfun_files.o sfun_interactive.o sfun_objects.o
+        bcrypt.o sfun_files.o sfun_interactive.o sfun_objects.o sfun_telnet.o
 
 netci: $(OFILES)
 	$(CC) $(CCFLAGS) $(DEFS) $(OFILES) -o netci $(LFLAGS)
@@ -157,3 +157,6 @@ sfun_interactive.o: sfun_interactive.c config.h object.h protos.h instr.h constr
 
 sfun_objects.o: sfun_objects.c config.h object.h protos.h instr.h interp.h globals.h
 	$(CC) $(CCFLAGS) $(DEFS) -c sfun_objects.c
+
+sfun_telnet.o: sfun_telnet.c config.h object.h protos.h instr.h constrct.h intrface.h globals.h file.h
+	$(CC) $(CCFLAGS) $(DEFS) -c sfun_telnet.c

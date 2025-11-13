@@ -34,12 +34,41 @@ int login_attempts;
  * This is AFTER reconnect_device() has transferred the connection to us
  */
 connect() {
+    mapping term_info;
+    string term_type;
+    string color_support;
+    
     /* Display welcome message */
     send_device("\n");
     send_device("========================================\n");
     send_device("  Welcome to Melville MUD\n");
     send_device("========================================\n");
     send_device("\n");
+    
+    /* Display terminal detection info */
+    term_info = query_terminal(this_object());
+    if (term_info) {
+        term_type = term_info["term_type"];
+        if (!term_type || term_type == "") {
+            term_type = "unknown";
+        }
+        
+        /* Determine color support from terminal type */
+        if (instr(term_type, 0, "256color") != -1) {
+            color_support = "ANSI 256 colors";
+        } else if (instr(term_type, 0, "color") != -1 || 
+                   instr(term_type, 0, "ansi") != -1 ||
+                   instr(term_type, 0, "xterm") != -1 ||
+                   instr(term_type, 0, "mud") != -1) {
+            color_support = "ANSI 16 colors";
+        } else {
+            color_support = "none detected";
+        }
+        
+        send_device("[ Login ] Terminal type: " + term_type + "\n");
+        send_device("[ Login ] Terminal color support: " + color_support + "\n");
+        send_device("\n");
+    }
     
     /* Start login process */
     send_device("Enter your character name: ");

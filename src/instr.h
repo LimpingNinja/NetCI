@@ -3,7 +3,7 @@
 /* contains the definitions for the object-code instructions */
 
 #define NUM_OPERS      38
-#define NUM_SCALLS     128  /* Updated for users, objects, children, all_inventory */
+#define NUM_SCALLS     132  /* Updated for query_terminal, get_mssp, set_mssp */
 
 #define COMMA_OPER     0    /*  ,   */
 #define EQ_OPER        1    /*  =   */
@@ -200,3 +200,6 @@
 
 /* Dynamic compilation */
 #define S_COMPILE_STRING   154 /* compile_string(string code) - compile LPC code from string (admin only) */
+
+/* Telnet protocol support */
+#define S_SEND_PROMPT      155 /* send_prompt(string prompt) - send prompt with IAC GA if needed */

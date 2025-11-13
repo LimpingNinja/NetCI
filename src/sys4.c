@@ -179,12 +179,10 @@ int s_sysctl(struct object *caller, struct object *obj, struct object *player,
       }
       logger(LOG_INFO, buf);
       FREE(buf);
-      tmp.value.integer=save_db(save_name);
+      /* Database save removed - use save_object() for persistence */
+      logger(LOG_WARNING, " sysctl: manual save not implemented - use save_object() in mudlib");
+      tmp.value.integer=1;  /* Return failure */
       push(&tmp,rts);
-      if (!tmp.value.integer)
-        logger(LOG_INFO, " sysctl: save complete");
-      else
-        logger(LOG_ERROR, " sysctl: save failed");
       return 0;
       break;
     case 1:
@@ -203,12 +201,7 @@ int s_sysctl(struct object *caller, struct object *obj, struct object *player,
       }
       logger(LOG_INFO, buf);
       FREE(buf);
-      tmp.value.integer=save_db(save_name);
-      if (tmp.value.integer) {
-        logger(LOG_ERROR, " sysctl: shutdown failed");
-        push(&tmp,rts);
-        return 0;
-      }
+      /* No database save on shutdown - use save_object() before calling sysctl(1) */
       shutdown_interface();
       logger(LOG_INFO, " sysctl: shutdown complete");
       exit(0);
@@ -229,14 +222,9 @@ int s_sysctl(struct object *caller, struct object *obj, struct object *player,
       }
       logger(LOG_INFO, buf);
       FREE(buf);
-      tmp.value.integer=save_db(panic_name);
-      if (tmp.value.integer) {
-        push(&tmp,rts);
-        logger(LOG_ERROR, " sysctl: panic failed");
-        return 0;
-      }
+      /* No database save on panic - emergency exit only */
       shutdown_interface();
-      logger(LOG_INFO, " sysctl: panic complete");
+      logger(LOG_ERROR, " sysctl: panic exit");
       exit(-1);
       break;
     case 3:

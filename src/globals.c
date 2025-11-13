@@ -33,7 +33,10 @@ struct cmdq *cmd_tail;
 struct destq *dest_list;
 struct alarmq *alarm_list;
 long now_time;
+long boot_time;
 struct obj_blk *obj_list;
+struct mssp_var *mssp_vars = NULL;  /* Array of custom MSSP variables */
+int mssp_var_count = 0;             /* Number of MSSP variables */
 char *load_name;
 char *save_name;
 char *panic_name;

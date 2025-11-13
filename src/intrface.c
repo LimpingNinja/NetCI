@@ -348,6 +348,289 @@ void immediate_disconnect(int devnum) {
 }
 
 /**
+ * @brief Send IAC command sequence
+ *
+ * Sends a 3-byte telnet IAC sequence (IAC + command + option)
+ *
+ * @param conn_num Connection index
+ * @param command Telnet command (WILL/WONT/DO/DONT)
+ * @param option Telnet option code
+ */
+static void send_iac(int conn_num, unsigned char command, unsigned char option) {
+    unsigned char buf[3];
+    buf[0] = TELNET_IAC;
+    buf[1] = command;
+    buf[2] = option;
+    write(connlist[conn_num].fd, buf, 3);
+}
+
+/**
+ * @brief Send IAC GA (Go Ahead)
+ *
+ * Sends IAC GA if client has not negotiated SGA
+ *
+ * @param conn_num Connection index
+ */
+static void send_iac_ga(int conn_num) {
+    unsigned char buf[2];
+    if (!connlist[conn_num].opt_sga) {
+        buf[0] = TELNET_IAC;
+        buf[1] = TELNET_GA;
+        write(connlist[conn_num].fd, buf, 2);
+    }
+}
+
+/**
+ * @brief Send MSSP (MUD Server Status Protocol) data
+ *
+ * Sends MSSP variables via IAC SB MSSP ... IAC SE
+ * Merges runtime data with custom mudlib data from mssp_data mapping
+ *
+ * @param conn_num Connection index
+ */
+static void send_mssp(int conn_num) {
+    unsigned char buf[2048];  /* Larger buffer for custom data */
+    int len = 0;
+    int active_players = 0;
+    long uptime;
+    char uptime_str[32];
+    extern struct heap_mapping *mssp_data;
+    
+    /* Count active players */
+    for (int i = 0; i < num_conns; i++) {
+        if (connlist[i].fd != -1 && connlist[i].obj) {
+            active_players++;
+        }
+    }
+    
+    /* Calculate uptime */
+    uptime = now_time - boot_time;
+    sprintf(uptime_str, "%ld", uptime);
+    
+    /* Build MSSP packet: IAC SB MSSP VAR VAL ... IAC SE */
+    buf[len++] = TELNET_IAC;
+    buf[len++] = TELNET_SB;
+    buf[len++] = TELOPT_MSSP;
+    
+    /* MSSP_VAR = 1, MSSP_VAL = 2 */
+    #define MSSP_VAR 1
+    #define MSSP_VAL 2
+    
+    /* NAME */
+    buf[len++] = MSSP_VAR;
+    len += sprintf((char *)(buf + len), "NAME");
+    buf[len++] = MSSP_VAL;
+    len += sprintf((char *)(buf + len), "NetCI MUD");
+    
+    /* PLAYERS */
+    buf[len++] = MSSP_VAR;
+    len += sprintf((char *)(buf + len), "PLAYERS");
+    buf[len++] = MSSP_VAL;
+    len += sprintf((char *)(buf + len), "%d", active_players);
+    
+    /* UPTIME */
+    buf[len++] = MSSP_VAR;
+    len += sprintf((char *)(buf + len), "UPTIME");
+    buf[len++] = MSSP_VAL;
+    len += sprintf((char *)(buf + len), "%s", uptime_str);
+    
+    /* CODEBASE */
+    buf[len++] = MSSP_VAR;
+    len += sprintf((char *)(buf + len), "CODEBASE");
+    buf[len++] = MSSP_VAL;
+    len += sprintf((char *)(buf + len), "NetCI");
+    
+    /* FAMILY */
+    buf[len++] = MSSP_VAR;
+    len += sprintf((char *)(buf + len), "FAMILY");
+    buf[len++] = MSSP_VAL;
+    len += sprintf((char *)(buf + len), "LPMud");
+    
+    /* LANGUAGE */
+    buf[len++] = MSSP_VAR;
+    len += sprintf((char *)(buf + len), "LANGUAGE");
+    buf[len++] = MSSP_VAL;
+    len += sprintf((char *)(buf + len), "NLPC");
+    
+    /* Add custom MSSP variables from mudlib if set */
+    extern struct mssp_var *mssp_vars;
+    extern int mssp_var_count;
+    
+    if (mssp_vars && mssp_var_count > 0) {
+        for (int i = 0; i < mssp_var_count; i++) {
+            /* Only add if we have room (leave 100 bytes for safety) */
+            if (len + strlen(mssp_vars[i].name) + strlen(mssp_vars[i].value) + 10 < 1948) {
+                buf[len++] = MSSP_VAR;
+                len += sprintf((char *)(buf + len), "%s", mssp_vars[i].name);
+                buf[len++] = MSSP_VAL;
+                len += sprintf((char *)(buf + len), "%s", mssp_vars[i].value);
+            }
+        }
+    }
+    
+    /* End MSSP subnegotiation */
+    buf[len++] = TELNET_IAC;
+    buf[len++] = TELNET_SE;
+    
+    write(connlist[conn_num].fd, buf, len);
+    connlist[conn_num].opt_mssp = 1;
+    
+    logger(LOG_DEBUG, "intrface: sent MSSP data");
+}
+
+/**
+ * @brief Handle telnet option negotiation
+ *
+ * Responds to IAC DO/DONT/WILL/WONT requests
+ *
+ * @param conn_num Connection index
+ * @param command Negotiation command
+ * @param option Option being negotiated
+ */
+static void handle_telnet_negotiation(int conn_num, unsigned char command, unsigned char option) {
+    char logbuf[128];
+    
+    sprintf(logbuf, "intrface: telnet %s %d",
+            command == TELNET_DO ? "DO" :
+            command == TELNET_DONT ? "DONT" :
+            command == TELNET_WILL ? "WILL" : "WONT",
+            option);
+    logger(LOG_DEBUG, logbuf);
+    
+    switch (command) {
+        case TELNET_DO:
+            /* Client requests we enable option */
+            switch (option) {
+                case TELOPT_ECHO:
+                    /* We will control echo */
+                    send_iac(conn_num, TELNET_WILL, TELOPT_ECHO);
+                    connlist[conn_num].opt_echo = 1;
+                    logger(LOG_DEBUG, "intrface: echo enabled");
+                    break;
+                case TELOPT_SGA:
+                    /* We will suppress go-ahead */
+                    send_iac(conn_num, TELNET_WILL, TELOPT_SGA);
+                    connlist[conn_num].opt_sga = 1;
+                    logger(LOG_DEBUG, "intrface: SGA enabled");
+                    break;
+                case TELOPT_MSSP:
+                    /* Send MSSP data */
+                    send_iac(conn_num, TELNET_WILL, TELOPT_MSSP);
+                    send_mssp(conn_num);
+                    break;
+                default:
+                    /* Refuse unknown options */
+                    send_iac(conn_num, TELNET_WONT, option);
+                    break;
+            }
+            break;
+            
+        case TELNET_DONT:
+            /* Client requests we disable option */
+            switch (option) {
+                case TELOPT_ECHO:
+                    connlist[conn_num].opt_echo = 0;
+                    send_iac(conn_num, TELNET_WONT, TELOPT_ECHO);
+                    break;
+                case TELOPT_SGA:
+                    connlist[conn_num].opt_sga = 0;
+                    send_iac(conn_num, TELNET_WONT, TELOPT_SGA);
+                    break;
+                default:
+                    send_iac(conn_num, TELNET_WONT, option);
+                    break;
+            }
+            break;
+            
+        case TELNET_WILL:
+            /* Client offers to enable option */
+            switch (option) {
+                case TELOPT_NAWS:
+                    /* Accept window size negotiation */
+                    send_iac(conn_num, TELNET_DO, TELOPT_NAWS);
+                    connlist[conn_num].opt_naws = 1;
+                    logger(LOG_DEBUG, "intrface: NAWS accepted");
+                    break;
+                case TELOPT_TTYPE:
+                    /* Accept terminal type and request it */
+                    send_iac(conn_num, TELNET_DO, TELOPT_TTYPE);
+                    connlist[conn_num].opt_ttype = 1;
+                    logger(LOG_DEBUG, "intrface: TTYPE accepted");
+                    
+                    /* Send subnegotiation to request terminal type string */
+                    /* IAC SB TTYPE SEND IAC SE */
+                    {
+                        unsigned char ttype_req[6];
+                        ttype_req[0] = TELNET_IAC;
+                        ttype_req[1] = TELNET_SB;
+                        ttype_req[2] = TELOPT_TTYPE;
+                        ttype_req[3] = 1;  /* SEND command */
+                        ttype_req[4] = TELNET_IAC;
+                        ttype_req[5] = TELNET_SE;
+                        write(connlist[conn_num].fd, ttype_req, 6);
+                        logger(LOG_DEBUG, "intrface: sent TTYPE SEND request");
+                    }
+                    break;
+                default:
+                    /* Refuse other options */
+                    send_iac(conn_num, TELNET_DONT, option);
+                    break;
+            }
+            break;
+            
+        case TELNET_WONT:
+            /* Client refuses option */
+            /* Just acknowledge, nothing to do */
+            break;
+    }
+}
+
+/**
+ * @brief Handle telnet subnegotiation
+ *
+ * Processes IAC SB ... IAC SE sequences (NAWS, etc)
+ *
+ * @param conn_num Connection index
+ */
+static void handle_telnet_subnegotiation(int conn_num) {
+    unsigned char opt = connlist[conn_num].sb_opt;
+    unsigned char *buf = connlist[conn_num].sb_buf;
+    int len = connlist[conn_num].sb_len;
+    char logbuf[128];
+    
+    switch (opt) {
+        case TELOPT_NAWS:
+            /* Window size: 2 bytes width, 2 bytes height (big endian) */
+            if (len >= 4) {
+                connlist[conn_num].win_width = (buf[0] << 8) | buf[1];
+                connlist[conn_num].win_height = (buf[2] << 8) | buf[3];
+                sprintf(logbuf, "intrface: NAWS %dx%d",
+                        connlist[conn_num].win_width,
+                        connlist[conn_num].win_height);
+                logger(LOG_DEBUG, logbuf);
+            }
+            break;
+            
+        case TELOPT_TTYPE:
+            /* Terminal type response */
+            if (len > 1 && buf[0] == 0) {  /* IS command */
+                int term_len = len - 1;
+                if (term_len >= 64) term_len = 63;
+                memcpy(connlist[conn_num].term_type, buf + 1, term_len);
+                connlist[conn_num].term_type[term_len] = '\0';
+                sprintf(logbuf, "intrface: TTYPE %s", connlist[conn_num].term_type);
+                logger(LOG_DEBUG, logbuf);
+            }
+            break;
+            
+        default:
+            sprintf(logbuf, "intrface: unknown subnegotiation %d", opt);
+            logger(LOG_DEBUG, logbuf);
+            break;
+    }
+}
+
+/**
  * @brief Accept new incoming connection
  *
  * Accepts a connection on the listening socket, assigns it to the boot object, and calls the
@@ -426,8 +709,29 @@ static void make_new_conn(int listen_fd) {
     connlist[devnum].conn_time = now_time;
     connlist[devnum].last_input_time = now_time;
     
+    /* Initialize telnet protocol state */
+    connlist[devnum].telnet_state = TELNET_STATE_DATA;
+    connlist[devnum].telnet_opt = 0;
+    connlist[devnum].sb_opt = 0;
+    connlist[devnum].sb_len = 0;
+    connlist[devnum].opt_echo = 0;
+    connlist[devnum].opt_sga = 0;
+    connlist[devnum].opt_mssp = 0;
+    connlist[devnum].opt_naws = 0;
+    connlist[devnum].opt_ttype = 0;
+    connlist[devnum].win_width = 80;
+    connlist[devnum].win_height = 24;
+    connlist[devnum].term_type[0] = '\0';  /* No terminal type yet */
+    
     boot_obj->devnum = devnum;
     boot_obj->flags |= CONNECTED;
+    
+    /* Send initial telnet negotiations */
+    logger(LOG_DEBUG, "intrface: sending initial telnet negotiations");
+    send_iac(devnum, TELNET_WILL, TELOPT_ECHO);
+    send_iac(devnum, TELNET_WILL, TELOPT_SGA);
+    send_iac(devnum, TELNET_DO, TELOPT_TTYPE);  /* Request terminal type */
+    send_iac(devnum, TELNET_DO, TELOPT_NAWS);   /* Request window size */
     
     sprintf(logbuf, "intrface: %s connected to obj #%ld (boot)",
             ip_addr, (long)boot_obj->refno);
@@ -511,20 +815,118 @@ static void buffer_input(int conn_num) {
             retlen, (long)connlist[conn_num].obj->refno);
     logger(LOG_DEBUG, logbuf);
     
-    /* Process input */
+    /* Process input with telnet IAC state machine */
     for (int i = 0; i < retlen; i++) {
-        if (buf[i] == '\n') {
-            connlist[conn_num].inbuf[connlist[conn_num].inbuf_count] = '\0';
-            if (connlist[conn_num].obj->flags & IN_EDITOR)
-                do_edit_command(connlist[conn_num].obj, connlist[conn_num].inbuf);
-            else
-                queue_command(connlist[conn_num].obj, connlist[conn_num].inbuf);
-            connlist[conn_num].inbuf_count = 0;
-        } else if (buf[i] != '\r' && (isgraph(buf[i]) || buf[i] == ' ')) {
-            if (connlist[conn_num].inbuf_count < MAX_STR_LEN - 2) {
-                connlist[conn_num].inbuf[connlist[conn_num].inbuf_count] = buf[i];
-                connlist[conn_num].inbuf_count++;
-            }
+        unsigned char ch = (unsigned char)buf[i];
+        
+        switch (connlist[conn_num].telnet_state) {
+            case TELNET_STATE_DATA:
+                /* Normal data processing */
+                if (ch == TELNET_IAC) {
+                    connlist[conn_num].telnet_state = TELNET_STATE_IAC;
+                } else if (ch == '\n') {
+                    connlist[conn_num].inbuf[connlist[conn_num].inbuf_count] = '\0';
+                    if (connlist[conn_num].obj->flags & IN_EDITOR)
+                        do_edit_command(connlist[conn_num].obj, connlist[conn_num].inbuf);
+                    else
+                        queue_command(connlist[conn_num].obj, connlist[conn_num].inbuf);
+                    connlist[conn_num].inbuf_count = 0;
+                } else if (ch != '\r' && (isgraph(ch) || ch == ' ')) {
+                    if (connlist[conn_num].inbuf_count < MAX_STR_LEN - 2) {
+                        connlist[conn_num].inbuf[connlist[conn_num].inbuf_count] = ch;
+                        connlist[conn_num].inbuf_count++;
+                    }
+                }
+                break;
+                
+            case TELNET_STATE_IAC:
+                /* Received IAC, determine command */
+                if (ch == TELNET_IAC) {
+                    /* Escaped IAC (255 255 = literal 255) */
+                    if (connlist[conn_num].inbuf_count < MAX_STR_LEN - 2) {
+                        connlist[conn_num].inbuf[connlist[conn_num].inbuf_count] = ch;
+                        connlist[conn_num].inbuf_count++;
+                    }
+                    connlist[conn_num].telnet_state = TELNET_STATE_DATA;
+                } else if (ch == TELNET_WILL) {
+                    connlist[conn_num].telnet_state = TELNET_STATE_WILL;
+                } else if (ch == TELNET_WONT) {
+                    connlist[conn_num].telnet_state = TELNET_STATE_WONT;
+                } else if (ch == TELNET_DO) {
+                    connlist[conn_num].telnet_state = TELNET_STATE_DO;
+                } else if (ch == TELNET_DONT) {
+                    connlist[conn_num].telnet_state = TELNET_STATE_DONT;
+                } else if (ch == TELNET_SB) {
+                    connlist[conn_num].telnet_state = TELNET_STATE_SB;
+                    connlist[conn_num].sb_len = 0;
+                } else if (ch == TELNET_GA || ch == TELNET_SE) {
+                    /* Ignore GA, SE without SB */
+                    connlist[conn_num].telnet_state = TELNET_STATE_DATA;
+                } else {
+                    /* Unknown command, ignore */
+                    connlist[conn_num].telnet_state = TELNET_STATE_DATA;
+                }
+                break;
+                
+            case TELNET_STATE_WILL:
+                connlist[conn_num].telnet_opt = ch;
+                handle_telnet_negotiation(conn_num, TELNET_WILL, ch);
+                connlist[conn_num].telnet_state = TELNET_STATE_DATA;
+                break;
+                
+            case TELNET_STATE_WONT:
+                connlist[conn_num].telnet_opt = ch;
+                handle_telnet_negotiation(conn_num, TELNET_WONT, ch);
+                connlist[conn_num].telnet_state = TELNET_STATE_DATA;
+                break;
+                
+            case TELNET_STATE_DO:
+                connlist[conn_num].telnet_opt = ch;
+                handle_telnet_negotiation(conn_num, TELNET_DO, ch);
+                connlist[conn_num].telnet_state = TELNET_STATE_DATA;
+                break;
+                
+            case TELNET_STATE_DONT:
+                connlist[conn_num].telnet_opt = ch;
+                handle_telnet_negotiation(conn_num, TELNET_DONT, ch);
+                connlist[conn_num].telnet_state = TELNET_STATE_DATA;
+                break;
+                
+            case TELNET_STATE_SB:
+                /* Start of subnegotiation - first byte is option */
+                connlist[conn_num].sb_opt = ch;
+                connlist[conn_num].sb_len = 0;
+                connlist[conn_num].telnet_state = TELNET_STATE_SB_IAC;
+                break;
+                
+            case TELNET_STATE_SB_IAC:
+                /* In subnegotiation, collecting data */
+                if (ch == TELNET_IAC) {
+                    /* Might be end of subnegotiation or escaped IAC */
+                    /* Next byte will tell us */
+                    int next_i = i + 1;
+                    if (next_i < retlen) {
+                        unsigned char next_ch = (unsigned char)buf[next_i];
+                        if (next_ch == TELNET_SE) {
+                            /* End of subnegotiation */
+                            handle_telnet_subnegotiation(conn_num);
+                            connlist[conn_num].telnet_state = TELNET_STATE_DATA;
+                            i++; /* Skip SE */
+                        } else if (next_ch == TELNET_IAC) {
+                            /* Escaped IAC in subnegotiation */
+                            if (connlist[conn_num].sb_len < 256) {
+                                connlist[conn_num].sb_buf[connlist[conn_num].sb_len++] = TELNET_IAC;
+                            }
+                            i++; /* Skip second IAC */
+                        }
+                    }
+                } else {
+                    /* Regular data in subnegotiation */
+                    if (connlist[conn_num].sb_len < 256) {
+                        connlist[conn_num].sb_buf[connlist[conn_num].sb_len++] = ch;
+                    }
+                }
+                break;
         }
     }
     
@@ -552,14 +954,8 @@ void handle_input() {
     fds = MALLOC(sizeof(struct pollfd) * (num_conns + 1));
     
     while (1) {
-        /* Auto-save check */
-        if (cache_top > transact_log_size) {
-            logger(LOG_INFO, "  cache: auto-saving");
-            if (save_db(NULL))
-                logger(LOG_INFO, "  cache: auto-save failed");
-            else
-                logger(LOG_INFO, "  cache: auto-save completed");
-        }
+        /* Auto-save removed - database no longer exists */
+        /* Use save_object() in mudlib for selective persistence */
         
         /* Build poll array */
         nfds = 0;
@@ -874,6 +1270,50 @@ void send_device(struct object *obj, char *msg) {
         tmp[len] = '\0';
         connlist[obj->devnum].outbuf = tmp;
         connlist[obj->devnum].outbuf_count = len;
+    }
+}
+
+/**
+ * @brief Send prompt to connected device with IAC GA if needed
+ *
+ * Sends a prompt string and appends IAC GA (Go Ahead) if the client
+ * has not negotiated SGA (Suppress Go Ahead). This ensures proper
+ * telnet protocol compliance for line-mode terminals.
+ *
+ * @param obj Object with active connection
+ * @param prompt Prompt string to send (null-terminated)
+ */
+void send_prompt(struct object *obj, char *prompt) {
+    if (!obj || obj->devnum == -1 || !prompt) return;
+    
+    /* Send the prompt text */
+    send_device(obj, prompt);
+    
+    /* Send IAC GA if SGA not negotiated */
+    if (!connlist[obj->devnum].opt_sga) {
+        unsigned char ga_seq[2] = { TELNET_IAC, TELNET_GA };
+        int len;
+        char *tmp;
+        
+        /* Append IAC GA to outbuf */
+        if (connlist[obj->devnum].outbuf) {
+            len = connlist[obj->devnum].outbuf_count + 2;
+            tmp = MALLOC(len + 1);
+            memcpy(tmp, connlist[obj->devnum].outbuf, connlist[obj->devnum].outbuf_count);
+            tmp[connlist[obj->devnum].outbuf_count] = ga_seq[0];
+            tmp[connlist[obj->devnum].outbuf_count + 1] = ga_seq[1];
+            tmp[len] = '\0';
+            FREE(connlist[obj->devnum].outbuf);
+            connlist[obj->devnum].outbuf = tmp;
+            connlist[obj->devnum].outbuf_count = len;
+        } else {
+            tmp = MALLOC(3);
+            tmp[0] = ga_seq[0];
+            tmp[1] = ga_seq[1];
+            tmp[2] = '\0';
+            connlist[obj->devnum].outbuf = tmp;
+            connlist[obj->devnum].outbuf_count = 2;
+        }
     }
 }
 

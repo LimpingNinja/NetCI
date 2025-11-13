@@ -65,6 +65,7 @@ OPER_PROTO(s_in_editor)
 OPER_PROTO(s_connected)
 OPER_PROTO(s_get_devconn)
 OPER_PROTO(s_send_device)
+OPER_PROTO(s_send_prompt)
 OPER_PROTO(s_reconnect_device)
 OPER_PROTO(s_disconnect_device)
 OPER_PROTO(s_random)
@@ -85,6 +86,9 @@ OPER_PROTO(s_users)
 OPER_PROTO(s_objects)
 OPER_PROTO(s_children)
 OPER_PROTO(s_all_inventory)
+OPER_PROTO(s_query_terminal)
+OPER_PROTO(s_get_mssp)
+OPER_PROTO(s_set_mssp)
 OPER_PROTO(s_edit)
 OPER_PROTO(s_cat)
 OPER_PROTO(s_ls)
@@ -212,6 +216,8 @@ int mapping_delete(struct heap_mapping *map, struct var *key);
 int mapping_exists(struct heap_mapping *map, struct var *key);
 struct heap_mapping* mapping_merge(struct heap_mapping *m1, struct heap_mapping *m2);
 struct heap_mapping* mapping_subtract(struct heap_mapping *m1, struct heap_mapping *m2);
+struct heap_array* mapping_keys_array(struct heap_mapping *map);
+struct heap_array* mapping_values_array(struct heap_mapping *map);
 
 /* Auto-object attachment functions */
 void attach_auto_to(struct object *target);

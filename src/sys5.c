@@ -1141,7 +1141,7 @@ int s_fread(struct object *caller, struct object *obj, struct object *player,
   }
   pos=ftell(f);
   close_file(f);
-  if (tmp2.type!=INTEGER)
+  if (tmp2.type!=INTEGER) {
     if (tmp2.type==LOCAL_L_VALUE) {
       clear_var(&(locals[tmp2.value.l_value.ref]));
       locals[tmp2.value.l_value.ref].type=INTEGER;
@@ -1156,6 +1156,7 @@ int s_fread(struct object *caller, struct object *obj, struct object *player,
       obj->globals[eff2].type=INTEGER;
       obj->globals[eff2].value.integer=pos;
     }
+  }
   return 0;
 }
 

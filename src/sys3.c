@@ -64,6 +64,33 @@ int s_send_device(struct object *caller, struct object *obj, struct object
   return 0;
 }
 
+int s_send_prompt(struct object *caller, struct object *obj, struct object
+                  *player, struct var_stack **rts) {
+  struct var tmp;
+
+  if (pop(&tmp,rts,obj)) return 1;
+  if (tmp.type!=NUM_ARGS) {
+    clear_var(&tmp);
+    return 1;
+  }
+  if (tmp.value.num!=1) return 1;
+  if (pop(&tmp,rts,obj)) return 1;
+  if (tmp.type==INTEGER && tmp.value.integer==0) {
+    push(&tmp,rts);
+    return 0;
+  }
+  if (tmp.type!=STRING) {
+    clear_var(&tmp);
+    return 1;
+  }
+  send_prompt(obj,tmp.value.string);
+  clear_var(&tmp);
+  tmp.type=INTEGER;
+  tmp.value.integer=0;
+  push(&tmp,rts);
+  return 0;
+}
+
 int s_reconnect_device(struct object *caller, struct object *obj, struct object
                        *player, struct var_stack **rts) {
   struct var tmp;

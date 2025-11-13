@@ -114,7 +114,7 @@ connect() {
     
     /* Send prompt and start accepting commands */
     /* Use redirect_input() here because this_player() is still the user object */
-    send_device("> ");
+    send_prompt("> ");
     redirect_input("cmd_hook");
 }
 
@@ -168,7 +168,7 @@ cmd_hook(input) {
     cmd_d = atoo(CMD_D);
     if (!cmd_d) {
         send_device("Error: Command daemon not found.\n");
-        send_device("> ");
+        send_prompt("> ");
         input_to(this_object(), "cmd_hook");
         return; 
     }
@@ -190,7 +190,7 @@ cmd_hook(input) {
     /* Send prompt and wait for next command (unless we're quitting) */
     /* Use input_to() here because this_player() is now correctly the player object */
     if (input != "quit") {
-        send_device("> ");
+        send_prompt("> ");
         input_to(this_object(), "cmd_hook");
     }
 }

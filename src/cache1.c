@@ -23,11 +23,7 @@ struct obj_link *cache_tail;
 
 signed long loaded_obj_count;
 
-/* if access_load_file is 0, then all loads from the db will be from
-   the save_name file. if it is non-zero, loads will be from the
-   load_name file. */
-
-int access_load_file;
+/* access_load_file removed - was only used for database loading */
 
 signed long db_obj_to_ref(struct object *obj) {
   if (!obj) return -1;
@@ -142,6 +138,7 @@ void init_globals(char *loadpath, char *savepath, char *panicpath) {
   dest_list=NULL;
   alarm_list=NULL;
   now_time=time2int(time(NULL));
+  boot_time=now_time;  /* Track server start time for uptime */
   obj_list=NULL;
   if (loadpath)
     load_name=copy_string(loadpath);
@@ -209,7 +206,13 @@ void writeinstr(FILE *outfile,struct var *v) {
               v->value.string);
       break;
     case OBJECT:
-      fprintf(outfile,"%ld\n",(long) v->value.objptr->refno);
+      /* NULL object pointer check to prevent crash */
+      if (v->value.objptr) {
+        fprintf(outfile,"%ld\n",(long) v->value.objptr->refno);
+      } else {
+        /* Save NULL object as refno 0 */
+        fprintf(outfile,"0\n");
+      }
       break;
     case ASM_INSTR:
       fprintf(outfile,"%d\n",(int) v->value.instruction);
@@ -311,15 +314,32 @@ void writedata(FILE *outfile,struct object *obj) {
         fprintf(outfile,"I%ld\n",(long) obj->globals[loop].value.integer);
         break;
       case OBJECT:
-        fprintf(outfile,"O%ld\n",(long) obj->globals[loop].value.objptr->
-                refno);
+        /* NULL object pointer check to prevent crash */
+        if (obj->globals[loop].value.objptr) {
+          fprintf(outfile,"O%ld\n",(long) obj->globals[loop].value.objptr->refno);
+        } else {
+          /* Save NULL object as INTEGER 0 (NetCI's null representation) */
+          fprintf(outfile,"I0\n");
+        }
         break;
       case STRING:
         fprintf(outfile,"S%ld\n%s",(long) strlen(obj->globals[loop].value.
                 string),obj->globals[loop].value.string);
         break;
+      case ARRAY:
+        /* Arrays cannot be serialized in old DB format - save as INTEGER 0 */
+        fprintf(outfile,"I0\n");
+        logger(LOG_WARNING, "  cache: writedata() cannot serialize ARRAY, saving as 0");
+        break;
+      case MAPPING:
+        /* Mappings cannot be serialized in old DB format - save as INTEGER 0 */
+        fprintf(outfile,"I0\n");
+        logger(LOG_WARNING, "  cache: writedata() cannot serialize MAPPING, saving as 0");
+        break;
       default:
-        fprintf(outfile,"?");
+        /* Unknown type - save as INTEGER 0 to prevent corruption */
+        fprintf(outfile,"I0\n");
+        logger(LOG_WARNING, "  cache: writedata() unknown type, saving as 0");
         break;
     }
     loop++;
@@ -513,19 +533,8 @@ void load_data(struct object *obj) {
     readdata(infile,obj);
     fclose(infile);
     obj->obj_state=FROM_CACHE;
-  } else
-    if (obj->obj_state==IN_DB) {
-      infile=fopen((access_load_file ? load_name : save_name),FREAD_MODE);
-      if (!infile) {
-        logger(LOG_ERROR, "  cache: load_data() unable to read from database");
-        FATAL_ERROR();
-        return;
-      }
-      fseek(infile,obj->file_offset,SEEK_SET);
-      readdata(infile,obj);
-      fclose(infile);
-      obj->obj_state=FROM_DB;
-    }
+  }
+  /* IN_DB state removed - no database loading */
   add_loaded(obj);
 }
 

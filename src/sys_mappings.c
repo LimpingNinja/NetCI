@@ -487,3 +487,71 @@ struct heap_mapping* mapping_subtract(struct heap_mapping *m1, struct heap_mappi
   
   return result;
 }
+
+/* mapping_keys_array() - Extract all keys from mapping into an array
+ * For use by C code that needs to iterate over mapping keys
+ * Returns a new array with all keys (caller must release with array_release)
+ */
+struct heap_array* mapping_keys_array(struct heap_mapping *map) {
+  struct heap_array *keys_array;
+  struct mapping_entry *entry;
+  unsigned int i, key_count;
+  
+  if (!map)
+    return NULL;
+  
+  /* Allocate array for keys */
+  keys_array = allocate_array(map->size, map->size);
+  if (!keys_array)
+    return NULL;
+  
+  /* Collect all keys from hash table */
+  key_count = 0;
+  for (i = 0; i < map->capacity; i++) {
+    entry = map->buckets[i];
+    while (entry) {
+      if (key_count < map->size) {
+        /* Copy key to array */
+        copy_var(&keys_array->elements[key_count], &entry->key);
+        key_count++;
+      }
+      entry = entry->next;
+    }
+  }
+  
+  return keys_array;
+}
+
+/* mapping_values_array() - Extract all values from mapping into an array
+ * For use by C code that needs to iterate over mapping values
+ * Returns a new array with all values (caller must release with array_release)
+ */
+struct heap_array* mapping_values_array(struct heap_mapping *map) {
+  struct heap_array *values_array;
+  struct mapping_entry *entry;
+  unsigned int i, value_count;
+  
+  if (!map)
+    return NULL;
+  
+  /* Allocate array for values */
+  values_array = allocate_array(map->size, map->size);
+  if (!values_array)
+    return NULL;
+  
+  /* Collect all values from hash table */
+  value_count = 0;
+  for (i = 0; i < map->capacity; i++) {
+    entry = map->buckets[i];
+    while (entry) {
+      if (value_count < map->size) {
+        /* Copy value to array */
+        copy_var(&values_array->elements[value_count], &entry->value);
+        value_count++;
+      }
+      entry = entry->next;
+    }
+  }
+  
+  return values_array;
+}

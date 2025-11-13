@@ -526,20 +526,23 @@ void clear_global_var(struct object *obj, unsigned int ref) {
     load_data(obj->globals[ref].value.objptr);
     obj->globals[ref].value.objptr->obj_state=DIRTY;
     next=obj->globals[ref].value.objptr->refd_by;
-    if (next)
+    if (next) {
       if (next->ref_obj==obj && next->ref_num==ref) {
         obj->globals[ref].value.objptr->refd_by=next->next;
         FREE(next);
-      } else
-        while (next)
+      } else {
+        while (next) {
           if (next->ref_obj==obj && next->ref_num==ref) {
             curr->next=next->next;
             FREE(next);
             next=NULL;
           } else {
             curr=next;
-            next=curr->next;
+            next=next->next;
           }
+        }
+      }
+    }
   }
   obj->globals[ref].type=INTEGER;
   obj->globals[ref].value.integer=0;

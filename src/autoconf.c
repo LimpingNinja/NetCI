@@ -5,10 +5,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-int main();
-int search_for_gcc();
+int main(int argc, char *argv[]);
+int search_for_gcc(void);
 
-int search_for_gcc() {
+int search_for_gcc(void) {
   char buf[1024];
   char *path;
   int position,last_pos,count;
@@ -47,9 +47,7 @@ int search_for_gcc() {
   return 0;
 }
 
-int main(argc, argv)
-  int argc;
-  char *argv[];
+int main(int argc, char *argv[])
 {
   FILE *makefile,*autoconf,*infile;
   char buf[1024];

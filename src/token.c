@@ -81,7 +81,7 @@ void get_exp_token(filptr *file_info, token_t *token)
     ungetch();
     if ((token->type=find_keyword(name_buf)))
       return;
-    if ((tmp=find_define(file_info,name_buf)))
+    if ((tmp=find_define(file_info,name_buf))) {
       if (file_info->depth<(MAX_DEPTH-1)) {
         expand_exp(tmp,file_info);
         (file_info->depth)++;
@@ -92,6 +92,7 @@ void get_exp_token(filptr *file_info, token_t *token)
         token->type=NO_TOK;
         return;
       }
+    }
     token->type=NAME_TOK;
     token->token_data.name=name_buf;
     return;

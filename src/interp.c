@@ -40,7 +40,7 @@ int (*oper_array[NUM_OPERS+NUM_SCALLS])(struct object *caller, struct object
   s_member,s_mapping_literal,s_save_value,s_restore_value,s_replace_string,
   NULL,NULL,s_syswrite,s_compile_string,s_crypt,s_read_file,s_write_file,
   s_remove,s_rename,s_get_dir,s_file_size,s_users,s_objects,s_children,
-  s_all_inventory };
+  s_all_inventory,s_send_prompt,s_query_terminal,s_get_mssp,s_set_mssp };
 
 /* Helper function to compute var_base for a function call.
  * Given an object and a function, determine the variable base offset

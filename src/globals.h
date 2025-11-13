@@ -2,6 +2,15 @@
 
 /* just some variable declarations is all */
 
+/* MSSP variable storage (C-friendly) */
+struct mssp_var {
+    char *name;
+    char *value;
+};
+
+extern struct mssp_var *mssp_vars;  /* Array of MSSP variables */
+extern int mssp_var_count;          /* Number of variables */
+
 extern int doing_ls;
 extern int verbs_changed;
 extern char *window_title;
@@ -28,6 +37,7 @@ extern struct cmdq *cmd_tail;
 extern struct destq *dest_list;
 extern struct alarmq *alarm_list;
 extern long now_time;
+extern long boot_time;
 extern struct obj_blk *obj_list;
 extern char *load_name;
 extern char *save_name;
