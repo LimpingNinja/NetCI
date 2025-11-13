@@ -137,3 +137,5 @@ crashlytics-build.properties
 fabric.properties
 azure-pipelines.yml
 .vscode/c_cpp_properties.json
+std.db
+netci
