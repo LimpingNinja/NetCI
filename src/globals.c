@@ -41,7 +41,17 @@ char *load_name;
 char *save_name;
 char *panic_name;
 char *auto_object_path;
+char *save_path;
+char *save_type;
 struct object *auto_proto;
+
+/* Periodic timing configuration */
+int pulses_per_second;  /* game loop tick rate (Hz) */
+long time_cleanup;      /* seconds between clean_up() calls */
+long time_reset;        /* seconds between reset() calls */
+long time_heartbeat;    /* milliseconds for heartbeat interval */
+long last_reset_time;   /* timestamp of last reset() cycle */
+long last_cleanup_time; /* timestamp of last clean_up() cycle */
 struct object *free_obj_list;
 signed long objects_allocd;
 signed long db_top;

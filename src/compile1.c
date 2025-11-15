@@ -151,7 +151,8 @@ char *scall_array[NUM_SCALLS]={ "add_verb","add_xverb","call_other",
   "save_value","restore_value","replace_string",NULL,NULL,"syswrite",
   "compile_string","crypt","read_file","write_file","remove","rename",
   "get_dir","file_size","users","objects","children","all_inventory",
-  "send_prompt","query_terminal","get_mssp","set_mssp"
+  "send_prompt","query_terminal","get_mssp","set_mssp","save_object",
+  "restore_object","restore_map","query_idle_time","query_config","set_heart_beat"
 };
 
 /* The functions themselves */

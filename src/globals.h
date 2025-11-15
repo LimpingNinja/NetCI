@@ -43,7 +43,17 @@ extern char *load_name;
 extern char *save_name;
 extern char *panic_name;
 extern char *auto_object_path;
+extern char *save_path;
+extern char *save_type;
 extern struct object *auto_proto;
+
+/* Periodic timing configuration */
+extern int pulses_per_second;  /* game loop tick rate (Hz) */
+extern long time_cleanup;      /* seconds between clean_up() calls */
+extern long time_reset;        /* seconds between reset() calls */
+extern long time_heartbeat;    /* milliseconds for heartbeat interval */
+extern long last_reset_time;   /* timestamp of last reset() cycle */
+extern long last_cleanup_time; /* timestamp of last clean_up() cycle */
 extern struct object *free_obj_list;
 extern signed long objects_allocd;
 extern signed long db_top;

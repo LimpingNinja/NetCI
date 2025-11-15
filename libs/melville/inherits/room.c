@@ -42,6 +42,9 @@ static init() {
     /* Initialize exits mapping */
     exits = ([ ]);
     exit_messages = ([]);
+    
+    /* Log room initialization for testing */
+    syslog(sprintf("Room init: %O created at time %d\n", this_object(), time()));
 }
 
 /* ========================================================================
@@ -298,4 +301,41 @@ move(dest) {
 destruct_room() {
     /* Clean up container data */
     destruct_container();
+}
+
+/* ========================================================================
+ * PERIODIC APPLIES (for testing periodic systems)
+ * ======================================================================== */
+
+/* reset() - Called every 800 seconds (13 minutes) by the driver
+ * Use this to respawn items, reset puzzles, restore room state, etc.
+ */
+reset() {
+    int idle;
+    
+    idle = query_idle_time();
+    syslog(sprintf("Room reset: %O called at time %d (idle: %d seconds)\n", 
+                   this_object(), time(), idle));
+}
+
+/* clean_up() - Called every 1200 seconds (20 minutes) on idle rooms
+ * Return 1 to allow destruction, 0 to stay loaded
+ * We opt-in (return 0) to prevent destruction during testing
+ */
+clean_up(refs) {
+    int idle;
+    object *inv;
+    
+    idle = query_idle_time();
+    syslog(sprintf("Room clean_up: %O called at time %d (idle: %d seconds, refs: %d))\n", 
+                   this_object(), time(), idle, refs));   
+    /* Return 0 = opt-in, stay loaded (for testing) */
+    /* Don't clean up rooms with players */
+    inv = query_inventory();
+    if (sizeof(inv) > 0) {
+        syslog("Room clean_up: has inventory, staying loaded");
+        return 0;  /* Keep loaded */
+    }
+    syslog("Room clean_up: We are flagged for cleanup.");
+    return 1;
 }

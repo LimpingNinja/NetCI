@@ -475,12 +475,6 @@ int s_compile_string(struct object *caller, struct object *obj,
     return 0;
   }
   
-  sprintf(logbuf, "compile_string: caller=%s#%ld code_len=%lu",
-          obj->parent ? obj->parent->pathname : "NULL",
-          (long)obj->refno,
-          (unsigned long)code_len);
-  logger(LOG_INFO, logbuf);
-  
   /* Generate temporary pathname and filepath */
   long timestamp = (long)time(NULL);
   int pid = (int)getpid();
@@ -523,9 +517,6 @@ int s_compile_string(struct object *caller, struct object *obj,
   
   /* Check for compilation errors */
   if (line != 0) {
-    sprintf(logbuf, "compile_string: Compilation FAILED at line %u for: %.50s...", 
-            line, code_str);
-    logger(LOG_ERROR, logbuf);
     clear_var(&tmp);
     tmp.type=INTEGER;
     tmp.value.integer=0;
@@ -543,9 +534,6 @@ int s_compile_string(struct object *caller, struct object *obj,
   }
   
   /* Phase 2: Create temporary eval object and install compiled code */
-  sprintf(logbuf, "compile_string: SUCCESS - %d functions compiled, creating eval object",
-          newcode->func_list ? 1 : 0);
-  logger(LOG_INFO, logbuf);
   
   /* Create temporary eval object using same pathway as clone */
   struct object *eval_obj = newobj();
@@ -605,10 +593,6 @@ int s_compile_string(struct object *caller, struct object *obj,
     num_locals = old_num_locals;
     free_stack(&arg_stack);
   }
-  
-  sprintf(logbuf, "compile_string: Created eval object %s#%ld",
-          eval_proto->pathname, (long)eval_obj->refno);
-  logger(LOG_INFO, logbuf);
   
   /* Attach auto object to eval temp object so it has access to sefuns */
   attach_auto_to(eval_obj);

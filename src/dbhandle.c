@@ -7,6 +7,14 @@
 #include "intrface.h"
 #include "dbhandle.h"
 #include "file.h"
+#include "interp.h"
+#include "protos.h"
+
+/* Forward declarations */
+int call_function_on_object(struct object *obj, char *func_name, 
+                            struct var_stack **rts, int num_args);
+int call_function_on_object_with_int(struct object *obj, char *func_name, 
+                                      int arg_value);
 
 void db_queue_for_alarm(struct object *obj, long delay, char *funcname) {
    struct alarmq *new,*curr,*prev;
@@ -81,12 +89,20 @@ void queue_command(struct object *player, char *cmd) {
 
 void queue_for_destruct(struct object *obj) {
   struct destq *new;
+  char logbuf[256];
 
   new=dest_list;
   while (new) {
     if (new->obj==obj) return;
     new=new->next;
   }
+  
+  /* Log lifecycle event */
+  sprintf(logbuf, "lifecycle: Object %s#%ld queued for destruction",
+          obj->parent ? obj->parent->pathname : "NULL",
+          (long)obj->refno);
+  logger(LOG_INFO, logbuf);
+  
   new=MALLOC(sizeof(struct destq));
   new->obj=obj;
   new->next=dest_list;
@@ -211,6 +227,9 @@ struct object *newobj() {
   obj->verb_list=NULL;
   obj->attachees=NULL;
   obj->attacher=NULL;
+  obj->last_access_time=now_time;  /* Initialize to current time */
+  obj->heart_beat_interval=0;      /* Heartbeat disabled by default */
+  obj->last_heart_beat=0;
   return obj;
 }
 
@@ -366,4 +385,285 @@ struct object *ref_to_obj(signed long refno) {
   obj=&(curr->block[index]);
   if (obj->flags & GARBAGE) return NULL;
   return obj;
+}
+
+/* call_reset_on_all() - Call reset() apply on all non-exempt objects
+ *
+ * Iterates through all objects and calls their reset() function if they:
+ * - Are not the boot object (/boot.c)
+ * - Are not the auto object (from config)
+ * - Are not prototypes (only clones get reset)
+ * - Have been idle long enough (configurable)
+ */
+void call_reset_on_all() {
+  struct obj_blk *curr_block;
+  struct object *obj;
+  struct object *boot_obj;
+  signed long i;
+  int count = 0;
+  char logbuf[256];
+  
+  /* Get boot object for exemption check */
+  boot_obj = find_proto("/boot");
+  
+  /* Walk all object blocks */
+  curr_block = obj_list;
+  while (curr_block) {
+    for (i = 0; i < OBJ_ALLOC_BLKSIZ && ((curr_block->block[i].refno) < db_top); i++) {
+      obj = &(curr_block->block[i]);
+      
+      /* Skip if garbage */
+      if (obj->flags & GARBAGE) continue;
+      
+      /* Skip boot object */
+      if (boot_obj && obj == boot_obj) continue;
+      
+      /* Skip auto object */
+      if (auto_proto && obj == auto_proto) continue;
+      
+      /* Skip prototypes - only reset clones */
+      if (obj->parent && obj == obj->parent->proto_obj) continue;
+      
+      /* Skip uninitialized objects (no proto/funcs yet) */
+      if (!obj->parent || !obj->parent->funcs) continue;
+
+      /* Call reset() if it exists */
+      if (find_function("reset", obj, NULL)) {
+        call_function_on_object(obj, "reset", NULL, 0);
+        count++;
+      }
+    }
+    curr_block = curr_block->next;
+  }
+  
+  sprintf(logbuf, " system: reset() called on %d objects", count);
+  logger(LOG_INFO, logbuf);
+}
+
+/* call_cleanup_on_all() - Call clean_up() apply on idle objects
+ *
+ * Iterates through all objects and calls their clean_up(int refs) function if:
+ * - They meet the same exemptions as reset()
+ * - They have been idle (not accessed) for sufficient time
+ * - If clean_up() returns 1, the object is marked for destruction
+ */
+void call_cleanup_on_all() {
+  struct obj_blk *curr_block;
+  struct object *obj;
+  struct object *boot_obj;
+  struct ref_list *refs;
+  signed long i;
+  int count = 0;
+  int destructed = 0;
+  int ref_count;
+  int result;
+  char logbuf[256];
+  long idle_threshold = 600; /* Only cleanup objects idle for 10+ minutes */
+  /* Get boot object for exemption check */
+  boot_obj = find_proto("/boot");
+  
+  /* Walk all object blocks */
+  curr_block = obj_list;
+  while (curr_block) {
+    for (i = 0; i < OBJ_ALLOC_BLKSIZ && ((curr_block->block[i].refno) < db_top); i++) {
+      obj = &(curr_block->block[i]);
+      
+      /* Skip if garbage */
+      if (obj->flags & GARBAGE) continue;
+      
+      /* Skip boot object */
+      if (boot_obj && obj == boot_obj) continue;
+      
+      /* Skip auto object */
+      if (auto_proto && obj == auto_proto) continue;
+      
+      /* Skip prototypes */
+      if (obj->parent && obj == obj->parent->proto_obj) continue;
+      
+      /* Skip uninitialized objects (no proto/funcs yet) */
+      if (!obj->parent || !obj->parent->funcs) continue;
+
+      /* Skip objects in another object's inventory - they inherit parent's lifecycle */
+      if (obj->location) continue;
+      
+      /* Skip objects containing an INTERACTIVE (rooms with players) */
+      struct object *contents = obj->contents;
+      int has_interactive = 0;
+      while (contents) {
+        if (contents->flags & INTERACTIVE) {
+          has_interactive = 1;
+          break;
+        }
+        contents = contents->next_object;
+      }
+      if (has_interactive) continue;
+
+      /* Skip recently accessed objects */
+      long idle_time = now_time - obj->last_access_time;
+      if (idle_time < idle_threshold) continue;
+      
+      /* Log which object passed the threshold */
+      sprintf(logbuf, "  clean_up: obj#%ld passed threshold (idle: %ld sec, threshold: %ld sec, now: %ld, last_access: %ld)",
+              (long)obj->refno, idle_time, idle_threshold, (long)now_time, (long)obj->last_access_time);
+      logger(LOG_INFO, logbuf);
+      
+      /* Count references to this object */
+      ref_count = 0;
+      refs = obj->refd_by;
+      while (refs) {
+        ref_count++;
+        refs = refs->next;
+      }
+      
+      /* Call clean_up(refs) if it exists */
+      if (find_function("clean_up", obj, NULL)) {
+        sprintf(logbuf, "  clean_up: CALLING clean_up() on %s#%ld (now: %ld, last_access: %ld, idle: %ld sec, refs: %d)",
+                obj->parent ? obj->parent->pathname : "NULL",
+                (long)obj->refno,
+                (long)now_time,
+                (long)obj->last_access_time,
+                idle_time,
+                ref_count);
+        logger(LOG_INFO, logbuf);
+        
+        result = call_function_on_object_with_int(obj, "clean_up", ref_count);
+        count++;
+        
+        /* If clean_up returned 1, queue for destruction */
+        if (result == 1) {
+          queue_for_destruct(obj);
+          destructed++;
+        }
+      }
+    }
+    curr_block = curr_block->next;
+  }
+  
+  sprintf(logbuf, " system: clean_up() called on %d objects, %d marked for destruction", 
+          count, destructed);
+  logger(LOG_INFO, logbuf);
+}
+
+/* Call heart_beat() on all objects that have it enabled
+ * This is called every pulse by the game loop
+ */
+void call_heart_beat_on_all() {
+  struct obj_blk *curr_block;
+  struct object *obj;
+  signed long i;
+  int count = 0;
+  
+  /* Walk all object blocks */
+  curr_block = obj_list;
+  while (curr_block) {
+    for (i = 0; i < OBJ_ALLOC_BLKSIZ && ((curr_block->block[i].refno) < db_top); i++) {
+      obj = &(curr_block->block[i]);
+      
+      /* Skip if garbage */
+      if (obj->flags & GARBAGE) continue;
+      
+      /* Skip uninitialized objects (no proto/funcs yet) */
+      if (!obj->parent || !obj->parent->funcs) continue;
+      
+      /* Skip if heart_beat not enabled */
+      if (obj->heart_beat_interval <= 0) continue;
+      
+      /* Check if enough time has passed since last heart_beat */
+      if (now_time - obj->last_heart_beat < obj->heart_beat_interval) continue;
+      
+      /* Update last heartbeat time */
+      obj->last_heart_beat = now_time;
+      
+      /* Call heart_beat() if it exists */
+      if (find_function("heart_beat", obj, NULL)) {
+        call_function_on_object(obj, "heart_beat", NULL, 0);
+        count++;
+      }
+    }
+    curr_block = curr_block->next;
+  }
+}
+
+/* Helper: Call a function with no arguments on an object
+ * Returns 0 on success, 1 on error
+ */
+int call_function_on_object(struct object *obj, char *func_name, 
+                            struct var_stack **rts, int num_args) {
+  struct fns *func;
+  struct object *real_obj;
+  struct var tmp;
+  struct var_stack *local_rts = NULL;
+  struct var *old_locals;
+  unsigned int old_num_locals;
+  int ret;
+  
+  func = find_function(func_name, obj, &real_obj);
+  if (!func || !real_obj) return 1;
+  
+  /* Push NUM_ARGS marker */
+  tmp.type = NUM_ARGS;
+  tmp.value.num = num_args;
+  push(&tmp, &local_rts);
+  
+  /* Call the function */
+  old_locals = locals;
+  old_num_locals = num_locals;
+  ret = interp(obj, real_obj, NULL, &local_rts, func);
+  locals = old_locals;
+  num_locals = old_num_locals;
+  
+  /* Clean up stack */
+  free_stack(&local_rts);
+  
+  return ret;
+}
+
+/* Helper: Call clean_up(int refs) and return its result
+ * Returns the integer result from clean_up(), or 0 if error
+ */
+int call_function_on_object_with_int(struct object *obj, char *func_name, 
+                                      int arg_value) {
+  struct fns *func;
+  struct object *real_obj;
+  struct var tmp, result;
+  struct var_stack *local_rts = NULL;
+  struct var *old_locals;
+  unsigned int old_num_locals;
+  int ret;
+  int return_value = 0;
+  
+  func = find_function(func_name, obj, &real_obj);
+  if (!func || !real_obj) return 0;
+  
+  /* Push the integer argument */
+  tmp.type = INTEGER;
+  tmp.value.integer = arg_value;
+  push(&tmp, &local_rts);
+  
+  /* Push NUM_ARGS marker */
+  tmp.type = NUM_ARGS;
+  tmp.value.num = 1;
+  push(&tmp, &local_rts);
+  
+  /* Call the function */
+  old_locals = locals;
+  old_num_locals = num_locals;
+  ret = interp(obj, real_obj, NULL, &local_rts, func);
+  locals = old_locals;
+  num_locals = old_num_locals;
+  
+  /* Get return value from stack */
+  if (!ret && local_rts) {
+    if (!pop(&result, &local_rts, obj)) {
+      if (result.type == INTEGER) {
+        return_value = result.value.integer;
+      }
+      clear_var(&result);
+    }
+  }
+  
+  /* Clean up stack */
+  free_stack(&local_rts);
+  
+  return return_value;
 }

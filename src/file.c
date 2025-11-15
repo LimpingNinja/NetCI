@@ -1401,8 +1401,11 @@ void logger(int level, char *msg) {
   if (level > log_level)
     return;
 
-  now_time=time(NULL);
-  time_s=localtime(&now_time);
+  /* Use a local wall-clock for log timestamping; do NOT modify global now_time */
+  {
+    time_t wall_time = time(NULL);
+    time_s = localtime(&wall_time);
+  }
   sprintf(timebuf,"%02d-%02d %02d:%02d",(int) (time_s->tm_mon+1),
           (int) time_s->tm_mday,
           (int) time_s->tm_hour,

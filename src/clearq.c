@@ -9,6 +9,8 @@
 #include "globals.h"
 #include "edit.h"
 #include "intrface.h"
+#include "file.h"
+#include "protos.h"
 
 /* functions for clearing the queues */
 
@@ -22,10 +24,17 @@ void handle_destruct() {
   struct verb *next_verb,*curr_verb;
   struct cmdq *curr_cmd,*prev_cmd,*tmp_cmd;
   struct alarmq *curr_alarm,*prev_alarm;
+  char logbuf[256];
 
   while (dest_list) {
     curr_dest=dest_list;
     dest_list=dest_list->next;
+    
+    /* Log lifecycle event before actual destruction */
+    sprintf(logbuf, "lifecycle: Destructing object %s#%ld",
+            curr_dest->obj->parent ? curr_dest->obj->parent->pathname : "NULL",
+            (long)curr_dest->obj->refno);
+    logger(LOG_INFO, logbuf);
     curr_cmd=cmd_head;
     prev_cmd=NULL;
     if (curr_dest->obj->devnum!=(-1))
@@ -238,10 +247,15 @@ void handle_alarm() {
 struct verb *find_vname(struct object *obj, char *vname, int is_second_run) {
   struct verb *curr;
 
-  if (is_second_run)
-    curr=obj->parent->proto_obj->verb_list;
-  else
+  if (is_second_run) {
+    /* Null safety - check parent chain exists */
+    if (obj->parent && obj->parent->proto_obj)
+      curr=obj->parent->proto_obj->verb_list;
+    else
+      curr=NULL;
+  } else {
     curr=obj->verb_list;
+  }
   while (curr) {
     if (!strcmp(curr->verb_name,vname)) return curr;
     curr=curr->next;
@@ -264,9 +278,15 @@ int find_verb(struct object *player, struct object *obj, char *vname, char
   curr_verb=obj->verb_list;
   is_second_run=0;
   if (!curr_verb) {
-    curr_verb=obj->parent->proto_obj->verb_list;
-    is_second_run=1;
+    /* Try prototype's verb list if available */
+    if (obj->parent && obj->parent->proto_obj) {
+      curr_verb=obj->parent->proto_obj->verb_list;
+      is_second_run=1;
+    }
   }
+  /* If still no verbs, return 0 (no match) - don't crash */
+  if (!curr_verb) return 0;
+  
   while (curr_verb) {
     is_match=0;
     cvn=copy_string(curr_verb->verb_name);
@@ -325,6 +345,13 @@ int find_verb(struct object *player, struct object *obj, char *vname, char
     }
     if (is_match) {
       FREE(cvn);
+      /* Update last access time for object with the matched verb
+       * Skip INTERACTIVE (players manage own idle) and PROTOTYPE (templates)
+       * This marks rooms/items as "actively used" by player interaction
+       */
+      if (obj && !(obj->flags & (INTERACTIVE | PROTOTYPE))) {
+        obj->last_access_time = now_time;
+      }
       return 1;
     }
     curr_verb=find_vname(obj,cvn,is_second_run);
@@ -333,7 +360,10 @@ int find_verb(struct object *player, struct object *obj, char *vname, char
     if (!curr_verb)
       if (!(obj->flags & PROTOTYPE) && !is_second_run) {
         is_second_run=1;
-        curr_verb=obj->parent->proto_obj->verb_list;
+        /* Null safety - check parent chain exists */
+        if (obj->parent && obj->parent->proto_obj) {
+          curr_verb=obj->parent->proto_obj->verb_list;
+        }
       }
   }
   return 0;
@@ -436,6 +466,12 @@ void handle_command() {
     if (!done) find_verb(curr->obj,curr->obj,vname,curr->cmd,count);
     FREE(vname);
     FREE(curr->cmd);
+    
+    /* Send automatic prompt if interactive and no input_func override */
+    if ((curr->obj->flags & INTERACTIVE) && !curr->obj->input_func) {
+      send_prompt(curr->obj, "> ");
+    }
+    
     FREE(curr);
     handle_destruct();
   }

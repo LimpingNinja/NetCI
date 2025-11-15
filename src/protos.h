@@ -59,6 +59,7 @@ OPER_PROTO(s_this_object)
 OPER_PROTO(s_this_player)
 OPER_PROTO(s_set_interactive)
 OPER_PROTO(s_interactive)
+OPER_PROTO(s_set_heart_beat)
 OPER_PROTO(s_set_priv)
 OPER_PROTO(s_priv)
 OPER_PROTO(s_in_editor)
@@ -89,6 +90,9 @@ OPER_PROTO(s_all_inventory)
 OPER_PROTO(s_query_terminal)
 OPER_PROTO(s_get_mssp)
 OPER_PROTO(s_set_mssp)
+OPER_PROTO(s_save_object)
+OPER_PROTO(s_restore_object)
+OPER_PROTO(s_restore_map)
 OPER_PROTO(s_edit)
 OPER_PROTO(s_cat)
 OPER_PROTO(s_ls)
@@ -184,6 +188,17 @@ OPER_PROTO(s_member)
 
 /* Mapping literals (Phase 4) */
 OPER_PROTO(s_mapping_literal)
+
+/* Persistence efuns */
+OPER_PROTO(s_save_object)
+OPER_PROTO(s_restore_object)
+OPER_PROTO(s_restore_map)
+
+/* Object idle time tracking */
+OPER_PROTO(s_query_idle_time)
+
+/* Driver configuration query */
+OPER_PROTO(s_query_config)
 
 /* Heap array functions (Phase 2.5) */
 struct heap_array* allocate_array(unsigned int size, unsigned int max_size);

@@ -84,7 +84,12 @@ struct connlist_s {
   unsigned char opt_ttype:1;   /* TTYPE negotiated */
   unsigned short win_width;    /* Window width from NAWS */
   unsigned short win_height;   /* Window height from NAWS */
-  char term_type[64];          /* Terminal type from TTYPE (e.g. "xterm-256color") */
+  
+  /* MTTS (Mud Terminal Type Standard) support */
+  int ttype_cycle;             /* TTYPE request counter (0=not started, 1-3=MTTS rounds) */
+  char term_client[64];        /* Round 1: Client name (e.g. "TinTin++") */
+  char term_type[64];          /* Round 2: Terminal type (normalized: XTERM, ANSI, VT100, DUMB) */
+  int term_support;            /* Round 3: MTTS capability bitmask (or 0 if not MTTS) */
 };
 #endif /* CMPLNG_INTRFCE */
 

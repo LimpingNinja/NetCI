@@ -195,3 +195,43 @@ int s_prototype(struct object *caller, struct object *obj, struct object
   push(&tmp,rts);
   return 0;
 }
+
+/* set_heart_beat(interval)
+ * Enable or disable heartbeat on this_object()
+ * interval: heartbeat interval in seconds (0 = disable, >0 = enable)
+ */
+int s_set_heart_beat(struct object *caller, struct object *obj, struct object
+                     *player, struct var_stack **rts) {
+  struct var tmp;
+  int interval;
+
+  if (pop(&tmp,rts,obj)) return 1;
+  if (tmp.type!=NUM_ARGS) {
+    clear_var(&tmp);
+    return 1;
+  }
+  if (tmp.value.num!=1) return 1;
+  if (pop(&tmp,rts,obj)) return 1;
+  
+  if (tmp.type!=INTEGER) {
+    clear_var(&tmp);
+    return 1;
+  }
+  
+  interval = tmp.value.integer;
+  clear_var(&tmp);
+  
+  /* Set or clear heartbeat interval */
+  if (interval <= 0) {
+    obj->heart_beat_interval = 0;
+    obj->last_heart_beat = 0;
+  } else {
+    obj->heart_beat_interval = interval;
+    obj->last_heart_beat = now_time;  /* Start immediately */
+  }
+  
+  tmp.type=INTEGER;
+  tmp.value.integer=0;
+  push(&tmp,rts);
+  return 0;
+}

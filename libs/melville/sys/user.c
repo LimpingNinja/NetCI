@@ -34,41 +34,12 @@ int login_attempts;
  * This is AFTER reconnect_device() has transferred the connection to us
  */
 connect() {
-    mapping term_info;
-    string term_type;
-    string color_support;
-    
     /* Display welcome message */
     send_device("\n");
     send_device("========================================\n");
     send_device("  Welcome to Melville MUD\n");
     send_device("========================================\n");
     send_device("\n");
-    
-    /* Display terminal detection info */
-    term_info = query_terminal(this_object());
-    if (term_info) {
-        term_type = term_info["term_type"];
-        if (!term_type || term_type == "") {
-            term_type = "unknown";
-        }
-        
-        /* Determine color support from terminal type */
-        if (instr(term_type, 0, "256color") != -1) {
-            color_support = "ANSI 256 colors";
-        } else if (instr(term_type, 0, "color") != -1 || 
-                   instr(term_type, 0, "ansi") != -1 ||
-                   instr(term_type, 0, "xterm") != -1 ||
-                   instr(term_type, 0, "mud") != -1) {
-            color_support = "ANSI 16 colors";
-        } else {
-            color_support = "none detected";
-        }
-        
-        send_device("[ Login ] Terminal type: " + term_type + "\n");
-        send_device("[ Login ] Terminal color support: " + color_support + "\n");
-        send_device("\n");
-    }
     
     /* Start login process */
     send_device("Enter your character name: ");
@@ -126,6 +97,8 @@ get_name(input) {
  * ======================================================================== */
 
 check_password(input) {
+    mapping player_data;
+    string password_hash;
     object player;
     
     if (!input) {
@@ -135,25 +108,35 @@ check_password(input) {
         return;
     }
     
-    /* Load player object */
-    player = load_player(player_name);
-    if (!player) {
+    /* Load just the saved data mapping (lightweight check) */
+    player_data = restore_map("/players/" + player_name);
+    if (!player_data) {
         send_device("Error loading player data.\n");
-        syslog("Failed to load player: " + player_name);
+        syslog("Failed to load player data: " + player_name);
         disconnect_device();
         destruct(this_object());
         return;
     }
     
-    /* Verify password */
-    if (!player.check_password(input)) {
+    /* Get password hash from mapping */
+    if (!member(player_data, "player_password")) {
+        send_device("Error: corrupted player data.\n");
+        syslog("Corrupted player data (no password): " + player_name);
+        disconnect_device();
+        destruct(this_object());
+        return;
+    }
+    
+    password_hash = player_data["player_password"];
+    
+    /* Verify password using bcrypt verification */
+    if (!verify_password(input, password_hash)) {
         login_attempts++;
         
         if (login_attempts >= 3) {
             send_device("Too many failed attempts.\n");
             syslog("Failed login attempts for: " + player_name);
             disconnect_device();
-            destruct(player);
             destruct(this_object());
             return;
         }
@@ -161,6 +144,16 @@ check_password(input) {
         send_device("Incorrect password.\n");
         send_device("Enter your password: ");
         redirect_input("check_password");
+        return;
+    }
+    
+    /* Password correct! Now load full player object */
+    player = load_player(player_name);
+    if (!player) {
+        send_device("Error creating player object.\n");
+        syslog("Failed to create player object: " + player_name);
+        disconnect_device();
+        destruct(this_object());
         return;
     }
     
@@ -194,14 +187,14 @@ confirm_password(input) {
     if (input != temp_password) {
         send_device("Passwords don't match.\n");
         send_device("Choose a password: ");
-        temp_password = NULL;
+        temp_password = 0;
         redirect_input("get_new_password");
         return;
     }
     
     /* Create new player */
     player = create_player(player_name, temp_password);
-    temp_password = NULL;  /* Clear from memory */
+    temp_password = 0;  /* Clear from memory */
     
     if (!player) {
         send_device("Error creating character.\n");
@@ -224,13 +217,26 @@ confirm_password(input) {
 /* Check if player save file exists */
 player_exists(name) {
     string path;
+    mapping config;
+    string save_path;
     int flags;
     
-    path = PLAYER_SAVE_DIR + name + ".o";
+    /* Get driver config to build correct path */
+    config = query_config();
+    if (!config) return 0;
     
-    /* Use fstat to check if file exists (-1 means doesn't exist) */
-    flags = fstat(path);
-    if (flags != -1) {
+    save_path = config["save_path"];
+    if (!save_path) save_path = "data/save/";
+    
+    /* Build path: save_path + players/ + name + .o */
+    /* file_size() uses LPC filesystem: fs_path + this_path */
+    /* save_object() saves to: fs_path + save_path + key */
+    /* So we need: /" + save_path + "players/" + name + ".o" */
+    path = "/" + save_path + "players/" + name + ".o";
+    
+    /* Use file_size to check if file exists (-1 means doesn't exist) */
+    flags = file_size(path);
+    if (flags >= 0) {
         return 1;
     }
     
@@ -247,13 +253,13 @@ load_player(name) {
     /* Clone player object */
     player = new(path);
     if (!player) {
-        return NULL;
+        return 0;
     }
     
     /* Load saved data */
-    if (!player.load_data(name)) {
+    if (!call_other(player, "load_data", name)) {
         destruct(player);
-        return NULL;
+        return 0;
     }
     
     return player;
@@ -269,18 +275,18 @@ create_player(name, password) {
     /* Clone player object */
     player = new(path);
     if (!player) {
-        return NULL;
+        return 0;
     }
     
     /* Initialize new player */
-    player.set_name(name);
-    player.set_password(password);
-    player.set_role(ROLE_PLAYER);
+    call_other(player, "set_name", name);
+    call_other(player, "set_password", password);
+    call_other(player, "set_role", ROLE_PLAYER);
     
     /* Save initial data */
-    if (!player.save_data()) {
+    if (!call_other(player, "save_data")) {
         destruct(player);
-        return NULL;
+        return 0;
     }
     
     return player;
@@ -333,8 +339,8 @@ transfer_to_player(player) {
 /* Called when connection is lost */
 disconnect() {
     /* Clean up */
-    player_name = NULL;
-    temp_password = NULL;
+    player_name = 0;
+    temp_password = 0;
     
     destruct(this_object());
 }

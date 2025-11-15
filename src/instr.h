@@ -3,7 +3,7 @@
 /* contains the definitions for the object-code instructions */
 
 #define NUM_OPERS      38
-#define NUM_SCALLS     132  /* Updated for query_terminal, get_mssp, set_mssp */
+#define NUM_SCALLS     162  /* Updated for set_heart_beat efun */
 
 #define COMMA_OPER     0    /*  ,   */
 #define EQ_OPER        1    /*  =   */
@@ -203,3 +203,14 @@
 
 /* Telnet protocol support */
 #define S_SEND_PROMPT      155 /* send_prompt(string prompt) - send prompt with IAC GA if needed */
+
+/* Persistence efuns */
+#define S_SAVE_OBJECT      156 /* save_object([string path]) - save object globals to file */
+#define S_RESTORE_OBJECT   157 /* restore_object([string path]) - restore object globals from file */
+#define S_RESTORE_MAP      158 /* restore_map(string path) - load saved data as mapping */
+
+/* Object idle time tracking */
+#define S_QUERY_IDLE_TIME  159 /* query_idle_time() - get seconds since last access */
+
+/* Driver configuration query */
+#define S_QUERY_CONFIG     160 /* query_config() - get driver config as mapping */

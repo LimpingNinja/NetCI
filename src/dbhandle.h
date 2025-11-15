@@ -10,3 +10,6 @@ struct object *newobj();
 struct object *find_proto(char *path);
 void compile_error(struct object *player, char *path, unsigned int line);
 struct object *ref_to_obj(signed long refno);
+void call_reset_on_all();
+void call_cleanup_on_all();
+void call_heart_beat_on_all();

@@ -167,8 +167,21 @@ int s_call_other(struct object *caller, struct object *obj, struct object
     free_stack(&arg_stack);
     return 1;
   }
+  
+  /* Check if object is destructed/garbage */
+  if (!tmp1.value.objptr || (tmp1.value.objptr->flags & GARBAGE)) {
+    clear_var(&tmp1);
+    clear_var(&tmp2);
+    free_stack(&arg_stack);
+    tmp1.type=INTEGER;
+    tmp1.value.integer=0;
+    push(&tmp1,rts);
+    return 0;
+  }
+  
   tmp_fns=find_function(tmp2.value.string,tmp1.value.objptr,&tmpobj);
   clear_var(&tmp2);
+  
   if (!tmp_fns) {
     free_stack(&arg_stack);
     tmp1.type=INTEGER;
@@ -176,6 +189,16 @@ int s_call_other(struct object *caller, struct object *obj, struct object
     push(&tmp1,rts);
     return 0;
   }
+  
+  /* Verify tmpobj is valid - find_function might return a function from a GARBAGE object */
+  if (!tmpobj || (tmpobj->flags & GARBAGE) || !tmpobj->parent || !tmpobj->parent->funcs) {
+    free_stack(&arg_stack);
+    tmp1.type=INTEGER;
+    tmp1.value.integer=0;
+    push(&tmp1,rts);
+    return 0;
+  }
+  
   if (tmp_fns->is_static) {
     free_stack(&arg_stack);
     tmp1.type=INTEGER;
@@ -194,6 +217,7 @@ int s_call_other(struct object *caller, struct object *obj, struct object
     push(&tmp1,rts);
     return 0;
   }
+  
   locals=old_locals;
   num_locals=old_num_locals;
   if (pop(&tmp1,&arg_stack,tmpobj)) {
@@ -658,6 +682,17 @@ int s_move_object(struct object *caller, struct object *obj, struct object
     item->next_object=dest->contents;
     dest->contents=item;
   }
+  
+  /* Update access time for moved object and destination
+   * Skip INTERACTIVE (players manage own idle) and PROTOTYPE (templates)
+   */
+  if (!(item->flags & (INTERACTIVE | PROTOTYPE))) {
+    item->last_access_time = now_time;
+  }
+  if (dest && !(dest->flags & (INTERACTIVE | PROTOTYPE))) {
+    dest->last_access_time = now_time;
+  }
+  
   tmp.type=INTEGER;
   tmp.value.integer=0;
   push(&tmp,rts);

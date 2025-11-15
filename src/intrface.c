@@ -552,23 +552,25 @@ static void handle_telnet_negotiation(int conn_num, unsigned char command, unsig
                     logger(LOG_DEBUG, "intrface: NAWS accepted");
                     break;
                 case TELOPT_TTYPE:
-                    /* Accept terminal type and request it */
-                    send_iac(conn_num, TELNET_DO, TELOPT_TTYPE);
-                    connlist[conn_num].opt_ttype = 1;
-                    logger(LOG_DEBUG, "intrface: TTYPE accepted");
-                    
-                    /* Send subnegotiation to request terminal type string */
-                    /* IAC SB TTYPE SEND IAC SE */
-                    {
-                        unsigned char ttype_req[6];
-                        ttype_req[0] = TELNET_IAC;
-                        ttype_req[1] = TELNET_SB;
-                        ttype_req[2] = TELOPT_TTYPE;
-                        ttype_req[3] = 1;  /* SEND command */
-                        ttype_req[4] = TELNET_IAC;
-                        ttype_req[5] = TELNET_SE;
-                        write(connlist[conn_num].fd, ttype_req, 6);
-                        logger(LOG_DEBUG, "intrface: sent TTYPE SEND request");
+                    /* Accept terminal type and start MTTS cycling */
+                    if (!connlist[conn_num].opt_ttype) {
+                        send_iac(conn_num, TELNET_DO, TELOPT_TTYPE);
+                        connlist[conn_num].opt_ttype = 1;
+                        logger(LOG_DEBUG, "intrface: TTYPE accepted");
+                        
+                        /* Send first TTYPE SEND request (cycle 1) */
+                        /* IAC SB TTYPE SEND IAC SE */
+                        {
+                            unsigned char ttype_req[6];
+                            ttype_req[0] = TELNET_IAC;
+                            ttype_req[1] = TELNET_SB;
+                            ttype_req[2] = TELOPT_TTYPE;
+                            ttype_req[3] = 1;  /* SEND command */
+                            ttype_req[4] = TELNET_IAC;
+                            ttype_req[5] = TELNET_SE;
+                            write(connlist[conn_num].fd, ttype_req, 6);
+                            logger(LOG_DEBUG, "intrface: sent TTYPE SEND request (cycle 1)");
+                        }
                     }
                     break;
                 default:
@@ -592,6 +594,35 @@ static void handle_telnet_negotiation(int conn_num, unsigned char command, unsig
  *
  * @param conn_num Connection index
  */
+/* Normalize terminal type to standard categories */
+static void normalize_term_type(char *normalized, const char *raw_type) {
+    char lower[64];
+    char logbuf[128];
+    int i;
+    
+    /* Convert to lowercase for comparison */
+    for (i = 0; raw_type[i] && i < 63; i++) {
+        lower[i] = (raw_type[i] >= 'A' && raw_type[i] <= 'Z') ? 
+                   (raw_type[i] + 32) : raw_type[i];
+    }
+    lower[i] = '\0';
+    
+    sprintf(logbuf, "intrface: normalize_term_type input='%s' lower='%s'", raw_type, lower);
+    logger(LOG_DEBUG, logbuf);
+    
+    /* Apply heuristics */
+    if (strstr(lower, "xterm") != NULL) {
+        strcpy(normalized, "XTERM");
+    } else if (strstr(lower, "ansi") != NULL || 
+               strstr(lower, "mud") != NULL) {
+        strcpy(normalized, "ANSI");
+    } else if (strstr(lower, "vt100") != NULL) {
+        strcpy(normalized, "VT100");
+    } else {
+        strcpy(normalized, "DUMB");
+    }
+}
+
 static void handle_telnet_subnegotiation(int conn_num) {
     unsigned char opt = connlist[conn_num].sb_opt;
     unsigned char *buf = connlist[conn_num].sb_buf;
@@ -612,14 +643,74 @@ static void handle_telnet_subnegotiation(int conn_num) {
             break;
             
         case TELOPT_TTYPE:
-            /* Terminal type response */
+            /* Terminal type response - MTTS support */
             if (len > 1 && buf[0] == 0) {  /* IS command */
+                char response[64];
                 int term_len = len - 1;
                 if (term_len >= 64) term_len = 63;
-                memcpy(connlist[conn_num].term_type, buf + 1, term_len);
-                connlist[conn_num].term_type[term_len] = '\0';
-                sprintf(logbuf, "intrface: TTYPE %s", connlist[conn_num].term_type);
-                logger(LOG_DEBUG, logbuf);
+                memcpy(response, buf + 1, term_len);
+                response[term_len] = '\0';
+                
+                connlist[conn_num].ttype_cycle++;
+                
+                if (connlist[conn_num].ttype_cycle == 1) {
+                    /* Round 1: Store raw client name */
+                    strncpy(connlist[conn_num].term_client, response, 63);
+                    connlist[conn_num].term_client[63] = '\0';
+                    
+                    /* Normalize and store as term_type (fallback if not MTTS) */
+                    normalize_term_type(connlist[conn_num].term_type, response);
+                    
+                    /* Request second cycle for MTTS */
+                    unsigned char ttype_req[6] = {
+                        TELNET_IAC, TELNET_SB, TELOPT_TTYPE, 1, TELNET_IAC, TELNET_SE
+                    };
+                    write(connlist[conn_num].fd, ttype_req, 6);
+                    logger(LOG_DEBUG, "intrface: sent TTYPE SEND request (cycle 2)");
+                    
+                } else if (connlist[conn_num].ttype_cycle == 2) {
+                    /* Round 2: Check if MTTS (different from round 1) or repeat */
+                    if (strcmp(response, connlist[conn_num].term_client) != 0) {
+                        /* Different - this is MTTS, normalize terminal type */
+                        char normalized[64];
+                        normalize_term_type(normalized, response);
+                        
+                        /* Only override if normalized to a valid type (not DUMB fallback) */
+                        if (strcmp(normalized, "DUMB") != 0 || 
+                            strstr(response, "dumb") != NULL || 
+                            strstr(response, "DUMB") != NULL) {
+                            /* Valid type, override */
+                            strcpy(connlist[conn_num].term_type, normalized);
+                        } else {
+                            /* Unknown/invalid type, keep round 1 term_type */
+                            /* Ignoring unknown type, keeping round 1 term_type */
+                        }
+                    } else {
+                        /* Same as round 1 - not MTTS, stop cycling */
+                        logger(LOG_INFO, "intrface: non-MTTS client (repeated same value)");
+                        break;
+                    }
+                    
+                    /* Request third cycle for MTTS capabilities */
+                    unsigned char ttype_req[6] = {
+                        TELNET_IAC, TELNET_SB, TELOPT_TTYPE, 1, TELNET_IAC, TELNET_SE
+                    };
+                    write(connlist[conn_num].fd, ttype_req, 6);
+                    logger(LOG_DEBUG, "intrface: sent TTYPE SEND request (cycle 3)");
+                    
+                } else if (connlist[conn_num].ttype_cycle == 3) {
+                    /* Round 3: MTTS capability bitmask ("MTTS 137") */
+                    if (strncmp(response, "MTTS ", 5) == 0) {
+                        connlist[conn_num].term_support = atoi(response + 5);
+                    } else {
+                        /* Not MTTS-compliant - client sent third different value */
+                        /* Override term_type again with this new value */
+                        normalize_term_type(connlist[conn_num].term_type, response);
+                        sprintf(logbuf, "intrface: non-MTTS, normalized round 3 '%s' to '%s'", 
+                                response, connlist[conn_num].term_type);
+                        logger(LOG_INFO, logbuf);
+                    }
+                }
             }
             break;
             
@@ -721,14 +812,19 @@ static void make_new_conn(int listen_fd) {
     connlist[devnum].opt_ttype = 0;
     connlist[devnum].win_width = 80;
     connlist[devnum].win_height = 24;
-    connlist[devnum].term_type[0] = '\0';  /* No terminal type yet */
+    
+    /* Initialize MTTS fields */
+    connlist[devnum].ttype_cycle = 0;
+    connlist[devnum].term_client[0] = '\0';
+    connlist[devnum].term_type[0] = '\0';
+    connlist[devnum].term_support = 0;
     
     boot_obj->devnum = devnum;
     boot_obj->flags |= CONNECTED;
     
     /* Send initial telnet negotiations */
     logger(LOG_DEBUG, "intrface: sending initial telnet negotiations");
-    send_iac(devnum, TELNET_WILL, TELOPT_ECHO);
+    send_iac(devnum, TELNET_WILL, TELOPT_ECHO);  /* Server echo for raw telnet compatibility */
     send_iac(devnum, TELNET_WILL, TELOPT_SGA);
     send_iac(devnum, TELNET_DO, TELOPT_TTYPE);  /* Request terminal type */
     send_iac(devnum, TELNET_DO, TELOPT_NAWS);   /* Request window size */
@@ -824,17 +920,34 @@ static void buffer_input(int conn_num) {
                 /* Normal data processing */
                 if (ch == TELNET_IAC) {
                     connlist[conn_num].telnet_state = TELNET_STATE_IAC;
-                } else if (ch == '\n') {
-                    connlist[conn_num].inbuf[connlist[conn_num].inbuf_count] = '\0';
-                    if (connlist[conn_num].obj->flags & IN_EDITOR)
-                        do_edit_command(connlist[conn_num].obj, connlist[conn_num].inbuf);
-                    else
-                        queue_command(connlist[conn_num].obj, connlist[conn_num].inbuf);
-                    connlist[conn_num].inbuf_count = 0;
-                } else if (ch != '\r' && (isgraph(ch) || ch == ' ')) {
+                } else if (ch == '\r' || ch == '\n') {
+                    /* Handle line termination - accept both \r and \n */
+                    /* Submit command unless buffer is empty */
+                    if (connlist[conn_num].inbuf_count > 0 || ch == '\n') {
+                        /* Echo newline if server is handling echo */
+                        if (connlist[conn_num].opt_echo && ch == '\r') {
+                            unsigned char crlf[2] = {'\r', '\n'};
+                            write(connlist[conn_num].fd, crlf, 2);
+                        }
+                        
+                        connlist[conn_num].inbuf[connlist[conn_num].inbuf_count] = '\0';
+                        if (connlist[conn_num].obj->flags & IN_EDITOR)
+                            do_edit_command(connlist[conn_num].obj, connlist[conn_num].inbuf);
+                        else
+                            queue_command(connlist[conn_num].obj, connlist[conn_num].inbuf);
+                        connlist[conn_num].inbuf_count = 0;
+                    }
+                    /* Note: \n following \r will trigger again but with empty buffer */
+                } else if (isprint(ch) || ch == '\t' || ch == '\b') {
+                    /* Accept printable characters, tab, and backspace */
                     if (connlist[conn_num].inbuf_count < MAX_STR_LEN - 2) {
                         connlist[conn_num].inbuf[connlist[conn_num].inbuf_count] = ch;
                         connlist[conn_num].inbuf_count++;
+                        
+                        /* Echo character if server is handling echo */
+                        if (connlist[conn_num].opt_echo) {
+                            write(connlist[conn_num].fd, &ch, 1);
+                        }
                     }
                 }
                 break;
@@ -948,15 +1061,29 @@ void handle_input() {
     struct fns *func;
     struct object *obj, *tmpobj;
     
+    /* Pulse system variables */
+    long pulse_interval_ms;       /* milliseconds per pulse */
+    long next_pulse_time;         /* timestamp of next pulse in ms */
+    long current_time_ms;         /* current time in ms */
+    unsigned long pulse_count = 0; /* total pulses since startup */
+    unsigned long reset_pulses;    /* pulses between reset() calls */
+    unsigned long cleanup_pulses;  /* pulses between clean_up() calls */
+    
     set_now_time();
+    
+    /* Calculate pulse interval and periodic apply intervals */
+    pulse_interval_ms = 1000 / pulses_per_second;  /* e.g., 5 Hz = 200ms */
+    reset_pulses = (time_reset * pulses_per_second);     /* e.g., 800s * 5Hz = 4000 pulses */
+    cleanup_pulses = (time_cleanup * pulses_per_second); /* e.g., 1200s * 5Hz = 6000 pulses */
+    
+    /* Initialize next pulse time */
+    current_time_ms = now_time * 1000;
+    next_pulse_time = current_time_ms + pulse_interval_ms;
     
     /* Allocate poll array */
     fds = MALLOC(sizeof(struct pollfd) * (num_conns + 1));
     
     while (1) {
-        /* Auto-save removed - database no longer exists */
-        /* Use save_object() in mudlib for selective persistence */
-        
         /* Build poll array */
         nfds = 0;
         
@@ -978,24 +1105,55 @@ void handle_input() {
             }
         }
         
-        /* Calculate timeout */
+        /* Calculate timeout - wake at next pulse or alarm, whichever is sooner */
+        current_time_ms = now_time * 1000;
+        long time_to_pulse = next_pulse_time - current_time_ms;
+        
+        if (time_to_pulse < 0) time_to_pulse = 0;  /* Pulse overdue */
+        
         if (alarm_list) {
-            if (alarm_list->delay >= now_time)
-                timeout = (alarm_list->delay - now_time) * 1000;
-            else
-                timeout = 0;
+            long alarm_timeout = (alarm_list->delay >= now_time) 
+                ? (alarm_list->delay - now_time) * 1000 
+                : 0;
+            timeout = (time_to_pulse < alarm_timeout) ? time_to_pulse : alarm_timeout;
         } else {
-            timeout = -1;  /* Infinite */
+            timeout = time_to_pulse;
         }
         
-        /* Poll */
+        /* Poll for I/O events */
         int ret = poll(fds, nfds, timeout);
         set_now_time();
+        current_time_ms = now_time * 1000;
         
         if (ret < 0) {
             if (errno == EINTR) continue;
             logger(LOG_ERROR, "intrface: poll() error");
             continue;
+        }
+        
+        /* Process game pulse if it's time */
+        if (current_time_ms >= next_pulse_time) {
+            pulse_count++;
+            next_pulse_time += pulse_interval_ms;
+            
+            /* Process alarms on every pulse */
+            handle_alarm();
+            handle_destruct();
+            
+            /* Call heart_beat() on all registered objects */
+            call_heart_beat_on_all();
+            
+            /* Periodic reset() - call every reset_pulses (skip first pulse) */
+            if (time_reset > 0 && reset_pulses > 0 && pulse_count > 0 && (pulse_count % reset_pulses) == 0) {
+                call_reset_on_all();
+                last_reset_time = now_time;
+            }
+            
+            /* Periodic clean_up() - call every cleanup_pulses (skip first pulse) */
+            if (time_cleanup > 0 && cleanup_pulses > 0 && pulse_count > 0 && (pulse_count % cleanup_pulses) == 0) {
+                call_cleanup_on_all();
+                last_cleanup_time = now_time;
+            }
         }
         
         /* Check listening socket */
@@ -1237,40 +1395,72 @@ char *get_devconn(struct object *obj) {
  * @param msg Message string to send (null-terminated)
  */
 void send_device(struct object *obj, char *msg) {
-    int len;
-    char *tmp;
+    int len, newlen, i, j;
+    char *tmp, *converted;
+    int lf_count;
     
     if (!obj || obj->devnum == -1 || !msg) return;
     
     len = strlen(msg);
     if (len == 0) return;
     
+    /* Count LF characters that need to be expanded to CRLF */
+    lf_count = 0;
+    for (i = 0; i < len; i++) {
+        if (msg[i] == '\n' && (i == 0 || msg[i-1] != '\r')) {
+            lf_count++;
+        }
+    }
+    
+    /* Allocate buffer for conversion (may be larger if we add CRs) */
+    newlen = len + lf_count;
+    converted = MALLOC(newlen + 1);
+    
+    /* Convert LF to CRLF */
+    j = 0;
+    for (i = 0; i < len && j < newlen; i++) {
+        if (msg[i] == '\n' && (i == 0 || msg[i-1] != '\r')) {
+            converted[j++] = '\r';  /* Add CR before LF */
+            converted[j++] = '\n';
+        } else {
+            converted[j++] = msg[i];
+        }
+    }
+    converted[j] = '\0';
+    newlen = j;  /* Actual length written */
+    
     /* Check buffer size */
-    if (connlist[obj->devnum].outbuf_count + len > MAX_OUTBUF_LEN) {
+    if (connlist[obj->devnum].outbuf_count + newlen > MAX_OUTBUF_LEN) {
         flush_device(obj);
     }
     
-    if (connlist[obj->devnum].outbuf_count > MAX_OUTBUF_LEN) return;
+    if (connlist[obj->devnum].outbuf_count > MAX_OUTBUF_LEN) {
+        FREE(converted);
+        return;
+    }
     
-    if (connlist[obj->devnum].outbuf_count + len > MAX_OUTBUF_LEN)
-        len = MAX_OUTBUF_LEN - connlist[obj->devnum].outbuf_count;
+    if (connlist[obj->devnum].outbuf_count + newlen > MAX_OUTBUF_LEN) {
+        newlen = MAX_OUTBUF_LEN - connlist[obj->devnum].outbuf_count;
+    }
     
     /* Append to buffer */
     if (connlist[obj->devnum].outbuf) {
-        tmp = MALLOC(connlist[obj->devnum].outbuf_count + len + 1);
+        tmp = MALLOC(connlist[obj->devnum].outbuf_count + newlen + 1);
         memcpy(tmp, connlist[obj->devnum].outbuf, connlist[obj->devnum].outbuf_count);
-        memcpy(tmp + connlist[obj->devnum].outbuf_count, msg, len);
-        tmp[connlist[obj->devnum].outbuf_count + len] = '\0';
+        memcpy(tmp + connlist[obj->devnum].outbuf_count, converted, newlen);
+        tmp[connlist[obj->devnum].outbuf_count + newlen] = '\0';
         FREE(connlist[obj->devnum].outbuf);
         connlist[obj->devnum].outbuf = tmp;
-        connlist[obj->devnum].outbuf_count += len;
+        connlist[obj->devnum].outbuf_count += newlen;
     } else {
-        tmp = MALLOC(len + 1);
-        memcpy(tmp, msg, len);
-        tmp[len] = '\0';
+        tmp = MALLOC(newlen + 1);
+        memcpy(tmp, converted, newlen);
+        tmp[newlen] = '\0';
         connlist[obj->devnum].outbuf = tmp;
-        connlist[obj->devnum].outbuf_count = len;
+        connlist[obj->devnum].outbuf_count = newlen;
     }
+    
+    FREE(converted);
 }
 
 /**

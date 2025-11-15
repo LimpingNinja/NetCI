@@ -76,13 +76,6 @@ process_command(player, input) {
         input = aliases[input];
     }
     
-    syslog("DEBUG: cmd_d.process_command called - player: " + otoa(player) + ", input: '" + input + "'");
-    
-    if (!player || !input) {
-        syslog("DEBUG: cmd_d - player or input is null, returning");
-        return;
-    }
-    
     /* Parse verb and arguments using sscanf */
     if (sscanf(input, "%s %s", verb, args) == 2) {
         /* Got both verb and args */
@@ -100,7 +93,6 @@ process_command(player, input) {
     
     /* Find command in search path */
     cmd_path = find_command(verb, search_path);
-    syslog("DEBUG: cmd_d - find_command returned: " + (cmd_path ? cmd_path : "NULL"));
     
     if (!cmd_path) {
         /* Command not found */

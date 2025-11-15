@@ -139,6 +139,8 @@ void init_globals(char *loadpath, char *savepath, char *panicpath) {
   alarm_list=NULL;
   now_time=time2int(time(NULL));
   boot_time=now_time;  /* Track server start time for uptime */
+  last_reset_time=now_time;  /* Initialize periodic timers */
+  last_cleanup_time=now_time;
   obj_list=NULL;
   if (loadpath)
     load_name=copy_string(loadpath);
@@ -486,28 +488,11 @@ void unload_data() {
       hash_list[curr_link->obj->refno%CACHE_HASH]=curr_link->next_link;
     if (curr_link->next_link)
       curr_link->next_link->prev_link=curr_link->prev_link;
+    /* Skip old-style serialization - objects now use save_object() for persistence */
     if (curr_link->obj->flags & GARBAGE) {
       curr_link->obj->obj_state=DIRTY;
-    } else
-      if (curr_link->obj->obj_state==DIRTY) {
-        outfile=fopen(transact_log_name,FAPPEND_MODE);
-        if (!outfile) {
-          logger(LOG_ERROR, "  cache: unload_data() unable to write to cache");
-          FATAL_ERROR();
-          return;
-	}
-        place=ftell(outfile);
-        writedata(outfile,curr_link->obj);
-        cache_top=ftell(outfile);
-        fclose(outfile);
-        curr_link->obj->obj_state=IN_CACHE;
-        curr_link->obj->file_offset=place;
-      } else
-        if (curr_link->obj->obj_state==FROM_DB)
-          curr_link->obj->obj_state=IN_DB;
-        else
-          if (curr_link->obj->obj_state==FROM_CACHE)
-            curr_link->obj->obj_state=IN_CACHE;
+    }
+    /* Note: Old cache serialization disabled - use save_object() instead */
     freedata(curr_link->obj);
     FREE(curr_link);
     loaded_obj_count--;

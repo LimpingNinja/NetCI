@@ -144,13 +144,25 @@ static finish_init() {
     }
     
     /* Create initial wizard if needed */
-    if (file_size("/sys/data/players/wizard.o") < 0) {
+    mapping config;
+    string save_path, wizard_path;
+    
+    config = query_config();
+    if (config) {
+        save_path = config["save_path"];
+        if (!save_path) save_path = "data/save/";
+        wizard_path = "/" + save_path + "players/wizard.o";
+    } else {
+        wizard_path = "/data/save/players/wizard.o";
+    }
+    
+    if (file_size(wizard_path) < 0) {
         wizobj = new(PLAYER_PATH);
         if (wizobj) {
-            wizobj.set_name("wizard");
-            wizobj.set_password("potrzebie");
-            wizobj.set_role(ROLE_ADMIN);
-            wizobj.save_data();
+            call_other(wizobj, "set_name", "wizard");
+            call_other(wizobj, "set_password", "potrzebie");
+            call_other(wizobj, "set_role", ROLE_ADMIN);
+            call_other(wizobj, "save_data");
             syslog("Created initial wizard character (wizard/potrzebie)");
         } else {
             syslog("ERROR: Failed to create wizard character");

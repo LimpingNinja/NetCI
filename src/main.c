@@ -13,6 +13,7 @@
 #include "globals.h"
 #include "dbhandle.h"
 #include "file.h"
+#include "save_adapter.h"
 #ifdef USE_WINDOWS
 #include "winmain.h"
 #endif /* USE_WINDOWS */
@@ -75,6 +76,8 @@ int read_ini(char *filename,
   static char ini_tmpdb[1024];
   static char ini_title[1024];
   static char ini_auto[1024];
+  static char ini_save_path[1024];
+  static char ini_save_type[1024];
 
   if (!(infile=fopen(filename,"r"))) return -1;
   last_had_nl=1;
@@ -123,6 +126,20 @@ int read_ini(char *filename,
           } else if (!strcmp(key,"auto_object")) {
             strcpy(ini_auto,val);
             auto_object_path=ini_auto;
+          } else if (!strcmp(key,"save_path")) {
+            strcpy(ini_save_path,val);
+            save_path=ini_save_path;
+          } else if (!strcmp(key,"save_type")) {
+            strcpy(ini_save_type,val);
+            save_type=ini_save_type;
+          } else if (!strcmp(key,"pulses_per_second")) {
+            pulses_per_second=atoi(val);
+          } else if (!strcmp(key,"time_cleanup")) {
+            time_cleanup=atol(val);
+          } else if (!strcmp(key,"time_reset")) {
+            time_reset=atol(val);
+          } else if (!strcmp(key,"time_heartbeat")) {
+            time_heartbeat=atol(val);
           } else if (!strcmp(key,"protocol")) {
             if (!strcmp(val,"tcp")) port->protocol=CI_PROTOCOL_TCP;
             else if (!strcmp(val,"ipx")) port->protocol=CI_PROTOCOL_IPX;
@@ -218,6 +235,12 @@ int main(int argc, char *argv[]) {
   transact_log_name=NULL;
   tmpdb_name=NULL;
   transact_log_size=0;
+  pulses_per_second=0;
+  time_cleanup=0;
+  time_reset=0;
+  time_heartbeat=0;
+  last_reset_time=0;
+  last_cleanup_time=0;
   detach=0;
   port.protocol=DEFAULT_PROTOCOL;
   port.tcp_port=TCP_PORT;
@@ -404,6 +427,13 @@ int main(int argc, char *argv[]) {
     exit(0);
   }
   if (transact_log_size==0) transact_log_size=TRANSACT_LOG_SIZE;
+  
+  /* Set defaults for timing options */
+  if (pulses_per_second==0) pulses_per_second=5;  /* 5 Hz (200ms per pulse) default */
+  if (time_cleanup==0) time_cleanup=1200;       /* 20 minutes default */
+  if (time_reset==0) time_reset=800;            /* 13.3 minutes default */
+  if (time_heartbeat==0) time_heartbeat=2000;   /* 2 seconds default */
+  
   if (do_create) detach=0;
   logger(LOG_INFO, " system: starting up");
 #ifndef USE_WINDOWS
@@ -419,6 +449,7 @@ int main(int argc, char *argv[]) {
   }
 #endif /* !USE_WINDOWS */
   init_globals(loadpath,savepath,panicpath);
+  init_save_adapter();  /* Initialize persistence adapter system */
   /* Skip network initialization if we're just creating a database */
   if (!do_create) {
     if ((retval=init_interface(&port,do_single))) {

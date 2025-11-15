@@ -192,6 +192,9 @@ int resolve_var(struct var *data, struct object *obj) {
   char logbuf[256];
   extern struct call_frame *call_stack;  /* For definer context */
   
+  /* Safety checks - object may be destructing during disconnect */
+  if (!obj || !data) return 1;
+  
   sprintf(logbuf, "resolve_var: type=%d", data->type);
   logger(LOG_DEBUG, logbuf);
   
@@ -200,10 +203,20 @@ int resolve_var(struct var *data, struct object *obj) {
             data->value.l_value.ref, data->value.l_value.size);
     logger(LOG_DEBUG, logbuf);
     
+    /* Additional safety - check parent chain is valid */
+    if (!obj->parent || !obj->parent->funcs || !obj->globals) {
+      logger(LOG_DEBUG, "resolve_var: object parent or globals invalid");
+      return 1;
+    }
+    
     /* Check if this is a heap array element (pointer) or regular global */
     if (data->value.l_value.ref>=obj->parent->funcs->num_globals) {
       /* This is a pointer to a heap array element */
       element_ptr = (struct var *)data->value.l_value.ref;
+      if (!element_ptr) {
+        logger(LOG_DEBUG, "resolve_var: null element_ptr");
+        return 1;
+      }
       data->type = element_ptr->type;
       switch (data->type) {
         case INTEGER:
@@ -266,6 +279,10 @@ int resolve_var(struct var *data, struct object *obj) {
       if (data->value.l_value.ref>=num_locals) {
         /* This is a pointer to a heap array element */
         element_ptr = (struct var *)data->value.l_value.ref;
+        if (!element_ptr) {
+          logger(LOG_DEBUG, "resolve_var: null element_ptr (LOCAL)");
+          return 1;
+        }
         data->type = element_ptr->type;
         switch (data->type) {
           case INTEGER:

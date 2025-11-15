@@ -405,32 +405,3 @@ write(arg1) {
     }
 }
 
-/* Set heart beat interval
- * Uses alarm() to schedule periodic do_heart_beat() calls
- */
-set_heart_beat(interval) {
-    if (!interval || interval <= 0) {
-        /* Cancel heart beat by not scheduling alarm */
-        return;
-    }
-    
-    /* Schedule first heart beat */
-    alarm(interval, "do_heart_beat");
-}
-
-/* Heart beat callback
- * Called periodically by alarm() if set_heart_beat() was used
- * Calls heart_beat() on this_object() if it exists
- */
-do_heart_beat() {
-    object obj;
-    
-    obj = this_object();
-    if (!obj) return;
-    
-    /* Call heart_beat() if the object has one */
-    obj.heart_beat();
-    
-    /* Reschedule for next beat - would need to track interval */
-    /* For now, objects should call set_heart_beat() again in their heart_beat() */
-}

@@ -223,6 +223,9 @@ struct object
   signed long file_offset;
   char *input_func;
   struct object *input_func_obj;  /* target object for input_to() */
+  long last_access_time;          /* timestamp of last access (for idle tracking) */
+  int heart_beat_interval;        /* heartbeat interval in seconds (0 = disabled) */
+  long last_heart_beat;           /* timestamp of last heartbeat */
 };
 
 /* legal object states */

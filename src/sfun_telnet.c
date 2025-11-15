@@ -77,8 +77,8 @@ int s_query_terminal(struct object *caller, struct object *obj,
     
     devnum = target->devnum;
     
-    /* Create result mapping */
-    result = allocate_mapping(7);
+    /* Create result mapping (10 fields now with MTTS support) */
+    result = allocate_mapping(10);
     if (!result) {
         clear_var(&tmp);
         tmp.type = INTEGER;
@@ -87,8 +87,19 @@ int s_query_terminal(struct object *caller, struct object *obj,
         return 0;
     }
     
-    /* Add term_type */
+    /* Add term_client (MTTS round 1) */
     key.type = STRING;
+    key.value.string = "term_client";
+    if (connlist[devnum].term_client[0] != '\0') {
+        val.type = STRING;
+        val.value.string = connlist[devnum].term_client;
+    } else {
+        val.type = STRING;
+        val.value.string = "";
+    }
+    mapping_set(result, &key, &val);
+    
+    /* Add term_type (normalized: XTERM, ANSI, VT100, DUMB) */
     key.value.string = "term_type";
     if (connlist[devnum].term_type[0] != '\0') {
         val.type = STRING;
@@ -97,6 +108,12 @@ int s_query_terminal(struct object *caller, struct object *obj,
         val.type = STRING;
         val.value.string = "";
     }
+    mapping_set(result, &key, &val);
+    
+    /* Add term_support (MTTS capability bitmask) */
+    key.value.string = "term_support";
+    val.type = INTEGER;
+    val.value.integer = connlist[devnum].term_support;
     mapping_set(result, &key, &val);
     
     /* Add width */
